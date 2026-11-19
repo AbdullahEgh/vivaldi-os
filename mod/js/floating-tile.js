@@ -2557,32 +2557,81 @@
     } catch (e) { res(null); }
   });
   const favicon = url => `chrome://favicon2/?size=32&scaleFactor=2x&pageUrl=${encodeURIComponent(url)}&allowGoogleServerFallback=0`;
+  const wsErr = (what, e) => { LOG("workspaces: " + what + " failed", e); vstore.set("vosWsErr", JSON.stringify({ what, e: String(e).slice(0, 200), t: Date.now() })); };
   function editableName(nm, sp) {
     nm.title = "Click to rename";
     const start = () => {
-      if (nm.isContentEditable) return;
-      nm.contentEditable = "true"; nm.spellcheck = false; nm.focus();
-      getSelection().selectAllChildren(nm);
+      if (nm.parentElement?.querySelector(".vos-ws-input")) return;
+      const inp = document.createElement("input");
+      inp.className = "vos-ws-input"; inp.type = "text"; inp.value = sp.name; inp.spellcheck = false;
+      inp.style.width = Math.max(60, nm.offsetWidth + 24) + "px";
+      nm.replaceWith(inp); inp.focus(); inp.select();
+      let over = false;
+      const done = save => {
+        if (over) return; over = true;
+        const v = inp.value.trim();
+        if (save && v && v !== sp.name) {
+          const api = vivWs();
+          try { api?.setName(sp.id, v); if (api) sp.name = v; } catch (e) { wsErr("rename", e); }
+        }
+        nm.textContent = sp.name;
+        inp.replaceWith(nm);
+      };
+      inp.addEventListener("keydown", ev => {
+        ev.stopPropagation();
+        if (ev.key === "Enter") { ev.preventDefault(); done(true); }
+        else if (ev.key === "Escape") { ev.preventDefault(); done(false); }
+      });
+      for (const t of ["pointerdown", "click", "dblclick"]) inp.addEventListener(t, ev => ev.stopPropagation());
+      inp.addEventListener("blur", () => done(true));
     };
     nm.addEventListener("click", ev => { ev.stopPropagation(); ev.preventDefault(); start(); });
     nm.addEventListener("pointerdown", ev => ev.stopPropagation());
-    const done = save => {
-      if (!nm.isContentEditable) return;
-      nm.contentEditable = "false";
-      const v = nm.textContent.trim();
-      if (save && v && v !== sp.name) {
-        const api = vivWs();
-        try { api?.setName(sp.id, v); sp.name = v; } catch (e) { LOG("workspaces: rename failed", e); nm.textContent = sp.name; }
-        if (!api) nm.textContent = sp.name;
-      } else nm.textContent = sp.name;
-    };
-    nm.addEventListener("keydown", ev => {
-      if (ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); done(true); nm.blur(); }
-      else if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); done(false); nm.blur(); }
-      else ev.stopPropagation();
-    });
-    nm.addEventListener("blur", () => done(true));
     return start;
+  }
+  /* drag a mini window onto another desktop: its tab goes there (Vivaldi's own move) */
+  function wsWindowDrag(row, list) {
+    row.addEventListener("pointerdown", ev => {
+      const win = ev.target.closest(".vos-ws-win[data-tab]");
+      if (!win || ev.button !== 0) return;
+      ev.stopPropagation();                                          // not a reorder of the desktop
+      const from = win.closest(".vos-ws-card"), pid = ev.pointerId, sx = ev.clientX, sy = ev.clientY;
+      let ghost = null, over = null;
+      const move = e => {
+        if (e.pointerId !== pid) return;
+        if (!ghost && Math.hypot(e.clientX - sx, e.clientY - sy) < 5) return;
+        if (!ghost) {
+          const r = win.getBoundingClientRect();
+          ghost = win.cloneNode(true); ghost.classList.add("vos-ws-winghost");
+          Object.assign(ghost.style, { position: "fixed", left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px", margin: 0 });
+          ghost.__ox = sx - r.left; ghost.__oy = sy - r.top;
+          (browserEl() || document.body).appendChild(ghost);
+          win.style.opacity = "0.3";
+        }
+        ghost.style.left = (e.clientX - ghost.__ox) + "px"; ghost.style.top = (e.clientY - ghost.__oy) + "px";
+        const card = document.elementsFromPoint(e.clientX, e.clientY).find(n => n.classList?.contains("vos-ws-card") && !n.classList.contains("vos-ws-more"));
+        const target = card && card !== from ? card : null;
+        if (target !== over) { over?.removeAttribute("data-drop"); over = target; over?.setAttribute("data-drop", ""); }
+      };
+      const up = e => {
+        if (e.pointerId !== pid) return;
+        removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+        if (!ghost) return;                                          // a click on the mini window: the desktop's own click
+        from.__dragged = true;
+        ghost.remove(); win.style.opacity = "";
+        over?.removeAttribute("data-drop");
+        if (!over || e.type !== "pointerup") return;
+        const ws = over.dataset.ws ? (list.find(w => String(w.id) === over.dataset.ws)?.id ?? null) : null;   // Default: the window's own
+        over.querySelector(".vos-ws-mini")?.appendChild(win);          // show it there right away
+        try {
+          const r = vivaldi.tabsPrivate.move({ tabIds: [Number(win.dataset.tab)], target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
+            () => void chrome.runtime.lastError);
+          if (r?.catch) r.catch(err => wsErr("move window", err));
+          wsOfTab.set(win.dataset.tab, ws);
+        } catch (err) { wsErr("move window", err); }
+      };
+      addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+    });
   }
   /* right-click a desktop: Rename, Delete (Vivaldi's own; it closes that desktop's tabs, so
      the first click asks, the second deletes) */
@@ -2626,7 +2675,7 @@
   function wsReorder(row, list) {
     row.addEventListener("pointerdown", ev => {
       const card = ev.target.closest(".vos-ws-card[data-ws]");
-      if (!card || ev.button !== 0 || ev.target.closest(".vos-ws-name")) return;
+      if (!card || ev.button !== 0 || ev.target.closest(".vos-ws-name, .vos-ws-input, .vos-ws-win")) return;
       const cards = [...row.querySelectorAll(".vos-ws-card[data-ws]")];
       if (cards.length < 2) return;
       const rects = cards.map(c => c.getBoundingClientRect()), from = cards.indexOf(card);
@@ -2708,6 +2757,8 @@
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
     const spaces = [{ id: null, name: "Default", icon: null }, ...list.map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
     const cardW = Math.round(Math.min(220, 128 * (ss.width / Math.max(1, ss.height))));   // at most 128px high
+    // Vivaldi's default workspace icon (the stacked layers), as the Workspaces button shows it
+    const wsIcon = document.querySelector(WS_BTN)?.querySelector("svg")?.outerHTML || "";
 
     const strip = document.createElement("div");
     strip.className = "vos-ws-strip";                               // a clip starting at the tab bar's lower edge
@@ -2718,15 +2769,15 @@
     row.className = "vos-ws-row";
     panel.appendChild(row);
     for (const sp of spaces) {
-      const card = document.createElement("button");
-      card.type = "button";
-      card.className = "vos-ws-card";
+      const card = document.createElement("div");
+      card.className = "vos-ws-card"; card.tabIndex = 0; card.setAttribute("role", "button");
       const same = (a, b) => (a == null && b == null) || a === b || String(a) === String(b);
       if (same(sp.id, cur)) card.setAttribute("data-current", "");
       const mini = document.createElement("div");
       mini.className = "vos-ws-mini";
       mini.style.aspectRatio = `${Math.max(1, ss.width)} / ${Math.max(1, ss.height)}`;
       card.style.setProperty("flex-basis", cardW + "px", "important");
+      card.style.setProperty("width", cardW + "px", "important");
       if (wall && wall !== "none") mini.style.backgroundImage = wall;
       // its windows, where they are (the front ones on top)
       const wins = [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
@@ -2734,7 +2785,7 @@
         const r = same(sp.id, cur) ? pxRect(id, ss) : (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })();
         if (!r) continue;
         const w = document.createElement("div");
-        w.className = "vos-ws-win";
+        w.className = "vos-ws-win"; w.dataset.tab = String(id);
         Object.assign(w.style, { left: (r.x / ss.width * 100) + "%", top: (r.y / ss.height * 100) + "%", width: (r.w / ss.width * 100) + "%", height: (r.h / ss.height * 100) + "%" });
         const t = info.get(String(id));
         if (t?.url) { const im = document.createElement("img"); im.src = favicon(t.url); im.alt = ""; w.appendChild(im); }
@@ -2745,6 +2796,7 @@
       card.appendChild(mini);
       const label = document.createElement("div");
       label.className = "vos-ws-label";
+      if (wsIcon) { const ic = document.createElement("span"); ic.className = "vos-ws-icon"; ic.innerHTML = wsIcon; label.appendChild(ic); }
       const nm = document.createElement("span"); nm.className = "vos-ws-name"; nm.textContent = sp.name; label.appendChild(nm);
       if (sp.id != null) nm.__edit = editableName(nm, sp);          // click the name to rename it (Default is Vivaldi's own)
       card.appendChild(label);
@@ -2754,25 +2806,30 @@
       }
       card.addEventListener("click", ev => {
         if (card.__dragged) { card.__dragged = false; ev.stopPropagation(); return; }   // it was a drag, not a click
-        if (ev.target.closest(".vos-ws-name[contenteditable=true]")) return;   // editing the name
+        if (ev.target.closest(".vos-ws-input, .vos-ws-name")) return;   // the name: renaming, not switching
         ev.stopPropagation(); closeWsStrip(); if (!same(sp.id, cur)) switchWs(sp, list);
       });
       row.appendChild(card);
     }
     wsReorder(row, list);
+    wsWindowDrag(row, list);
     // New: another desktop (a workspace), and you are on it
-    const more = document.createElement("button");
-    more.type = "button"; more.className = "vos-ws-card vos-ws-more";
+    const more = document.createElement("div");
+    more.className = "vos-ws-card vos-ws-more"; more.tabIndex = 0; more.setAttribute("role", "button");
     more.innerHTML = '<div class="vos-ws-mini"><span class="vos-ws-plus">+</span></div><div class="vos-ws-label"><span>New</span></div>';
     more.querySelector(".vos-ws-mini").style.aspectRatio = `${Math.max(1, ss.width)} / ${Math.max(1, ss.height)}`;
     more.style.setProperty("flex-basis", cardW + "px", "important");
+    more.style.setProperty("width", cardW + "px", "important");
     more.addEventListener("click", ev => {
       ev.stopPropagation(); closeWsStrip();
       const api = vivWs();
       const names = new Set(list.map(w => w.name));
       let n = list.length + 2, name;
       do { name = "Desktop " + n++; } while (names.has(name));
-      if (api) { try { api.addWorkspace(name, undefined, undefined, undefined, false); return; } catch (e) { LOG("workspaces: new failed", e); } }
+      if (api) {
+        try { Promise.resolve(api.addWorkspace(name, undefined, undefined, undefined, false)).catch(e => wsErr("new", e)); return; }
+        catch (e) { wsErr("new", e); }
+      }
       openVivaldiWs(false);                                          // fallback: Vivaldi's own list (its New button)
     });
     row.appendChild(more);

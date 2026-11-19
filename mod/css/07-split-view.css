@@ -1130,9 +1130,13 @@
   padding-bottom: 40px !important;                /* room for the panel's shadow */
   pointer-events: none !important;
 }
-#browser .vos-ws-panel {
+#browser .vos-ws-panel {                         /* a compact panel: as wide as its desktops, blurred only behind itself */
   pointer-events: auto !important;
-  padding: 14px 18px 16px !important;
+  width: fit-content !important;
+  max-width: calc(100vw - 32px) !important;
+  margin: 8px auto 0 !important;
+  border-radius: 18px !important;
+  padding: 14px 18px 12px !important;
   background: rgba(246, 246, 248, 0.62) !important;
   backdrop-filter: blur(40px) saturate(1.7) !important;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22), inset 0 -0.5px 0 rgba(0, 0, 0, 0.12) !important;
@@ -1214,3 +1218,17 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-ws-card.vos-ws-dragging { transition: none !important; z-index: 2 !important; cursor: grabbing !important; }
 #browser .vos-ws-card.vos-ws-dragging .vos-ws-mini { box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important; }
 #browser .lp-menu.vos-ws-menu { position: fixed !important; z-index: 2147483000 !important; }   /* above the strip */
+
+#browser .vos-ws-card { outline: none !important; user-select: none !important; }
+#browser .vos-ws-card:focus-visible .vos-ws-mini { box-shadow: 0 0 0 2px var(--colorHighlightBg, #0a84ff) !important; }
+#browser .vos-ws-card[data-drop] .vos-ws-mini { box-shadow: 0 0 0 3px var(--colorHighlightBg, #0a84ff), 0 10px 26px rgba(0, 0, 0, 0.3) !important; transform: scale(1.05) !important; }
+#browser .vos-ws-label .vos-ws-icon { opacity: 0.8 !important; flex: none !important; }
+#browser .vos-ws-input {
+  font: 500 12.5px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; padding: 2px 6px !important;
+  border: 0 !important; border-radius: 6px !important; outline: none !important; text-align: center !important;
+  background: rgba(255, 255, 255, 0.95) !important; color: #1d1d1f !important;
+  box-shadow: 0 0 0 2px var(--colorHighlightBg, #0a84ff) !important;
+}
+#browser .vos-ws-win { cursor: grab !important; }
+#browser .vos-ws-winghost { z-index: 2147483001 !important; pointer-events: none !important; opacity: 0.95 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4) !important; transform: scale(1.08) !important; }
