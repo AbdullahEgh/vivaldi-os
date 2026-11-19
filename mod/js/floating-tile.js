@@ -1,3 +1,16 @@
+/* ONE HEARTBEAT for every mod: the checks that catch what no event tells (a rebuilt tab bar,
+   a missed change) run together, every 2.5s, in the browser's idle time, never while hidden */
+window.vosBeat = window.vosBeat || (() => {
+  const jobs = new Set();
+  const tick = () => {
+    if (document.hidden || !jobs.size) return;
+    const run = () => { for (const f of jobs) { try { f(); } catch (e) {} } };
+    if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 1200 }); else run();
+  };
+  setInterval(tick, 2500);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });   // back: catch up at once
+  return f => { jobs.add(f); return () => jobs.delete(f); };
+})();
 /* ==========================================================================
    Vivaldi as an OS — Vivaldi JS mod
    Pages behave like macOS windows INSIDE Vivaldi.
@@ -103,6 +116,14 @@
   /* MISSION CONTROL: while the desktops panel is open, the windows shrink into the space
      below it (none under it), so one is easy to drag onto another desktop */
   let underId = null;                                 // the full-screen page under the floating windows
+  let liveMove = null;                                // { id, base } a window being moved (by a translate)
+  function endLiveMove() {                            // the move is over: its real place, the translate gone
+    if (!liveMove) return;
+    const id = liveMove.id; liveMove = null;
+    const el = targetOf(pageOf(id)), f = frames.get(id);
+    el?.style.removeProperty("translate"); f?.style.removeProperty("translate");
+    if (el && floating.has(id)) { const ss = stackRect(); place(el, pxRect(id, ss), ss); placeFrame(id, el, pxRect(id, ss), ss); }
+  }
   let mission = null, missionDrag = null, missionSkip = null;   // { k, ox, oy } / { id, r } picked up there / held from the top edge (full size)
   const mr = r => mission ? { x: mission.ox + r.x * mission.k, y: mission.oy + r.y * mission.k, w: r.w * mission.k, h: r.h * mission.k } : r;
   /* Mission Control lays the windows out side by side (none over another), in the space
@@ -280,7 +301,7 @@
       }
     }).observe(b, { childList: true, subtree: true });
     addEventListener("resize", queuePills);
-    setInterval(() => { if (!document.hidden) markPills(); }, 3000);  // a backstop (the watcher catches changes)
+    vosBeat(markPills);                                              // a backstop (the watcher catches changes)
   }
   /* an address-bar popup (a site asks for the clipboard, a password to save...) opens
      under the address field, where its button is - not in the top-left corner */
@@ -1077,7 +1098,7 @@
     for (const { id, el } of windows) {
       addChrome(el, id);
       const held = missionDrag?.id === id;
-      const r = held ? missionDrag.r : pxRect(id, s), o = origins.get(el.parentElement);
+      const r = held ? missionDrag.r : liveMove?.id === id ? liveMove.base : pxRect(id, s), o = origins.get(el.parentElement);
       place(el, r, s, o);
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
@@ -1441,7 +1462,7 @@
       if (z) setWebZoom(wv, z);
     });
   }
-  setInterval(syncZooms, 3000);
+  vosBeat(syncZooms);
 
   /* closing the last tab(s) never closes Vivaldi (like Vivaldi's own setting
      "never close the last tab", which chrome.tabs.remove skips): the desktop
@@ -2357,13 +2378,18 @@
           if (label) label.textContent = Math.round(z * 100) + "%";
         }
         setPx(id, r, ss);
-        place(el, r, ss);
-        placeFrame(id, el, r, ss);
+        if (how === "move" && !scaling) {                            // moving: one GPU translate from where it started -
+          if (liveMove?.id !== id) { liveMove = { id, base: { ...s0 } }; place(el, s0, ss); placeFrame(id, el, s0, ss); }   // no layout, no repaint
+          const t = `${Math.round(r.x - liveMove.base.x)}px ${Math.round(r.y - liveMove.base.y)}px`;
+          el.style.setProperty("translate", t, "important");
+          frames.get(id)?.style.setProperty("translate", t, "important");
+        } else { endLiveMove(); place(el, r, ss); placeFrame(id, el, r, ss); }
       });
     };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame);
+      endLiveMove();
       clearTimeout(holdTimer);
       if (scaling) { breathOut(el); label?.remove(); }
       holdTimer = 0;
@@ -3884,7 +3910,7 @@
     chrome.tabs.onCreated.addListener(() => readTiling());
     chrome.tabs.onRemoved.addListener(() => readTiling());
     readTiling();
-    setInterval(() => { if (!document.hidden) readTiling(); }, 3000);   // anything missed
+    vosBeat(readTiling);                                              // anything missed
     document.addEventListener("visibilitychange", () => { if (!document.hidden) { readTiling(); queueRender(); } });
     chrome.tabs.onRemoved.addListener(gone);
     chrome.tabs.onDetached.addListener(gone);                       // moved to another window
@@ -3914,7 +3940,7 @@
       try { const l = JSON.parse(layout || "{}"); if (l && typeof l === "object" && !l.s && !l.w) Object.assign(bentoLayouts, l); } catch (e) {}
       setTimeout(() => { bento.ws = null; bentoWs.clear(); queueRender(); }, 1500);   // this desktop's own Bento
     });
-    setInterval(() => { if (!document.hidden) bentoButton(); }, 2000);   // the tab bar can be rebuilt
+    vosBeat(bentoButton);                                             // the tab bar can be rebuilt
     document.addEventListener("pointermove", bentoHover, { capture: true, passive: true });
     document.addEventListener("keydown", ev => {                     // Bento undo / redo
       if (lpOn() || !bento.on || !(ev.metaKey || ev.ctrlKey) || ev.key.toLowerCase() !== "z" || bento.gesture) return;

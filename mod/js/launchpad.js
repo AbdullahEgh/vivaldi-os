@@ -164,7 +164,9 @@
   /* ---------------- icons ---------------- */
   function siteIcon(url, src, cls) {
     const i = document.createElement("img");
-    i.className = cls; i.alt = ""; i.draggable = false; i.src = src(url);
+    i.className = cls; i.alt = ""; i.draggable = false;
+    i.decoding = "async";                           // decoded off the main thread: opening never stutters
+    i.src = src(url);
     i.onerror = () => {                             // no icon: the site's first letter
       const d = document.createElement("span");
       d.className = cls + " lp-letter";
@@ -1463,19 +1465,44 @@
     card.__key = "";
     if (w.k === "clockcal") {
       card.innerHTML = clockSvg(true) + '<div class="lp-cal-mon"><div class="lp-cal-month"></div><div class="lp-cal-grid"></div></div>';
-      const n = new Date(), sh = card.querySelector(".lp-sh");
-      if (sh) sh.style.animationDelay = -(n.getSeconds() + n.getMilliseconds() / 1000) + "s";
+      liftSecond(card);
     } else if (w.k === "clock-num" || w.k === "clock-pill" || w.k === "clock-sq") {
       card.innerHTML = clockSvg(w.k === "clock-pill", w.k === "clock-sq") + (w.s === "m"
         ? '<div class="lp-dclock"><div class="lp-dtime"></div><div class="lp-dday"></div><div class="lp-ddate"></div></div>' : "");
       if (w.k === "clock-sq" && w.s === "s") requestAnimationFrame(() => drawWidget(card, w));   // once it has its size
-      const n = new Date(), sh = card.querySelector(".lp-sh");   // the second hand sweeps smoothly
-      if (sh) sh.style.animationDelay = -(n.getSeconds() + n.getMilliseconds() / 1000) + "s";
+      liftSecond(card);                              // the second hand sweeps smoothly
     } else if (w.k === "cal") {
       card.innerHTML = (w.s === "m" ? '<div class="lp-cal-left"><div class="lp-cal-wd"></div><div class="lp-cal-big"></div><div class="lp-cal-my"></div></div>' : "") +
                        '<div class="lp-cal-mon"><div class="lp-cal-month"></div><div class="lp-cal-grid"></div></div>';
     } else if (w.k === "timer") buildTimer(card, w);
     drawWidget(card, w);
+  }
+  /* the second hand on a layer of its own: the same hand and hub, drawn over the face and
+     turned by the graphics card - the clock is not painted again 60 times a second */
+  function liftSecond(card) {
+    const face = card.querySelector("svg.lp-clock:not(.lp-sec)");
+    card.querySelector(":scope > svg.lp-sec")?.remove();
+    if (!face) return;
+    const sec = face.cloneNode(false);                // same class and viewBox as the face
+    sec.classList.add("lp-sec"); sec.setAttribute("aria-hidden", "true");
+    for (const sel of [".lp-sh", ".lp-shub", ".lp-hub2"]) { const n = face.querySelector(sel); if (n) sec.appendChild(n); }
+    const n = new Date();
+    sec.style.animationDelay = -(n.getSeconds() + n.getMilliseconds() / 1000) + "s";
+    card.appendChild(sec);
+    if (!card.__secRO) { card.__secRO = new ResizeObserver(() => fitSecond(card)); card.__secRO.observe(card); }
+    fitSecond(card);
+  }
+  function fitSecond(card) {                        // exactly over the face (as laid out, scaled or not)
+    const face = card.querySelector("svg.lp-clock:not(.lp-sec)"), sec = card.querySelector(":scope > svg.lp-sec");
+    if (!face || !sec) return;
+    const cr = card.getBoundingClientRect(), fr = face.getBoundingClientRect();
+    if (!cr.width || !card.offsetWidth) return;
+    const k = cr.width / card.offsetWidth;
+    const px = v => (Math.round(v / k * 100) / 100) + "px";
+    sec.style.setProperty("left", px(fr.left - cr.left - card.clientLeft * k), "important");
+    sec.style.setProperty("top", px(fr.top - cr.top - card.clientTop * k), "important");
+    sec.style.setProperty("width", px(fr.width), "important");
+    sec.style.setProperty("height", px(fr.height), "important");
   }
   function clockSvg(pills, square) {
     let s = '<svg class="lp-clock" viewBox="0 0 100 100"><circle class="lp-face" cx="50" cy="50" r="49"/>';
@@ -1567,8 +1594,7 @@
         if (asp !== card.__asp) {                      // the face takes the card's shape and corners
           card.__asp = asp;
           card.innerHTML = clockSq(asp, Math.round(r * 164 / card.clientHeight * 10) / 10);
-          const sh = card.querySelector(".lp-sh");
-          if (sh) sh.style.animationDelay = -(now.getSeconds() + now.getMilliseconds() / 1000) + "s";
+          liftSecond(card);
         }
       }
       const c = card.querySelector(".lp-clock-sq") ? 82 : 50;     // the Square face's centre is (82, 82)
@@ -2053,7 +2079,7 @@
     const b = document.getElementById("browser");
     if (!b) return setTimeout(watchDesk, 50);
     new MutationObserver(syncDesk).observe(b, { attributes: true, attributeFilter: ["data-ft-desktop", "data-ft-home", "data-ft-wins"] });
-    setInterval(() => { if (!document.hidden) syncDesk(); }, 2000);
+    (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(syncDesk);
     syncDesk();
   })();
   /* the wallpaper is the background image of the theme in use: Vivaldi's own
@@ -2368,12 +2394,12 @@
       if (tagEl.style.getPropertyValue(prop) !== v) tagEl.style.setProperty(prop, v, "important");
     }
   }
-  setInterval(() => {                                // a re-drawn tab bar (or a late Bento button) gets it back in place
+  (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(() => {                                // a re-drawn tab bar (or a late Bento button) gets it back in place
     if (tagEl?.isConnected) lookLikeField();
     if (!tagFor) return;
     const b = document.querySelector("#browser .bento-toggle");
     if (!tagEl?.isConnected || (b && b.nextSibling !== tagEl)) updTag(tagFor);
-  }, 2000);
+  });
   setTimeout(() => checkUpdate(false), 20000);
   // every 30 minutes, only while Vivaldi is in use; coming back after longer checks once
   let lastCheck = 0;

@@ -1328,3 +1328,15 @@
   margin-top: 10px !important; padding-top: 10px !important; border-top: 0.5px solid rgba(127, 127, 127, 0.3) !important; }
 #browser .vos-upd-copy-cap { flex: 1 1 100% !important; font: 400 11.5px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.65 !important; }
 #browser .vos-upd-copybtn { padding: 4px 11px !important; font-size: 12px !important; }
+
+/* the second hand's own layer (launchpad.js liftSecond): over the face, turned with the rotate property
+   on the graphics card; the hand inside does not turn by itself */
+#browser .lp-wcard svg.lp-clock.lp-sec {
+  position: absolute !important; margin: 0 !important; max-width: none !important; aspect-ratio: auto !important;
+  transform: none !important; pointer-events: none !important; overflow: visible !important;
+  transform-origin: 50% 50% !important; will-change: rotate;
+  animation-name: lp-sweep-layer !important; animation-duration: 60s !important; animation-timing-function: linear !important; animation-iteration-count: infinite !important;   /* its delay (the second it starts at) is set on it */
+}
+#browser .lp-wcard svg.lp-clock.lp-sec .lp-sh { animation: none !important; }
+#browser .lp-wcard svg.lp-clock.lp-sec .lp-face, #browser .lp-wcard svg.lp-clock.lp-sec .lp-sq-face { display: none !important; }
+@keyframes lp-sweep-layer { from { rotate: 0deg; } to { rotate: 360deg; } }

@@ -148,7 +148,7 @@
     for (const el of [footer, header, $("#main")]) if (el) new MutationObserver(watch).observe(el, { childList: true });
     addEventListener("resize", queue);
     watch();
-    setInterval(() => { if (!document.hidden) watch(); }, 2000);   // a re-drawn tab bar is picked up within 2s
+    (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(watch);   // a re-drawn tab bar is picked up within 2.5s
     document.addEventListener("visibilitychange", () => { if (!document.hidden) watch(); });
   }
   // clicking anywhere outside the address field ends typing there: the field
