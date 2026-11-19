@@ -2092,6 +2092,7 @@
         }, "vos-upd-main");
       }
     } else btn("OK", close, "vos-upd-main");
+    n.appendChild(row);
     n.addEventListener("pointerdown", ev => ev.stopPropagation());
     (document.getElementById("browser") || document.body).appendChild(n);
     n.animate([{ opacity: 0, transform: "translate(-50%, -12px) scale(0.97)" }, { opacity: 1, transform: "translate(-50%, 0)" }],
