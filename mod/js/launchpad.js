@@ -155,7 +155,10 @@
     chrome.windows.getCurrent(w => {
       chrome.tabs.query({ windowId: w.id }, tabs => {
         const t = !fresh && h && tabs.find(x => host(x.url || x.pendingUrl || "") === h);
+        // opened from the Start Page (the empty desktop): the app takes that tab, no extra one
+        const blank = tabs.find(x => x.active && /^chrome:\/\/vivaldi-webui\/startpage/.test(x.url || x.pendingUrl || ""));
         if (t) chrome.tabs.update(t.id, { active: true });
+        else if (blank) { window.vosFloatNext?.(blank.id); chrome.tabs.update(blank.id, { url }); }
         else chrome.tabs.create({ url, active: true, windowId: w.id });
       });
     });

@@ -136,6 +136,23 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointerdown", () => { unstick.down = true; }, true);
   addEventListener("pointerup", () => { unstick.down = false; }, true);
   addEventListener("pointercancel", () => { unstick.down = false; }, true);
+  /* Vivaldi opens a blank Start Page on a desktop it thinks is empty (a window moved there a
+     moment ago is not counted yet): with that page in front the window stays hidden. When a
+     desktop with windows shows up with such a fresh blank page in front, its windows come
+     forward and the blank page closes. */
+  let lastWsShown;
+  const startBorn = new Map();                         // tab -> when a Start Page tab was made
+  function noBlankFront(again) {
+    const a = activePage();
+    if (!a) return;
+    if (!isStart(a)) { if (!again) setTimeout(() => noBlankFront(true), 300); return; }
+    const w = topWindow(null);
+    if (!w) return;                                    // no window here: that page is the desktop
+    const sid = a.dataset.id;
+    if (Date.now() - (startBorn.get(sid) || 0) > 6000) return;      // only a page Vivaldi just made (your Home stays)
+    raise(w); activate(groupFloat.has(w) ? (splitFocus.get(w) || w) : w); render();
+    setTimeout(() => chrome.tabs.remove(Number(sid), () => void chrome.runtime.lastError), 120);
+  }
   let underId = null;                                 // the full-screen page under the floating windows
   let liveMove = null;                                // { id, base } a window being moved (by a translate)
   function endLiveMove() {                            // the move is over: its real place, the translate gone
@@ -1122,6 +1139,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (!origins.has(w.el.parentElement)) origins.set(w.el.parentElement, fixedOrigin(w.el.parentElement));
     }
     bentoSync(s);
+    { const w = curWs(); if (w !== undefined && w !== lastWsShown) { lastWsShown = w; setTimeout(noBlankFront, 150); } }
     const slots = mission && b.hasAttribute("data-ft-desktop") ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))), s) : null;
     if (mission) mission.slots = slots;
     missionIcons(slots, s);
@@ -1299,6 +1317,8 @@ window.vosBeat = window.vosBeat || (() => {
      front window's tab becomes active (that keeps the desktop up). Only with
      no windows at all is it the empty desktop (a Start Page tab). */
   window.vosShowDesktop = () => showDesktop();
+  // the Launchpad opens an app in the Start Page tab it was opened from: that tab floats once it has a site
+  window.vosFloatNext = tabId => { const id = String(tabId); floatOnLoad.add(id); floatOnLoadAt.set(id, Date.now()); siteReady.delete(id); };
   async function showDesktop() {
     underId = null;                                   // Home: the desktop itself
     const w = topWindow(null);
@@ -4085,6 +4105,7 @@ window.vosBeat = window.vosBeat || (() => {
       const id = String(tab.id);
       floatOnLoad.add(id); floatOnLoadAt.set(id, Date.now());
       if (/^https?:/.test(tab.pendingUrl || tab.url || "")) siteReady.add(id);
+      if (/^chrome:\/\/vivaldi-webui\/startpage/.test(tab.pendingUrl || tab.url || "") || !(tab.pendingUrl || tab.url)) startBorn.set(id, Date.now());
       droppedHere(tab);
       render();                                                     // float before it is ever drawn
     });
