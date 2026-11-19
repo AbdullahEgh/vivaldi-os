@@ -2268,12 +2268,17 @@ window.vosBeat = window.vosBeat || (() => {
   let chainReady = false;
   setTimeout(async function bentoChainSetup() {      // after start (every helper ready)
     try {
-      if (await vstore.get("vosBentoChain2")) { chainReady = true; return; }
-      if (!vivPrefs()) return;                        // Vivaldi's settings not reachable: the mod's own button stays
+      if (!vivPrefs()) {                              // not reachable yet: again soon (the mod's own button meanwhile)
+        bentoChainSetup.n = (bentoChainSetup.n || 0) + 1;
+        if (bentoChainSetup.n < 10) setTimeout(bentoChainSetup, 1500);
+        return;
+      }
+      // every start: the chain exists (a toolbar naming a missing chain breaks Vivaldi's tab bar)
       const list = (await prefGet("vivaldi.chained_commands.command_list")) || [];
       if (!Array.isArray(list)) return;
       if (!list.some(c => c?.name === BENTO_CHAIN))
         await prefSet("vivaldi.chained_commands.command_list", [...list, { category: "CATEGORY_COMMAND_CHAIN", chain: [], key: "vosbento", label: "Bento", name: BENTO_CHAIN }]);
+      if (await vstore.get("vosBentoChain2")) { chainReady = true; return; }   // put on the toolbar once only
       const bars = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
       const vals = await Promise.all(bars.map(b => prefGet("vivaldi.toolbars." + b)));
       if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN))) {
@@ -2285,7 +2290,7 @@ window.vosBeat = window.vosBeat || (() => {
       vstore.set("vosBentoChain2", true);
       chainReady = true;
     } catch (e) { LOG("bento chain", e); }
-  }, 4000);
+  }, 1200);
   function chainButton() {                          // Vivaldi's button for the "Bento" chain, wherever it is
     for (const b of document.querySelectorAll("#browser .toolbar button")) {
       const t = (b.getAttribute("title") || b.getAttribute("aria-label") || "").trim();

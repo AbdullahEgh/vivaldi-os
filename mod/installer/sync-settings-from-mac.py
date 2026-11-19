@@ -126,6 +126,13 @@ def split(k, v):
         for sk, sv in v.items(): split(k + "." + sk, sv)
         return
     if has_mine(v): mine[k] = v; return                # e.g. a toolbar with your web panels: yours
+    # a toolbar with Command Chain buttons: the chains are personal (not shipped), and a
+    # toolbar naming a chain that does not exist breaks Vivaldi's tab bar - the public
+    # toolbar leaves them out (the mod adds its own Bento chain itself), yours keeps them
+    if k.startswith("vivaldi.toolbars.") and isinstance(v, list) and any(isinstance(x, str) and x.startswith("COMMAND_") for x in v):
+        mine[k] = v
+        generic[k] = [x for x in v if not (isinstance(x, str) and x.startswith("COMMAND_"))]
+        return
     generic[k] = v
 for k, v in out.items(): split(k, v)
 out = generic
