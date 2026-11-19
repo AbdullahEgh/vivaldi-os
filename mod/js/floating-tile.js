@@ -2219,7 +2219,7 @@
     };
     const deskCheck = (x, y) => {
       if (!deskDrop) return;
-      const card = document.elementsFromPoint(x, y).find(n => n.classList?.contains("vos-ws-card") && !n.classList.contains("vos-ws-more") && !n.hasAttribute("data-current")) || null;
+      const card = document.elementsFromPoint(x, y).find(n => n.classList?.contains("vos-ws-card") && !n.hasAttribute("data-current")) || null;
       if (card !== deskOver) { deskOver?.removeAttribute("data-drop"); deskOver = card; deskOver?.setAttribute("data-drop", ""); }
     };
 
@@ -2288,6 +2288,7 @@
         if (card && ev.type === "pointerup") {
           persist(id);
           if (backToBento.delete(id)) bento.skip.delete(id);
+          if (card.classList.contains("vos-ws-more")) return toNewDesk(id, list);
           return toDesk(id, card.dataset.ws ? (list.find(w => String(w.id) === card.dataset.ws)?.id ?? null) : null);
         }
       }
@@ -2645,7 +2646,7 @@
           win.style.opacity = "0.3";
         }
         ghost.style.left = (e.clientX - ghost.__ox) + "px"; ghost.style.top = (e.clientY - ghost.__oy) + "px";
-        const card = document.elementsFromPoint(e.clientX, e.clientY).find(n => n.classList?.contains("vos-ws-card") && !n.classList.contains("vos-ws-more"));
+        const card = document.elementsFromPoint(e.clientX, e.clientY).find(n => n.classList?.contains("vos-ws-card"));
         const target = card && card !== from ? card : null;
         if (target !== over) { over?.removeAttribute("data-drop"); over = target; over?.setAttribute("data-drop", ""); }
       };
@@ -2657,6 +2658,7 @@
         ghost.remove(); win.style.opacity = "";
         over?.removeAttribute("data-drop");
         if (!over || e.type !== "pointerup") return;
+        if (over.classList.contains("vos-ws-more")) { win.remove(); closeWsStrip(); return toNewDesk(win.dataset.tab, list); }
         const ws = over.dataset.ws ? (list.find(w => String(w.id) === over.dataset.ws)?.id ?? null) : null;   // Default: the window's own
         over.querySelector(".vos-ws-mini")?.appendChild(win);          // show it there right away
         toDesk(win.dataset.tab, ws);
@@ -2781,6 +2783,41 @@
     if (changed) vstore.set(OWN_KEY, JSON.stringify(own));
     return new Set(list.map(w => String(w.id)).filter(id => used.has(id) || own[id] === me || !own[id] || (live && !live.has(own[id]))));
   }
+  /* a new desktop (Vivaldi's own add), owned by this window; resolves to its id.
+     switchTo false: you stay where you are (a window dropped on New goes there) */
+  function newDesk(list, stay) {
+    const api = vivWs();
+    if (!api) return null;
+    const names = new Set(list.map(w => w.name));
+    let n = list.length + 2, name;
+    do { name = "Desktop " + n++; } while (names.has(name));
+    const before = new Set(list.map(w => String(w.id)));
+    const find = async tries => {
+      for (let i = 0; i < tries; i++) {
+        await new Promise(r => setTimeout(r, 150));
+        const nl = (await prefGet("vivaldi.workspaces.list")) || [];
+        const fresh = nl.filter(w => !before.has(String(w.id)));
+        if (fresh.length) {
+          let own = {};                                              // a new desktop belongs to this window
+          try { own = JSON.parse((await vstore.get(OWN_KEY)) || "{}") || {}; } catch (e) {}
+          for (const w of fresh) own[String(w.id)] = String(myWin());
+          vstore.set(OWN_KEY, JSON.stringify(own));
+          return fresh[fresh.length - 1].id;
+        }
+      }
+      return undefined;
+    };
+    try {
+      return Promise.resolve(api.addWorkspace(name, undefined, undefined, undefined, !!stay))
+        .catch(e => wsErr("new", e)).then(() => find(20));
+    } catch (e) { wsErr("new", e); return null; }
+  }
+  /* a window dropped on New: a new desktop, and the window goes there */
+  function toNewDesk(id, list) {
+    const p = newDesk(list, true);
+    if (!p) return;
+    p.then(ws => { if (ws !== undefined) toDesk(id, ws); else wsErr("new + move", "no new desktop"); });
+  }
   function closeWsStrip() {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
@@ -2871,27 +2908,7 @@
     more.style.setProperty("width", cardW + "px", "important");
     more.addEventListener("click", ev => {
       ev.stopPropagation(); closeWsStrip();
-      const api = vivWs();
-      const names = new Set(list.map(w => w.name));
-      let n = list.length + 2, name;
-      do { name = "Desktop " + n++; } while (names.has(name));
-      if (api) {
-        try {
-          const before = new Set(list.map(w => String(w.id)));
-          Promise.resolve(api.addWorkspace(name, undefined, undefined, undefined, false)).catch(e => wsErr("new", e))
-            .then(() => new Promise(r => setTimeout(r, 400))).then(() => prefGet("vivaldi.workspaces.list")).then(async nl => {
-              const fresh = (nl || []).map(w => String(w.id)).filter(i => !before.has(i));
-              if (!fresh.length) return;
-              let own = {};                                          // a new desktop belongs to this window
-              try { own = JSON.parse((await vstore.get(OWN_KEY)) || "{}") || {}; } catch (e) {}
-              for (const i of fresh) own[i] = String(myWin());
-              vstore.set(OWN_KEY, JSON.stringify(own));
-            });
-          return;
-        }
-        catch (e) { wsErr("new", e); }
-      }
-      openVivaldiWs(false);                                          // fallback: Vivaldi's own list (its New button)
+      if (!newDesk(list, false)) openVivaldiWs(false);              // fallback: Vivaldi's own list (its New button)
     });
     row.appendChild(more);
 
