@@ -2089,22 +2089,29 @@
     for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
     return false;
   };
+  /* the latest release's version: where GitHub's "latest release" link points
+     (…/tag/v1.2.3) - tiny and always current; GitHub's release API is the fallback.
+     "" when GitHub can't be reached */
+  async function latestTag() {
+    let tag = "";
+    try {
+      const r = await fetch(`https://github.com/${window.vosRepo}/releases/latest`, { method: "HEAD", cache: "no-store" });
+      tag = (/\/tag\/v?([\d.]+)/.exec(r.url) || [])[1] || "";
+    } catch (e) {}
+    if (!tag) {
+      try {
+        const r = await fetch(`https://api.github.com/repos/${window.vosRepo}/releases/latest`, { cache: "no-store" });
+        if (r.ok) tag = String((await r.json()).tag_name || "").replace(/^v/, "");
+      } catch (e) {}
+    }
+    return tag;
+  }
   async function checkUpdate(manual) {
     if (!window.vosRepo || !window.vosVersion) return;
     try {
-      // tiny and always current: where GitHub's "latest release" link points (…/tag/v1.2.3);
-      // GitHub's release API is the fallback
       lastCheck = Date.now();
-      let tag = "";
-      try {
-        const r = await fetch(`https://github.com/${window.vosRepo}/releases/latest`, { method: "HEAD", cache: "no-store" });
-        tag = (/\/tag\/v?([\d.]+)/.exec(r.url) || [])[1] || "";
-      } catch (e) {}
-      if (!tag) {
-        const r = await fetch(`https://api.github.com/repos/${window.vosRepo}/releases/latest`, { cache: "no-store" });
-        if (!r.ok) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); return; }
-        tag = String((await r.json()).tag_name || "").replace(/^v/, "");
-      }
+      const tag = await latestTag();
+      if (!tag) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); return; }
       if (tag && newer(tag, window.vosVersion)) {
         updTag(tag);                                                  // the tag at the left of the tab bar stays
         if (!manual && (await vstore.get(UPD_KEY)) === tag) return;   // "Later" for this version
@@ -2287,7 +2294,18 @@
       tagEl = document.createElement("button");
       tagEl.type = "button"; tagEl.className = "vos-upd-tag";
       tagEl.addEventListener("pointerdown", ev => ev.stopPropagation());
-      tagEl.addEventListener("click", ev => { ev.stopPropagation(); updateNotice(tagFor, null, null, true); });   // installs
+      tagEl.addEventListener("click", async ev => {                // checks GitHub now, then installs the newest
+        ev.stopPropagation();
+        if (tagEl.dataset.busy) return;
+        tagEl.dataset.busy = "1"; tagEl.textContent = "Checking…";
+        const t = await latestTag();
+        delete tagEl.dataset.busy;
+        if (t && newer(t, window.vosVersion)) { updTag(t); updateNotice(t, null, null, true); }
+        else if (t) {                                                // nothing newer after all: up to date, no button
+          tagFor = null; tagEl.remove();
+          updateNotice(null, "Vivaldi OS is up to date", "Version " + window.vosVersion);
+        } else { updTag(tagFor); updateNotice(null, "Couldn't reach GitHub", "Try again later."); }
+      });
     }
     tagEl.textContent = "New Update";
     tagEl.title = `Install Vivaldi OS ${tag} (you have ${window.vosVersion})`;
