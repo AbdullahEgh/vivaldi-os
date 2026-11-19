@@ -2504,7 +2504,8 @@
     st.__back?.remove();
     removeEventListener("keydown", wsKey, true);
     removeEventListener("pointerdown", wsOut, true);
-    st.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-12px)" }], { duration: 160, easing: "ease-in", fill: "forwards" })
+    const pn = st.querySelector(".vos-ws-panel") || st;            // back up, under the tab bar
+    pn.animate([{ transform: "none" }, { transform: "translateY(-100%)" }], { duration: 220, easing: "cubic-bezier(0.4, 0, 0.8, 0.4)", fill: "forwards" })
       .finished.catch(() => {}).then(() => st.remove());
   }
   const wsOut = ev => { if (wsStrip && !wsStrip.contains(ev.target) && !ev.target?.closest?.(WS_BTN)) closeWsStrip(); };
@@ -2520,10 +2521,13 @@
     const spaces = [{ id: null, name: "Default", icon: null }, ...list.map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
 
     const strip = document.createElement("div");
-    strip.className = "vos-ws-strip";
+    strip.className = "vos-ws-strip";                               // a clip starting at the tab bar's lower edge
+    const panel = document.createElement("div");
+    panel.className = "vos-ws-panel";                               // slides out from under the tab bar
+    strip.appendChild(panel);
     const row = document.createElement("div");
     row.className = "vos-ws-row";
-    strip.appendChild(row);
+    panel.appendChild(row);
     for (const sp of spaces) {
       const card = document.createElement("button");
       card.type = "button";
@@ -2575,7 +2579,7 @@
     });
     row.appendChild(more);
 
-    strip.addEventListener("pointerdown", ev => ev.stopPropagation());
+    panel.addEventListener("pointerdown", ev => ev.stopPropagation());
     const back = document.createElement("div");                    // clicking anywhere else closes it (also over a page)
     back.className = "vos-ws-back";
     back.addEventListener("pointerdown", ev => { ev.preventDefault(); ev.stopPropagation(); closeWsStrip(); });
@@ -2584,7 +2588,7 @@
     (browserEl() || document.body).appendChild(strip);
     const top = ss.top;
     strip.style.top = top + "px";
-    strip.animate([{ opacity: 0, transform: "translateY(-14px)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    panel.animate([{ transform: "translateY(-100%)" }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
     wsStrip = strip;
     addEventListener("keydown", wsKey, true);
     setTimeout(() => addEventListener("pointerdown", wsOut, true));
