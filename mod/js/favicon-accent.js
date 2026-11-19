@@ -289,7 +289,7 @@
 
   function start() {
     const browser = document.getElementById("browser");
-    if (!browser || !window.chrome?.tabs) return setTimeout(start, 300);
+    if (!browser || !window.chrome?.tabs) return setTimeout(start, 50);
     // which Vivaldi window is this? Ask about a tab whose page lives in this
     // document (chrome.windows.getCurrent() can name another window)
     const learnWindow = (tries = 0) => {

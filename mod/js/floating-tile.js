@@ -245,7 +245,7 @@
       }
     }).observe(b, { childList: true, subtree: true });
     addEventListener("resize", queuePills);
-    setInterval(() => { if (!document.hidden) markPills(); }, 1000);  // a backstop
+    setInterval(() => { if (!document.hidden) markPills(); }, 3000);  // a backstop (the watcher catches changes)
   }
   const tiledSeen = new Map();                                       // tab id -> { on, at }
   let pillRecheck = 0;
@@ -1370,7 +1370,7 @@
       if (z) setWebZoom(wv, z);
     });
   }
-  setInterval(syncZooms, 1500);
+  setInterval(syncZooms, 3000);
 
   /* closing the last tab(s) never closes Vivaldi (like Vivaldi's own setting
      "never close the last tab", which chrome.tabs.remove skips): the desktop
@@ -3559,7 +3559,7 @@
   function start() {
     const b = browserEl();
     const area = $("#main") || b;
-    if (!b || !window.chrome?.tabs) return setTimeout(start, 300);
+    if (!b || !window.chrome?.tabs) return setTimeout(start, 50);
 
     // Home opens the Launchpad (js/launchpad.js); without it, Home shows the
     // desktop in full view (it never loads the Start Page inside a floating window)

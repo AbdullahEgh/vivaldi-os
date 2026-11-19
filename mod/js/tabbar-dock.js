@@ -141,7 +141,7 @@
 
   function start() {
     const b = $("#browser");
-    if (!b) return setTimeout(start, 300);
+    if (!b) return setTimeout(start, 50);
     // the tab bar moves (top/bottom/side) or is re-drawn
     new MutationObserver(watch).observe(b, { attributes: true, attributeFilter: ["class"], childList: true, subtree: false });
     const footer = $("#footer"), header = $("#header");

@@ -1559,7 +1559,9 @@
   function drawWidget(card, w, now = new Date()) {
     if (isClock(w.k)) {
       const sec = now.getSeconds(), min = now.getMinutes() + sec / 60, hr = (now.getHours() % 12) + min / 60;
-      if (w.k === "clock-sq" && w.s === "s" && card.clientHeight) {
+      if (w.k === "clock-sq" && w.s === "s" && (card.__sized !== true || card.__asp === undefined) && card.clientHeight) {
+        if (!card.__ro) { card.__ro = new ResizeObserver(() => { card.__sized = false; }); card.__ro.observe(card); }
+        card.__sized = true;                           // measured again only when its size changes
         const asp = Math.round(card.clientWidth / card.clientHeight * 100) / 100;
         const r = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 20;
         if (asp !== card.__asp) {                      // the face takes the card's shape and corners
@@ -1570,13 +1572,13 @@
         }
       }
       const c = card.querySelector(".lp-clock-sq") ? 82 : 50;     // the Square face's centre is (82, 82)
-      const rot = (sel, deg) => card.querySelector(sel)?.setAttribute("transform", `rotate(${deg.toFixed(2)} ${c} ${c})`);
+      const rot = (sel, deg) => { const e = card.querySelector(sel), v = `rotate(${deg.toFixed(1)} ${c} ${c})`; if (e && e.getAttribute("transform") !== v) e.setAttribute("transform", v); };
       rot(".lp-hh", hr * 30); rot(".lp-mh", min * 6);
       if (w.s === "m" && w.k !== "clockcal") {
         const loc = undefined;
-        card.querySelector(".lp-dtime").textContent = now.toLocaleTimeString(loc, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "");
-        card.querySelector(".lp-dday").textContent = now.toLocaleDateString(loc, { weekday: "long" });
-        card.querySelector(".lp-ddate").textContent = now.toLocaleDateString(loc, { day: "numeric", month: "long" });
+        setText(card.querySelector(".lp-dtime"), now.toLocaleTimeString(loc, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""));
+        setText(card.querySelector(".lp-dday"), now.toLocaleDateString(loc, { weekday: "long" }));
+        setText(card.querySelector(".lp-ddate"), now.toLocaleDateString(loc, { day: "numeric", month: "long" }));
       }
     }
     if (isCal(w.k)) {
@@ -1705,18 +1707,19 @@
     el.toggleAttribute("data-over", st === "over");
     el.toggleAttribute("data-late", st === "over" && tmOver() >= 60000);
   }
+  function setText(el, v) { if (el && el.textContent !== v) el.textContent = v; }   // no change: no DOM work
   function drawTimer(card) {
     const st = tmState(), left = tmLeft();
     card.toggleAttribute("data-run", st === "run");
     card.toggleAttribute("data-idle", st === "idle");
     overTone(card, st);
     const t = card.querySelector(".lp-tm-time");
-    if (t) t.textContent = st === "over" ? fmtUp(tmOver()) : fmt(left);
+    setText(t, st === "over" ? fmtUp(tmOver()) : fmt(left));
     ringSet(card.querySelector(".lp-ring-fg"), st);
     const go = card.querySelector(".lp-tm-go");
-    if (go) { go.textContent = st === "run" ? "Pause" : st === "pause" ? "Resume" : st === "over" ? "Restart" : "Start"; go.dataset.state = st; }
+    if (go) { setText(go, st === "run" ? "Pause" : st === "pause" ? "Resume" : st === "over" ? "Restart" : "Start"); if (go.dataset.state !== st) go.dataset.state = st; }
     const c = card.querySelector(".lp-tm-cancel");
-    if (c) { c.textContent = "Cancel"; c.disabled = st === "idle"; }
+    if (c) { setText(c, "Cancel"); if (c.disabled !== (st === "idle")) c.disabled = st === "idle"; }
     for (const ch of card.querySelectorAll(".lp-tm-chip")) ch.toggleAttribute("data-on", +ch.dataset.arg * 60000 === tm.dur);
   }
   const paintTimers = () => {
@@ -1765,7 +1768,8 @@
     overTone(tmMini, st);
     ringSet(tmMini.querySelector(".vos-tm-fg"), st);
     tmMini.toggleAttribute("data-idle", st === "idle");
-    tmMini.title = (st === "over" ? "Timer " + fmtUp(tmOver()) : "Timer " + fmt(tmLeft())) + " - right-click to change or remove";
+    const tt = (st === "over" ? "Timer " + fmtUp(tmOver()) : "Timer " + fmt(tmLeft())) + " - right-click to change or remove";
+    if (tmMini.title !== tt) tmMini.title = tt;
   }
   function openTmPop() {
     if (!tmMini || tmPop) return;
@@ -1885,8 +1889,15 @@
   function ensureTick() {
     const want = (lp && widgets.length) || tmState() !== "idle" || tm.mini || clkPop;
     paintMini();
-    if (want && !tick) tick = setInterval(onTick, 250);
-    if (!want && tick) { clearInterval(tick); tick = 0; }
+    if (want && !tick) {                            // once a second, just after it turns (not 4 times)
+      const next = () => {
+        let ms = 1005 - (Date.now() % 1000);
+        if (tmState() === "run") ms = Math.min(ms, Math.max(5, tmLeft() + 5));   // the timer's end, on time
+        tick = setTimeout(() => { onTick(); if (tick) next(); }, ms);
+      };
+      next();
+    }
+    if (!want && tick) { clearTimeout(tick); tick = 0; }
   }
   function onTick() {
     if (tmState() === "over" && !tm.rang) {
@@ -2040,7 +2051,7 @@
   }
   (function watchDesk() {
     const b = document.getElementById("browser");
-    if (!b) return setTimeout(watchDesk, 500);
+    if (!b) return setTimeout(watchDesk, 50);
     new MutationObserver(syncDesk).observe(b, { attributes: true, attributeFilter: ["data-ft-desktop", "data-ft-home", "data-ft-wins"] });
     setInterval(() => { if (!document.hidden) syncDesk(); }, 2000);
     syncDesk();
