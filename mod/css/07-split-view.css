@@ -1314,3 +1314,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #main [data-ft-float][data-ft-cover] > .ft-titlebar { -webkit-app-region: drag !important; app-region: drag !important; }
 #browser #main [data-ft-float][data-ft-cover] > .ft-titlebar :is(.ft-lights, .ft-right, button) { -webkit-app-region: no-drag !important; app-region: no-drag !important; }
 #browser.mac #main [data-ft-float][data-ft-cover] > .ft-titlebar { padding-left: 76px !important; }
+/* full view shows no title bar: its thin hidden strip at the top still moves the Vivaldi window, and its
+   buttons appear on hover (on macOS, beside the system's own) */
+#browser #main [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar { cursor: default !important; }
+#browser.mac #main [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar .ft-lights { left: 76px !important; }

@@ -1153,7 +1153,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (minimized.has(id)) { mark(el, "data-ft-min", id); continue; }
       mark(el, "data-ft-float", id);
       if (id === front) mark(el, "data-ft-front");
-      if (noTitle.has(id) && cover !== id) mark(el, "data-ft-notitle");   // full view: its title bar moves the Vivaldi window
+      if (noTitle.has(id) || cover === id) mark(el, "data-ft-notitle");   // full view: its title bar moves the Vivaldi window
       if (cover === id) mark(el, "data-ft-cover");
       if (pip.includes(id)) mark(el, "data-ft-pip");
       if (awayWs(id)) mark(el, "data-ft-away");                     // another workspace: not on this desktop
@@ -2085,7 +2085,16 @@ window.vosBeat = window.vosBeat || (() => {
     bentoSettle();
     els.forEach((e, i) => slideFrom(e, first[i]));
   }
-  const bArea = (s = stackRect()) => ({ x: MARGIN, y: MARGIN, w: Math.round(s.width - 2 * MARGIN), h: Math.round(s.height - 2 * MARGIN) });
+  const bArea = (s = stackRect()) => {                     // the corner stack's side stays free (Bento never under it)
+    let l = MARGIN, r = MARGIN;
+    for (const p of pip) {
+      if (!floating.has(p) || minimized.has(p) || awayWs(p)) continue;
+      const w = MARGIN + pipRect(p, s).w + BGAP;
+      if ((pipCorner.get(p) || "bl")[1] === "r") r = Math.max(r, w); else l = Math.max(l, w);
+    }
+    if (s.width - l - r < 2 * MIN_W) l = r = MARGIN;                 // no room left beside it: as before
+    return { x: l, y: MARGIN, w: Math.round(s.width - l - r), h: Math.round(s.height - 2 * MARGIN) };
+  };
   // front first; only windows that are really there: a tab Vivaldi has not loaded yet (after a
   // restart or an update) has no page to show, and would leave an empty slot until it loads
   const bMembers = () => [...zOrder].reverse().filter(id => floating.has(id) && !minimized.has(id) && !pip.includes(id) && !awayWs(id) && !!targetOf(pageOf(id)));   // the corner stack is not Bento's
@@ -3660,19 +3669,24 @@ window.vosBeat = window.vosBeat || (() => {
     sw = { acc, items: swItems(), info: deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null, v: 0, at: now, hist: [] };
     if (!sw.info) { const s = sw; desksNow().then(d => { if (sw === s && !s.info) { s.info = d; swDraw(s); } }); }
     deskDots(true);
-    if (acc) { swDraw(sw); sw.timer = setTimeout(swipeEnd, 110); }
+    if (acc) { swDraw(sw); sw.timer = setTimeout(swipeEnd, 180); }
   }
   function swFeed(d, now) {
     const s = sw, a = Math.abs(d), dt = Math.min(50, Math.max(4, now - s.at));
     s.v = s.hist.length ? s.v * 0.5 + (d / dt) * 0.5 : d / 16;       // px per ms, smoothed
-    s.hist.push(a); if (s.hist.length > 4) s.hist.shift();
+    s.hist.push({ a, dt: now - s.at }); if (s.hist.length > 6) s.hist.shift();
     s.at = now; s.acc += d;
     swDraw(s);
     clearTimeout(s.timer);
-    const h = s.hist;                                                // only shrinking, steadily: the fingers have left (momentum)
-    const coasting = h.length === 4 && h[1] <= h[0] && h[2] <= h[1] && h[3] <= h[2] && h[3] < h[0] * 0.92;
+    const h = s.hist;                                                // the fingers have left: 6 events in a row, each a steady
+    let coasting = h.length === 6 && h[0].a >= 4, r0 = 0;            // fraction of the one before, at the screen's pace (momentum)
+    for (let i = 1; coasting && i < 6; i++) {
+      const r = h[i].a / h[i - 1].a;
+      if (!(r > 0.6 && r < 0.995) || h[i].dt > 34 || (r0 && Math.abs(r - r0) > 0.1)) coasting = false;
+      r0 = r;
+    }
     if (coasting && Math.abs(s.v) > 0.5) return swipeEnd();          // a flick: the page turns now, not when the momentum dies out
-    s.timer = setTimeout(swipeEnd, 110);                             // the fingers stopped or let go
+    s.timer = setTimeout(swipeEnd, 180);                             // no more events: the fingers let go (or rest - it waits a little)
   }
   function swDraw(s) {
     const info = s.info, dir = s.acc > 0 ? 1 : -1;
@@ -3702,7 +3716,7 @@ window.vosBeat = window.vosBeat || (() => {
     const s = sw; sw = null;
     if (!s) return;
     clearTimeout(s.timer);
-    swTail = { last: s.hist[s.hist.length - 1] || 0, at: s.at, dir: Math.sign(s.acc) || 1, rise: 0 };   // what still comes is the flick's momentum
+    swTail = { last: s.hist[s.hist.length - 1]?.a || 0, at: s.at, dir: Math.sign(s.acc) || 1, rise: 0 };   // what still comes is the flick's momentum
     const info = s.info || await desksNow();                         // still looking: wait for it, don't give up
     const dir = s.acc > 0 ? 1 : -1, t = info?.ds[info.i + dir];
     const v = Math.sign(s.v) === dir ? Math.abs(s.v) : 0;            // the fingers' speed toward that desktop (px per ms)
@@ -3752,6 +3766,16 @@ window.vosBeat = window.vosBeat || (() => {
     set("height", af.offsetHeight + "px");
     set("color", cs.color);
   }
+  function dotsLive() {                                              // while shown: the address field's look as it changes
+    if (dotsLive.on) return;
+    dotsLive.on = true;
+    const tick = () => {
+      if (!dotsEl || dotsEl.hasAttribute("data-out")) { dotsLive.on = false; return; }
+      dotsSkin(dotsEl);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
   function dotsMark(i) {                                             // light that desktop's dot now
     const row = dotsRow();
     if (row && i >= 0) [...row.children].forEach((d, j) => d.toggleAttribute("data-on", j === i));
@@ -3771,11 +3795,12 @@ window.vosBeat = window.vosBeat || (() => {
     const btn = document.querySelector(".vos-chain-vosmission") || document.querySelector(WS_BTN);
     if (!show || !btn) { clearTimeout(dotsTimer); dotsTimer = setTimeout(() => { dotsEl?.setAttribute("data-out", ""); }, 600); return; }
     clearTimeout(dotsTimer);
-    if (deskInfo && sameWs(deskInfo.ws, curWs())) { dotsDraw(deskInfo, btn); dotsEl.removeAttribute("data-out"); }   // at once from what is known
+    if (deskInfo && sameWs(deskInfo.ws, curWs())) { dotsDraw(deskInfo, btn); dotsEl.removeAttribute("data-out"); dotsLive(); }   // at once from what is known
     const info = await desksNow(true);
-    if ((swiping || sw) && dotsRow()) { dotsEl.removeAttribute("data-out"); return; }   // a switch under way: its dot is already lit
+    if ((swiping || sw) && dotsRow()) { dotsEl.removeAttribute("data-out"); dotsLive(); return; }   // a switch under way: its dot is already lit
     dotsDraw(info, btn);
     dotsEl.removeAttribute("data-out");
+    dotsLive();
     if (!sw && !btn.matches(":hover")) deskDots(false);
   }
   addEventListener("pointerover", ev => {
@@ -3837,13 +3862,17 @@ window.vosBeat = window.vosBeat || (() => {
     const dx = cr.left + cr.width / 2 - (er.left + er.width * sc / 2), dy = cr.top + cr.height / 2 - (er.top + er.height * sc / 2);
     const opts = { duration: 260, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" };
     f?.animate([{ filter: "opacity(1)" }, { filter: "opacity(0)" }], { duration: 120, fill: "forwards" });
-    el.animate([{ translate: "0px 0px", scale: "1", filter: "opacity(1)" },
-                { translate: `${Math.round(dx)}px ${Math.round(dy)}px`, scale: String(sc), filter: "opacity(0)" }], opts)
-      .finished.catch(() => {}).then(() => {
+    let fired = false;
+    const fire = () => {
+        if (fired) return; fired = true;                             // once: the animation's end, or the timer (no frames)
         if (missionDrag?.id === id) missionDrag = null;
         then();
         setTimeout(() => { el.getAnimations().forEach(a => a.cancel()); f?.getAnimations().forEach(a => a.cancel()); }, 700);   // gone from this desktop by then
-      });
+    };
+    el.animate([{ translate: "0px 0px", scale: "1", filter: "opacity(1)" },
+                { translate: `${Math.round(dx)}px ${Math.round(dy)}px`, scale: String(sc), filter: "opacity(0)" }], opts)
+      .finished.catch(() => {}).then(fire);
+    setTimeout(fire, opts.duration + 150);
   }
   function missionGlide() {                           // the windows glide to their new places (not jump)
     const b = browserEl();
@@ -4171,6 +4200,13 @@ window.vosBeat = window.vosBeat || (() => {
     };
     look();
   }
+  try {
+    Object.defineProperty(window, "__vosQA", { configurable: true, value: {
+      curWs, toDesk, newDesk, switchWs, swipeTo, openWsStrip, closeWsStrip, desksNow, wsOfTab, wsPending, floating, minimized,
+      pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
+      get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
+    } });
+  } catch (e) {}
   async function wsByTab(sp) {
     const tabs = await tabsQuery({ currentWindow: true });
     const t = (tabs || []).filter(x => { const k = String(x.id); return wsOfTab.has(k) && String(wsOfTab.get(k)) === String(sp.id); })
@@ -4616,7 +4652,8 @@ window.vosBeat = window.vosBeat || (() => {
   function queueRender() {
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => { queued = false; render(); });
+    const go = () => { if (!queued) return; queued = false; render(); };
+    requestAnimationFrame(go); setTimeout(go, 120);                    // also when Vivaldi draws no frames (out of sight)
   }
 
   // windows keep relative places when the desktop resizes (sidebar, window size)
