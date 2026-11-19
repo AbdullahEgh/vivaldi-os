@@ -1942,6 +1942,7 @@
     host?.appendChild(preview);
     let key = "", split = false, holdTimer = 0, proposal = null, frame = 0, last = null;
     let top = false, topTimer = 0, topShown = false;                 // held at the top edge: full screen
+    let leavingB = false;                                            // past the edge of this Vivaldi window
     const shake = shaker();
     const show = (r, conflict) => {
       if (!r) { preview.removeAttribute("data-show"); return; }
@@ -1986,6 +1987,9 @@
     const onMove = ev => {
       if (ev.pointerId !== pid) return;
       last = { cx: ev.clientX, cy: ev.clientY, x: ev.clientX - ss.left, y: ev.clientY - ss.top };
+      const out = isOutside(ev);                                     // past the edge of this Vivaldi window
+      if (out !== leavingB) { leavingB = out; leaveHint(el, out); if (out) show(null); }
+      if (out) return;
       if (shake(ev.clientX, ev.timeStamp)) return shakeOff(ev);
       if (!frame) frame = requestAnimationFrame(update);
     };
@@ -2004,7 +2008,10 @@
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer);
-      const full = topShown && ev.type === "pointerup";
+      const away = leavingB && ev.type === "pointerup";             // let go outside: to another Vivaldi window
+      if (leavingB) leaveHint(el, false);
+      if (away) proposal = null;
+      const full = topShown && ev.type === "pointerup" && !away;
       if (topShown) snapPreview(null, null, full);
       if (full) proposal = null;
       shield.remove(); preview.remove();
@@ -2020,6 +2027,7 @@
       });
       // full screen; leaving it (green button, or dragging its top edge down) brings it back into Bento
       if (full) act("zoom", pageOf(id));
+      if (away) toOtherWindow(id, ev.screenX, ev.screenY);
     };
     const onKey = ev => { if (ev.key === "Escape") { ev.preventDefault(); proposal = null; onUp({ pointerId: pid, type: "pointercancel" }); } };
     addEventListener("pointermove", onMove, true);
@@ -2188,7 +2196,7 @@
     /* SNAP (like macOS / Windows): moving a window, hold the pointer at the top edge
        (full screen) or at the left / right edge (Bento, that half): a preview shows
        where it goes, and letting go puts it there. Leave the edge: no snap. */
-    let zone = null, shown = null, zoneTimer = 0;
+    let zone = null, shown = null, zoneTimer = 0, leaving = false;
     const shake = shaker();
     const snapCheck = (x, y) => {
       if (how !== "move") return;
@@ -2203,6 +2211,9 @@
     const onMove = ev => {
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
+      const out = how === "move" && isOutside(ev);                  // past the edge of this Vivaldi window
+      if (out !== leaving) { leaving = out; leaveHint(el, out); }
+      if (out) return;
       snapCheck(px, py);
       if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
       if (frame) return;                                            // at most one update per frame
@@ -2254,6 +2265,10 @@
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
       clearTimeout(zoneTimer);
+      if (leaving) {                                                // let go outside: to another Vivaldi window
+        leaveHint(el, false);
+        if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY); }
+      }
       const snap = ev.type === "pointerup" ? shown : null;
       if (shown) snapPreview(null, null, !!snap);
       persist(id);
@@ -2267,6 +2282,62 @@
     addEventListener("pointermove", onMove, true);
     addEventListener("pointerup", onUp, true);
     addEventListener("pointercancel", onUp, true);
+  }
+
+  /* TO ANOTHER VIVALDI WINDOW: drag a floating window past the edge of this one and let
+     go over another Vivaldi window - its tab(s) move there and it floats where you let go;
+     let go over the empty desktop - a new Vivaldi window opens there with it */
+  const DROP_KEY = "vosWindowDrop";
+  const isOutside = ev => ev.clientX < 0 || ev.clientY < 0 || ev.clientX > innerWidth || ev.clientY > innerHeight;
+  function leaveHint(el, on) {
+    el.toggleAttribute("data-ft-leaving", on);
+    let h = document.getElementById("vos-leave-hint");
+    if (on && !h) {
+      h = document.createElement("div"); h.id = "vos-leave-hint";
+      h.textContent = "Release to move it to another window";
+      (browserEl() || document.body).appendChild(h);
+      h.animate([{ opacity: 0, transform: "translate(-50%, 8px)" }, { opacity: 1, transform: "translate(-50%, 0)" }], { duration: 180, easing: "ease-out" });
+    } else if (!on && h) h.remove();
+  }
+  async function toOtherWindow(id, sx, sy) {
+    const page = pageOf(id);
+    const ids = (groupFloat.has(id) && page ? membersOf(page) : [id]).map(tabIdOf).filter(Boolean);
+    if (!ids.length) return;
+    const me = await new Promise(r => chrome.windows.getCurrent(w => r(w)));
+    const all = await new Promise(r => chrome.windows.getAll({ windowTypes: ["normal"] }, w => r(w || [])));
+    const target = all.find(w => w.id !== me?.id && w.state !== "minimized" && !w.incognito === !me?.incognito &&
+      sx >= w.left && sx <= w.left + w.width && sy >= w.top && sy <= w.top + w.height);
+    const r = pxRect(id), w0 = Math.round(r.w), h0 = Math.round(r.h);
+    vstore.set(DROP_KEY, { ids: ids.map(String), sx, sy, w: w0, h: h0, t: Date.now() });   // the other window places it there
+    if (target) {
+      chrome.tabs.move(ids, { windowId: target.id, index: -1 }, () => {
+        void chrome.runtime.lastError;
+        chrome.tabs.update(ids[0], { active: true }, () => void chrome.runtime.lastError);
+        chrome.windows.update(target.id, { focused: true }, () => void chrome.runtime.lastError);
+      });
+    } else {                                                        // the empty desktop: a new Vivaldi window there
+      const W = Math.max(w0 + 80, 900), H = Math.max(h0 + 120, 640);
+      chrome.windows.create({ tabId: ids[0], left: Math.round(sx - W / 2), top: Math.max(0, Math.round(sy - 40)), width: W, height: H, focused: true }, win => {
+        void chrome.runtime.lastError;
+        if (win && ids.length > 1) chrome.tabs.move(ids.slice(1), { windowId: win.id, index: -1 }, () => void chrome.runtime.lastError);
+      });
+    }
+  }
+  /* a tab arriving from another Vivaldi window: it floats where it was let go */
+  function arrived(tabId, info) {
+    chrome.windows.getCurrent(me => {
+      if (!me || info.newWindowId !== me.id) return;
+      const id = String(tabId);
+      floatOnLoad.add(id); floatOnLoadAt.set(id, Date.now()); siteReady.add(id);
+      vstore.get(DROP_KEY).then(d => {
+        if (d && Date.now() - d.t < 8000 && d.ids?.includes(id)) {
+          const ss = stackRect();
+          const lx = d.sx - window.screenX - ss.left, ly = d.sy - window.screenY - (window.outerHeight - window.innerHeight) - ss.top;
+          setPx(id, clampRect({ x: lx - d.w / 2, y: Math.max(0, ly - 14), w: d.w, h: d.h }, ss), ss);
+        }
+        floatNow(id, pageOf(id) || null); raise(id); render();
+      });
+    });
   }
 
   /* SHAKE: a window shaken left-right while you drag it (4 quick turns) */
@@ -2481,8 +2552,6 @@
       label.className = "vos-ws-label";
       const nm = document.createElement("span"); nm.className = "vos-ws-name"; nm.textContent = sp.name; label.appendChild(nm);
       if (sp.id != null) editableName(nm, sp);                      // click the name to rename it (Default is Vivaldi's own)
-      const n = (tabs || []).filter(t => same(wsOfTab.has(String(t.id)) ? wsOfTab.get(String(t.id)) : null, sp.id)).length;
-      const cnt = document.createElement("span"); cnt.className = "vos-ws-count"; cnt.textContent = n ? String(n) : ""; label.appendChild(cnt);
       card.appendChild(label);
       card.addEventListener("click", ev => {
         if (ev.target.closest(".vos-ws-name[contenteditable=true]")) return;   // editing the name
@@ -3201,6 +3270,7 @@
     document.addEventListener("visibilitychange", () => { if (!document.hidden) { readTiling(); queueRender(); } });
     chrome.tabs.onRemoved.addListener(gone);
     chrome.tabs.onDetached.addListener(gone);                       // moved to another window
+    chrome.tabs.onAttached.addListener(arrived);                    // came from another window: it floats
     chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
       const id = String(tabId);
       if (floatOnLoad.has(id) && /^https?:/.test(info.url || tab?.url || "")) { siteReady.add(id); render(); }
