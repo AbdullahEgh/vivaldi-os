@@ -1245,10 +1245,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* DESKTOP SWIPE: choosing a desktop slides it (floating-tile.js swipeTo) - the translate property only, so it adds to
    any scale already on a window (Mission Control) and never fights it */
 #browser:is([data-vos-swipe], [data-vos-mission-anim]) :is(#webpage-stack [data-ft-float], .ft-frame) { will-change: transform, translate; }   /* never the desktop layer: its wallpaper is fixed to the screen */
-#browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) forwards !important; }
-#browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) forwards !important; }
-#browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-right 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) both !important; }
-#browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-left 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) both !important; }
+#browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) forwards !important; }
+#browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) forwards !important; }
+#browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
+#browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
 @keyframes vos-swipe-out-left { to { translate: -100vw 0; } }
 @keyframes vos-swipe-in-right { from { translate: 100vw 0; } }
 @keyframes vos-swipe-out-right { to { translate: 100vw 0; } }
@@ -1290,13 +1290,24 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .ft-frame > .ft-grab, #browser .ft-max-grab, #browser .vos-ws-card, #browser .bento-divider, #browser .bento-grip { touch-action: none !important; }
 
 /* DESKTOP DOTS under the Mission Control (Workspaces) button: the desktops of this window, the shown one bright */
-#browser .vos-ws-dots { position: fixed !important; z-index: 2147482500 !important; translate: -50% 0 !important; pointer-events: none !important;
-  display: flex !important; flex-direction: column !important; align-items: center !important; gap: 4px !important;
-  padding: 6px 10px 5px !important; border-radius: 12px !important; background: rgba(30, 30, 34, 0.72) !important; color: #fff !important;
+#browser .vos-ws-dots { position: fixed !important; z-index: 2147482500 !important; translate: 0 -50% !important; pointer-events: none !important;
+  display: flex !important; align-items: center !important; box-sizing: border-box !important; height: 28px !important; padding: 0 12px !important;
+  border-radius: 14px !important; background: rgba(30, 30, 34, 0.72) !important; color: #fff !important;
   backdrop-filter: blur(20px) saturate(1.6) !important; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25) !important;
-  font: 500 11px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; white-space: nowrap !important;
   transition: opacity 0.18s ease, translate 0.18s ease !important; opacity: 1 !important; }
-#browser .vos-ws-dots[data-out] { opacity: 0 !important; translate: -50% -4px !important; }
-#browser .vos-ws-dots-row { display: flex !important; gap: 5px !important; }
-#browser .vos-ws-dots-row > i { width: 6px !important; height: 6px !important; border-radius: 50% !important; background: rgba(255, 255, 255, 0.35) !important; transition: background 0.2s ease, scale 0.2s ease !important; }
-#browser .vos-ws-dots-row > i[data-on] { background: #fff !important; scale: 1.2 !important; }
+#browser .vos-ws-dots[data-out] { opacity: 0 !important; translate: -4px -50% !important; }
+#browser .vos-ws-dots-row { position: relative !important; display: flex !important; gap: 6px !important; }
+#browser .vos-ws-dots-row > i { width: 6px !important; height: 6px !important; border-radius: 50% !important; background: currentColor !important; opacity: 0.3 !important; }
+#browser .vos-ws-dots-cur { position: absolute !important; left: 0 !important; top: 0 !important; width: 6px !important; height: 6px !important; border-radius: 50% !important;
+  background: currentColor !important; translate: calc(var(--i, 0) * 12px) 0 !important; transition: translate 0.28s cubic-bezier(0.25, 0.8, 0.3, 1) !important; }
+#browser .vos-ws-dots[data-live] .vos-ws-dots-cur { transition: none !important; }
+
+/* ---------- a window held to full view (green button held): over the tab bar and Vivaldi's own buttons ---------- */
+#browser[data-ft-cover] #webpage-stack { contain: size style !important; }   /* the page area stops clipping its windows */
+#browser #main #webpage-stack [data-ft-float][data-ft-cover],
+#browser #main #webpage-stack [data-ft-cover] .webpageview,
+#browser #main #webpage-stack .webpageview[data-ft-cover] { border-radius: 0 !important; clip-path: none !important; box-shadow: none !important; border: 0 !important; }
+#browser .ft-frame[data-ft-hide] { display: none !important; }   /* full view / the corner stack: not resized there */
+/* a green or yellow button being held swells a little, then acts */
+#browser .ft-titlebar .ft-light[data-ft-holding] { animation: ft-hold 0.45s ease-out forwards !important; }
+@keyframes ft-hold { to { scale: 1.35; filter: brightness(1.15); } }
