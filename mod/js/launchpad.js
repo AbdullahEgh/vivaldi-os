@@ -141,6 +141,7 @@
     root = await load();
     await seedOnce();
     lp?.picker?.draw?.();                            // the folder manager stays in step
+    if (parked) parked.stale = true;                 // the hidden desktop Launchpad: drawn again when it comes back
     if (!lp || drag) return;
     render();
     if (lp.card) {                                  // keep an open folder in step
@@ -247,7 +248,8 @@
     return a;
   }
   function render() {
-    if (!lp) { if (parked) parked.stale = true; return; }            // kept aside: drawn again when it comes back
+    if (parked) parked.stale = true;                                 // the hidden desktop one follows any change too
+    if (!lp) return;
     const raw = lp.search.value.trim(), q = raw.toLowerCase();
     lp.grid.textContent = "";
     lp.grid.dataset.parent = root?.id || "";

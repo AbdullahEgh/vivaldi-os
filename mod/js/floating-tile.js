@@ -1576,7 +1576,7 @@ window.vosBeat = window.vosBeat || (() => {
       const els = pip.map(p => targetOf(pageOf(p)));
       flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
         clear();
-        if (!pipW.has(to)) pipW.set(to, pipW.get(c) || w0);
+        if (!pip.some(p => p !== id && (pipCorner.get(p) || "bl") === to)) pipW.set(to, pipW.get(c) || w0);   // an empty corner takes its width
         pipCorner.set(id, to);
         pip.splice(pip.indexOf(id), 1); pip.push(id);
         render();
@@ -1610,7 +1610,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (!pipOff(win)) {
           if (cover === win) cover = null;
           const c = "bl";
-          if (!pipW.has(c)) pipW.set(c, Math.max(180, r.width * PIP_K));   // a corner already in use keeps its width
+          if (!pip.some(p => (pipCorner.get(p) || "bl") === c)) pipW.set(c, Math.max(180, r.width * PIP_K));   // a corner in use keeps its width
           pipH.set(win, Math.max(120, r.height * PIP_K));
           pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
         }
@@ -3773,6 +3773,7 @@ window.vosBeat = window.vosBeat || (() => {
     clearTimeout(dotsTimer);
     if (deskInfo && sameWs(deskInfo.ws, curWs())) { dotsDraw(deskInfo, btn); dotsEl.removeAttribute("data-out"); }   // at once from what is known
     const info = await desksNow(true);
+    if ((swiping || sw) && dotsRow()) { dotsEl.removeAttribute("data-out"); return; }   // a switch under way: its dot is already lit
     dotsDraw(info, btn);
     dotsEl.removeAttribute("data-out");
     if (!sw && !btn.matches(":hover")) deskDots(false);
