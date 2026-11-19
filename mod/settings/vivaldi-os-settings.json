@@ -1034,6 +1034,7 @@
     ],
     "vivaldi.toolbars.tabbar_before": [
       "WorkspaceButton",
+      "COMMAND_vosbento",
       "FlexibleSpacer",
       "Back",
       "AddressField"

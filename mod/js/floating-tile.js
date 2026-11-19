@@ -2236,14 +2236,40 @@ window.vosBeat = window.vosBeat || (() => {
      after the Workspaces button) is Vivaldi's own toolbar button - so View > Customize
      Toolbar moves it, removes it, adds it back. The mod gives it the Bento drawing and click. */
   const BENTO_CHAIN = "COMMAND_vosbento";
+  /* Vivaldi's own settings module (it keeps its copy of every setting in step - a plain
+     prefs.set is overwritten by that copy) */
+  let prefsApi = null;
+  function vivPrefs() {
+    if (prefsApi) return prefsApi;
+    try {
+      let host = null;
+      try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
+      const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
+      if (!ch?.push) return null;
+      let req = null;
+      ch.push([["vos-pref-" + Date.now()], {}, r => { req = r; }]);
+      const isP = v => v && typeof v.set === "function" && typeof v.get === "function" && typeof v.toggle === "function";
+      for (const id of Object.keys(req?.m || {})) {
+        let src = "";
+        try { src = Function.prototype.toString.call(req.m[id]); } catch (e) { continue; }
+        if (!src.includes("_presetCache(") || !src.includes("prefs.set(")) continue;
+        let ex; try { ex = req(id); } catch (e) { continue; }
+        if (isP(ex)) return (prefsApi = ex);
+        for (const k of Object.keys(ex || {})) { let v; try { v = ex[k]; } catch (e) { continue; } if (isP(v)) return (prefsApi = v); }
+      }
+    } catch (e) { LOG("prefs: Vivaldi's settings not found", e); }
+    return null;
+  }
   const prefSet = (path, value) => new Promise(res => {
-    try { const r = vivaldi.prefs.set({ path, value }, () => { void chrome.runtime.lastError; res(true); }); if (r?.then) r.then(() => res(true), () => res(false)); }
-    catch (e) { res(false); }
+    const api = vivPrefs();
+    if (api) { try { res(api.set(path, value) !== false); return; } catch (e) { LOG("prefs set", e); } }
+    res(false);                                     // never a plain set: Vivaldi would undo it
   });
   let chainReady = false;
   setTimeout(async function bentoChainSetup() {      // after start (every helper ready)
     try {
-      if (await vstore.get("vosBentoChain1")) { chainReady = true; return; }
+      if (await vstore.get("vosBentoChain2")) { chainReady = true; return; }
+      if (!vivPrefs()) return;                        // Vivaldi's settings not reachable: the mod's own button stays
       const list = (await prefGet("vivaldi.chained_commands.command_list")) || [];
       if (!Array.isArray(list)) return;
       if (!list.some(c => c?.name === BENTO_CHAIN))
@@ -2256,7 +2282,7 @@ window.vosBeat = window.vosBeat || (() => {
         tb.splice(at >= 0 ? at + 1 : 0, 0, BENTO_CHAIN);
         await prefSet("vivaldi.toolbars.tabbar_before", tb);
       }
-      vstore.set("vosBentoChain1", true);
+      vstore.set("vosBentoChain2", true);
       chainReady = true;
     } catch (e) { LOG("bento chain", e); }
   }, 4000);
