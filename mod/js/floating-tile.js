@@ -2310,7 +2310,7 @@
     e.preventDefault(); e.stopPropagation();
     const pid = e.pointerId, x0 = e.clientX, y0 = e.clientY;
     const move = ev => {
-      if (ev.pointerId !== pid || Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return;
+      if (ev.pointerId !== pid || Math.hypot(ev.clientX - x0, ev.clientY - y0) < 3) return;   // floats right away
       end();
       const ss = stackRect(), old = frac[id] ? pxRect(id, ss) : null;
       const w = Math.min(old?.w || Math.round(ss.width * 0.62), ss.width - 2 * MARGIN);

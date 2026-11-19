@@ -1095,9 +1095,9 @@
   display: block !important;
   position: absolute !important;
   top: 0 !important;
-  left: 30% !important;
-  right: 30% !important;
-  height: 7px !important;
+  left: 15% !important;
+  right: 15% !important;
+  height: 12px !important;
   z-index: 90 !important;
   cursor: grab !important;
 }
@@ -1111,7 +1111,7 @@
   translate: -50% 0 !important;
   border-radius: 2px !important;
   background: rgba(127, 127, 127, 0.55) !important;
-  opacity: 0 !important;
-  transition: opacity 0.15s ease !important;
+  opacity: 0.35 !important;                               /* always faintly there: it can be found */
+  transition: opacity 0.15s ease, width 0.15s ease !important;
 }
-#browser #webpage-stack > .ft-max-grab:hover::after { opacity: 1 !important; }
+#browser #webpage-stack > .ft-max-grab:hover::after { opacity: 1 !important; width: 64px !important; }

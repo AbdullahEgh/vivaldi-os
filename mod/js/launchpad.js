@@ -2060,6 +2060,7 @@
       if (!r.ok) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); return; }
       const tag = String((await r.json()).tag_name || "").replace(/^v/, "");
       if (tag && newer(tag, window.vosVersion)) {
+        updTag(tag);                                                  // the tag at the left of the tab bar stays
         if (!manual && (await vstore.get(UPD_KEY)) === tag) return;   // "Later" for this version
         updateNotice(tag);
       } else if (manual) updateNotice(null, "Vivaldi OS is up to date", "Version " + window.vosVersion);
@@ -2101,6 +2102,24 @@
               { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" });
     updEl = n;
   }
+  /* "New Update": a tag at the left end of the tab bar while a newer release exists */
+  let tagFor = null, tagEl = null;
+  function updTag(tag) {
+    tagFor = tag;
+    const bar = document.querySelector("#browser #tabs-container > .toolbar-tabbar-before") ||
+                document.querySelector("#browser .toolbar-tabbar-before");
+    if (!bar) return;
+    if (!tagEl) {
+      tagEl = document.createElement("button");
+      tagEl.type = "button"; tagEl.className = "vos-upd-tag";
+      tagEl.addEventListener("pointerdown", ev => ev.stopPropagation());
+      tagEl.addEventListener("click", ev => { ev.stopPropagation(); updateNotice(tagFor); });
+    }
+    tagEl.textContent = "New Update";
+    tagEl.title = `Vivaldi OS ${tag} is available (you have ${window.vosVersion})`;
+    if (bar.firstChild !== tagEl) bar.insertBefore(tagEl, bar.firstChild);
+  }
+  setInterval(() => { if (tagFor && !tagEl?.isConnected) updTag(tagFor); }, 2000);   // a re-drawn tab bar gets it back
   setTimeout(() => checkUpdate(false), 20000);
   setInterval(() => checkUpdate(false), 12 * 3600 * 1000);
 

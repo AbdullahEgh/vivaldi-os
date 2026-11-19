@@ -121,7 +121,7 @@
   let watched = null;
   const ro = new ResizeObserver(queue);
   // tabs added / removed, toolbar items changed (not our own style changes)
-  const insideTab = n => !!n && n.nodeType === 1 && !n.classList.contains("tab-position") && !!n.closest(".tab-position, .vos-tm-mini");   // also the timer's ticking text
+  const insideTab = n => !!n && n.nodeType === 1 && !n.classList.contains("tab-position") && !!n.closest(".tab-position, .vos-tm-mini, .vos-upd-tag");   // also the timer's ticking text
   const mo = new MutationObserver(recs => {
     for (const r of recs) if (!insideTab(r.target)) return queue();
   });
