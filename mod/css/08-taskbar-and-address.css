@@ -1,0 +1,401 @@
+/* ==========================================================================
+   Vivaldi OS — address field and side tab bar
+   ========================================================================== */
+
+/* 1. A short address field in a top/bottom tab bar (always the same size) */
+#browser:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container :is(.toolbar-tabbar-before, .toolbar-tabbar-after) .UrlBar-AddressField,
+#browser:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container :is(.toolbar-tabbar-before, .toolbar-tabbar-after) .UrlBar-AddressField:focus-within {
+  min-width: 140px !important;
+  max-width: 140px !important;
+  width: 140px !important;
+  flex: 0 0 140px !important;
+  margin-right: 8px !important;             /* a little space before the next button */
+}
+
+/* the site's name ("Claude") instead of the address; the full address only
+   while editing (the name is set by floating-tile.js) */
+#browser .UrlBar-AddressField .UrlField[data-ft-site] {
+  position: relative !important;
+}
+#browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site]:not(.UrlField--HasEditText) .UrlFragment-Wrapper {
+  opacity: 0 !important;
+}
+#browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site]:not(.UrlField--HasEditText)::after {
+  content: attr(data-ft-site) !important;
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;   /* the name starts at the left */
+  text-align: left !important;
+  padding: 0 4px !important;
+  font-weight: 600 !important;
+  color: inherit !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  pointer-events: none !important;
+}
+
+/* 2. Side tab bar (left or right): the same bar as at the bottom, standing up.
+      Same buttons, same 30px round tabs, same gaps — one centered column.
+      Only the address field is turned on its side. */
+#browser:is(.tabs-left, .tabs-right) .tabbar-wrapper {
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  flex: 0 0 44px !important;
+}
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container {
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;       /* centered on the side, like the bottom bar */
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 0 !important;
+  overflow: visible !important;
+}
+/* no resize handle, no scrollbars */
+#browser:is(.tabs-left, .tabs-right) .tabbar-wrapper :is(.resize-handle, .tabbar-resize) {
+  display: none !important;
+}
+#browser:is(.tabs-left, .tabs-right) .tabbar-wrapper,
+#browser:is(.tabs-left, .tabs-right) .tabbar-wrapper * {
+  scrollbar-width: none !important;
+}
+#browser:is(.tabs-left, .tabs-right) .tabbar-wrapper ::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+}
+/* the tabs: a column only as tall as it needs */
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container #tabs-container,
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container #tabs-container > .resize {
+  flex: 0 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  width: 44px !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container .tab-strip {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  align-self: center !important;
+  justify-content: flex-start !important;
+  width: 44px !important;
+  max-width: 44px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  gap: 6px !important;                      /* the same gap as the bottom bar */
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  transform: none !important;
+  left: auto !important;
+  top: auto !important;
+}
+/* each tab: exactly like the bottom bar (30px, see 04-tab-visuals) */
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container .tab-position {
+  position: relative !important;
+  transform: none !important;
+  top: auto !important;
+  left: auto !important;
+  flex: 0 0 30px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+}
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container .tab-strip .newtab {
+  flex: 0 0 30px !important;
+  height: 30px !important;
+}
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container :is(.svg-tab-stack, .svg-tab-selection) {
+  display: none !important;
+}
+
+/* buttons before / after the tabs: a centered column */
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container :is(.toolbar-tabbar-before, .toolbar-tabbar-after) {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 44px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 6px !important;
+  overflow: visible !important;
+}
+
+/* the address field, turned on its side (reads bottom to top).
+   Laid out 140 x 30, rotated, and the margins give it a 30 x 140 slot. */
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container .UrlBar-AddressField {
+  flex: 0 0 auto !important;
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  margin: 55px -55px !important;
+  transform: rotate(-90deg) !important;
+  transform-origin: 50% 50% !important;
+}
+/* while typing: upright and wide, floating next to the bar */
+#browser:is(.tabs-left, .tabs-right) #tabs-tabbar-container .UrlBar-AddressField:focus-within {
+  transform: none !important;
+  position: relative !important;
+  z-index: 1000 !important;
+  width: 440px !important;
+  min-width: 440px !important;
+  max-width: 440px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3) !important;
+}
+#browser.tabs-left #tabs-tabbar-container .UrlBar-AddressField:focus-within {
+  margin: 55px -396px 55px 0 !important;    /* grows to the right, over the page */
+}
+#browser.tabs-right #tabs-tabbar-container .UrlBar-AddressField:focus-within {
+  margin: 55px 0 55px -396px !important;    /* grows to the left, over the page */
+}
+
+/* 3. Hovering a window makes it scroll right away (floating-tile.js makes its
+      tab active), but the tab bar keeps showing the window you clicked:
+      data-ft-hovering is set while the active tab is only hovered,
+      data-ft-sel marks the clicked tab. */
+#browser[data-ft-hovering] #tabs-container .tab-position:not([data-ft-sel]) .tab.active {
+  background-color: var(--colorBg) !important;
+  color: var(--colorFg) !important;
+}
+#browser.color-behind-tabs-off[data-ft-hovering] #tabs-container .tab-position[data-ft-sel] .tab:not(.active) {
+  background-color: var(--colorAccentBg) !important;
+  color: var(--colorAccentFg) !important;
+}
+
+/* 4. Top / bottom tab bar: [ left area ] — gap — [ centered dock ] — gap — [ right area ]
+      Set the areas in Vivaldi's toolbar editor with a "Flexible Space":
+        toolbar before the tabs:  Home | Flexible Space | Back, Address
+        toolbar after the tabs:   New Tab | Flexible Space | Panel toggle
+      Items before the first space = left area (far left); items after the
+      space in the after-toolbar = right area (far right); everything between
+      (back, address, tabs, +) is the dock, which js/tabbar-dock.js keeps
+      exactly centered in the window, whatever the tab count or side items. */
+#browser:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container {
+  padding-left: 8px !important;              /* only the sides: the bar keeps its height */
+  padding-right: 8px !important;
+}
+#browser:is(.tabs-top, .tabs-bottom) #tabs-container:is(.top, .bottom) {
+  position: relative !important;
+  left: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+}
+#browser:is(.tabs-top, .tabs-bottom) #tabs-container > .toolbar-tabbar-before {
+  flex: 0 0 auto !important;
+  justify-content: flex-start !important;
+}
+#browser:is(.tabs-top, .tabs-bottom) #tabs-container > .resize {
+  position: relative !important;
+  left: auto !important;
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  margin: 0 !important;
+}
+#browser:is(.tabs-top, .tabs-bottom) #tabs-container > .toolbar-tabbar-after {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  justify-content: flex-start !important;
+}
+/* the space in the after-toolbar pushes the right area to the far right;
+   the one in the before-toolbar takes no room (the centering makes the gap) */
+#browser:is(.tabs-top, .tabs-bottom) #tabs-container > .toolbar-tabbar-after > .toolbar-spacer-flexible {
+  flex: 1 1 auto !important;
+}
+#browser:is(.tabs-top, .tabs-bottom) #tabs-container > .toolbar-tabbar-before > .toolbar-spacer-flexible {
+  flex: 0 0 0 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 5. On the desktop (Start Page) the field shows no address, only a
+      "Search" placeholder (floating-tile.js leaves data-ft-site empty there) */
+#browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site=""]:not(.UrlField--HasEditText)::after {
+  content: "Search" !important;
+  font-weight: 400 !important;
+  opacity: 0.6 !important;
+}
+/* Vivaldi's own "Search or enter an address" hint stays hidden until you click in */
+#browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site=""] input::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+#browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site=""] :is(.UrlFragment-Wrapper, .UrlField-Placeholder, [class*="placeholder"], [class*="Placeholder"]) {
+  opacity: 0 !important;
+}
+
+/* 6. A small dim pill: the same darker tab-bar color in every state (no
+      white box while typing), and only the site icon stays inside it (the
+      icons on its right - bookmark, install app... - are hidden so nothing
+      sticks out of the short field) */
+#browser #tabs-tabbar-container .UrlBar-AddressField,
+#browser #tabs-tabbar-container .UrlBar-AddressField:focus-within,
+#browser #tabs-tabbar-container .UrlBar-AddressField:hover {
+  background: var(--colorAccentBgDark) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  overflow: hidden !important;
+}
+#browser #tabs-tabbar-container .UrlBar-AddressField .UrlBar-UrlFieldWrapper ~ :is(.toolbar, .toolbar-insideinput, .add-bookmark, .button-toolbar),
+#browser #tabs-tabbar-container .UrlBar-AddressField .add-bookmark {
+  display: none !important;
+}
+#browser #tabs-tabbar-container .UrlBar-AddressField .UrlBar-UrlFieldWrapper {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+#browser.color-behind-tabs-on:not(.transparent-tabbar) #tabs-tabbar-container .UrlBar-AddressField,
+#browser.color-behind-tabs-on:not(.transparent-tabbar) #tabs-tabbar-container .UrlBar-AddressField:focus-within {
+  color: var(--colorAccentFg) !important;
+  fill: var(--colorAccentFg) !important;
+}
+#browser.color-behind-tabs-on:not(.transparent-tabbar) #tabs-tabbar-container .UrlBar-AddressField input {
+  color: var(--colorAccentFg) !important;
+  caret-color: var(--colorAccentFg) !important;
+}
+#browser.color-behind-tabs-on:not(.transparent-tabbar) #tabs-tabbar-container .UrlBar-AddressField input::placeholder {
+  color: var(--colorAccentFg) !important;
+  opacity: 0.6;
+}
+
+/* 7. The site icon at the left of the field only shows when it has something
+      to say (a "not secure" or broken connection warning); for normal pages
+      and the desktop's search glyph it is hidden. */
+#browser #tabs-tabbar-container .UrlBar-AddressField .SiteInfoButton:not(.warning):not(.insecure) {
+  display: none !important;
+}
+
+/* 8. The site's name, and "Search" on the desktop, sit in the middle of the field */
+#browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site]:not(.UrlField--HasEditText)::after {
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 8px !important;
+}
+
+/* 9. Room for the window buttons, so the left and right areas never sit
+      under them (02-window-chrome hides Vivaldi's own buttons and their space).
+   Mac: with the tabs at the top and no title bar, macOS draws the traffic
+        lights over the left end of the tab bar (not in full screen) */
+#browser.mac.tabs-top:not(.fullscreen):not(.native) #tabs-tabbar-container {
+  padding-left: calc(84px / var(--uiZoomLevel, 1)) !important;
+}
+/* Windows: bring back minimize / maximize / close (Vivaldi draws them itself) */
+#browser.win:not(.native) .window-buttongroup {
+  display: flex !important;
+  visibility: visible !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+  flex: 0 0 auto !important;
+  top: 0 !important;
+}
+#browser.win:not(.native) .window-buttongroup button,
+#browser.win:not(.native) .window-buttongroup button * {
+  visibility: visible !important;
+  pointer-events: auto !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+#browser.win:not(.native) .window-buttongroup button {
+  width: 45px !important;
+  min-width: 45px !important;
+  height: 30px !important;
+}
+#browser.win:not(.native) .window-buttongroup button * {
+  width: auto !important;
+  min-width: 0 !important;
+}
+/*   tabs at the top: the buttons sit where Windows puts them - the window's
+     top-right corner, as tall as the tab bar - and the bar keeps exactly their
+     width free on the right, so the right area (clock, panel button) always
+     ends before them. js/tabbar-dock.js measures both and sets
+     --vos-wbg-w (buttons' width) and --vos-bar-h (tab bar height). */
+#browser.win.tabs-top:not(.native) #tabs-tabbar-container:has(.window-buttongroup) {
+  position: relative !important;
+  padding-right: calc(var(--vos-wbg-w, 135px) + 8px) !important;
+}
+#browser.win.tabs-top:not(.native) #tabs-tabbar-container .window-buttongroup {
+  position: fixed !important;
+  right: 0 !important;
+  top: 0 !important;
+  left: auto !important;
+  height: var(--vos-bar-h, 30px) !important;
+  margin: 0 !important;
+  align-items: stretch !important;
+  z-index: 10 !important;
+  -webkit-app-region: no-drag !important;
+}
+#browser.win.tabs-top:not(.native) #tabs-tabbar-container .window-buttongroup button {
+  height: 100% !important;
+  -webkit-app-region: no-drag !important;
+}
+
+/*   tabs elsewhere, address bar shown: Vivaldi puts the buttons at the right
+     end of the address bar; keep their width free there too (02-window-chrome
+     takes away the room Vivaldi normally keeps for them) */
+#browser.win:not(.native) .toolbar-mainbar:has(> .window-buttongroup) {
+  padding-right: var(--vos-wbg-w, 135px) !important;
+}
+
+/* 10. A tight tab bar (narrow window: the dock, the side areas and the window
+       buttons do not fit side by side - js/tabbar-dock.js sets data-vos-tight):
+       a shorter address field and no clock, instead of things overlapping */
+#browser[data-vos-tight]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container :is(.toolbar-tabbar-before, .toolbar-tabbar-after) .UrlBar-AddressField,
+#browser[data-vos-tight]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container :is(.toolbar-tabbar-before, .toolbar-tabbar-after) .UrlBar-AddressField:not(:focus-within) {
+  min-width: 80px !important;
+  max-width: 80px !important;
+  width: 80px !important;
+  flex: 0 0 80px !important;
+}
+#browser[data-vos-tight]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container .ClockButton {
+  display: none !important;
+}
+
+/* 11. Typing never changes the field's color: while you type, Vivaldi opens its
+       suggestions box over the field (black in a dark theme), and the pill's
+       clipping cut it down to a black pill. That box stays hidden in the tab
+       bar field, so the dim pill looks the same in every state. */
+#browser #tabs-tabbar-container .UrlBar-AddressField .OmniDropdown {
+  display: none !important;
+}
+
+/* 12. In the middle too while the field is open and still empty (Vivaldi's own
+       "Search Google or enter an address" hint); typed text starts at the left */
+#browser #tabs-tabbar-container .UrlBar-AddressField input:placeholder-shown {
+  text-align: center !important;
+}

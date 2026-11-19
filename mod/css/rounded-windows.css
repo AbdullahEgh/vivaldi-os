@@ -1,0 +1,219 @@
+
+
+
+
+/* === Outer frame: solid black, no gaps === */
+html, body, #app {
+  background: #000 !important;
+}
+
+#browser {
+  border-radius: 0px !important;
+  overflow: hidden !important;
+  margin: 0 !important; /* remove gray margin */
+  position: relative !important;
+}
+
+/* Centered black border overlay */
+#browser::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0px;
+  pointer-events: none;
+}
+
+/* Make inner UI transparent */
+#browser > #main, 
+#browser > #main * {
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* === Rounded full-screen web page === */
+#browser .webpageview {
+  border-radius: var(--radius) !important; /* match Vivaldi's rounded corners */
+  overflow: hidden !important;
+  background: transparent !important;
+  margin-top: 0px !important; /* keep side/bottom space */
+  margin-bottom: 0px !important;
+  margin-left: 0px !important;
+  margin-right: 0px !important;
+  clip-path: inset(0 round var(--radius)) !important;
+  border: 1px solid rgba(120,120,120,0.25) !important;
+}
+
+/* === Right Panel === 
+#browser #panels-container.right.icons {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  --colorBg: transparent !important;
+  --colorImageTopBgAlpha: transparent !important;
+  --colorImageCenterBgAlpha: transparent !important;
+  --colorImageBottomBgAlpha: transparent !important;
+width: 30px !important;
+}
+
+*/
+
+/* === Panels: transparency and structure === 
+#panels-container,
+#panels-container *,
+#ui-region-panel {
+  background: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+
+}
+
+*/
+
+/* Splitter: invisible but draggable */
+#panels-container .SlideBar,
+#panels-container [class*="split"],
+#panels-container [class*="resiz"] {
+  opacity: 0 !important;
+  pointer-events: auto !important;
+  width: 4px !important;
+  cursor: col-resize !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* Panel stack spacing — top = 0, others unchanged 
+#ui-region-panel .webpanel-stack {
+  padding-top: 18px !important;
+  padding-right: 0px !important;
+  padding-bottom: 18px !important;
+  padding-left: 0px !important;
+  box-sizing: border-box !important;
+}
+*/
+
+/* Panel content rounding 
+#ui-region-panel .webpanel-stack :is(webview, iframe, .panel-webview, .webpageview, .pagehost, .webview) {
+
+  margin-top: 10px !important;
+  margin-right: 0px !important;
+  margin-bottom: 10px !important;
+  margin-left: 0px !important;
+  
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  clip-path: inset(0 round 16px) !important;
+}
+
+*/
+
+/* Relax inline limits */
+#ui-region-panel {
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+/* === Tiled view cleanup === */
+#webpage-stack .tiled.visible,
+#webpage-stack .tile,
+#webpage-stack .webpageview.tiled {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#webpage-stack .tiled.visible {
+  margin-top: 2px !important;
+  margin-right: 2px !important;
+  margin-bottom: 2px !important;
+  margin-left: 2px !important;
+}
+
+/* Keep splitters functional but hidden */
+#webpage-stack .SlideBar,
+#webpage-stack .SlideBar.SlideBar--FullHeight {
+  opacity: 0 !important;
+  pointer-events: auto !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 1px !important;
+  cursor: col-resize !important;
+}
+
+/* Rounded and clean tiled pages */
+#webpage-stack .webpageview.tiled {
+  border-radius: var(--radius) !important; /* was 16px */
+  overflow: hidden !important;
+  background: transparent !important;
+  padding-top: 0 !important;
+  border: 1px solid rgba(120,120,120,0.25) !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* === Force 1px visible border for all webpages except Start Page === 
+#browser .webpageview:not(.startpage)::after,
+#ui-region-panel .webpanel-stack :is(webview, iframe, .panel-webview, .webpageview, .pagehost, .webview):not(.startpage)::after {
+  content: "";
+  position: absolute !important;
+  inset: 0;
+  border-radius: 16px;
+  pointer-events: none !important;
+  z-index: 999999 !important;
+  box-sizing: border-box !important;
+}
+*/
+
+/* --- Dark Mode --- */
+@media (prefers-color-scheme: dark) {
+  #browser .webpageview:not(.startpage)::after,
+  #ui-region-panel .webpanel-stack :is(webview, iframe, .panel-webview, .webpageview, .pagehost, .webview):not(.startpage)::after {
+    border: 1px solid rgba(150,150,150,0.30) !important;
+    border-radius: var(--radius) !important;
+  }
+}
+
+/* --- Light Mode --- */
+@media (prefers-color-scheme: light) {
+  #browser .webpageview:not(.startpage)::after,
+  #ui-region-panel .webpanel-stack :is(webview, iframe, .panel-webview, .webpageview, .pagehost, .webview):not(.startpage)::after {
+    border: 1px solid rgba(0,0,0,0.30) !important; /* soft gray for light mode */
+    border-radius: var(--radius) !important;
+  }
+}
+
+
+
+/* Remove border on Vivaldi Start Page */
+#browser .webpageview:has(.startpage)::after { content: none !important; }
+
+/* Also skip internal pages (including Start Page variants) */
+#browser .webpageview.internal::after { content: none !important; }
+
+
+
+
+
+#browser #panels-container.right.icons {
+
+    width: 35px !important;
+
+}
+

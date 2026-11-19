@@ -1,0 +1,237 @@
+/* Individual tab slots (favicon-only layout) */
+#tabs-container .tab-position {
+  flex: 0 0 30px !important;  /* was var(--tabW) */
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+  position: static !important;
+  --Width: 30px !important;
+  --Height: 30px !important;
+}
+
+#tabs-container .tab {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* New-tab button tab */
+.tab-strip .newtab {
+  flex: 0 0 30px !important;  /* was var(--tabW) */
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  position: static !important;
+  left: auto !important;
+}
+
+/* Center icon inside each tab cell */
+#tabs-container .tab-wrapper,
+#tabs-container .tab,
+#tabs-container .tab .tab-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+}
+
+/* Hide all tab text and default indicators */
+#tabs-container .tab .title,
+#tabs-container .tab .close,
+#tabs-container .tab .indicator,
+#tabs-container .tab .progress-indicator,
+#tabs-container .tab .thumbnail-image,
+#tabs-container .tab .audio,
+#tabs-container .tab .tab-header::before,
+#tabs-container .tab .tab-header::after {
+  display: none !important;
+}
+
+/* Favicon / site icon size */
+#tabs-container .tab .favicon,
+#tabs-container .tab .site-icon {
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+}
+
+/* Active vs inactive tab styling */
+.tab.active {
+  filter: opacity(1.0) !important;
+  transform: scale(1) !important;
+  width: 30px !important;
+  max-width: 30px !important;
+}
+
+.tab:not(.active) {
+  filter: none !important; /* was opacity(0.75): full opacity like the active tab */
+  transform: scale(1) !important;
+  width: 30px !important;
+  max-width: 30px !important;
+}
+
+/* Remove any halo/border around favicons */
+#tabs-container .tab .favicon,
+#tabs-container .tab .site-icon,
+#tabs-container .tab.active .favicon,
+#tabs-container .tab.active .site-icon,
+#tabs-container .tab .favicon *,
+#tabs-container .tab .site-icon *,
+#tabs-container .tab.active .favicon *,
+#tabs-container .tab.active .site-icon * {
+  border: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  outline: 0 !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  -webkit-mask-box-image: none !important;
+  mask-border: none !important;
+  -webkit-mask-composite: source-over !important;
+}
+
+#tabs-container .tab .site-icon svg,
+#tabs-container .tab .favicon svg,
+#tabs-container .tab.active .site-icon svg,
+#tabs-container .tab.active .favicon svg,
+#tabs-container .tab .site-icon svg *,
+#tabs-container .tab .favicon svg * {
+  stroke: none !important;
+  stroke-width: 0 !important;
+  stroke-opacity: 0 !important;
+  shape-rendering: auto !important;
+  vector-effect: none !important;
+  paint-order: fill !important;
+  filter: none !important;
+}
+
+#tabs-container .tab .favicon::before,
+#tabs-container .tab .favicon::after,
+#tabs-container .tab .site-icon::before,
+#tabs-container .tab .site-icon::after,
+#tabs-container .tab.active .favicon::before,
+#tabs-container .tab.active .favicon::after,
+#tabs-container .tab.active .site-icon::before,
+#tabs-container .tab.active .site-icon::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#tabs-container .tab .favicon img,
+#tabs-container .tab .site-icon img,
+#tabs-container .tab.active .favicon img,
+#tabs-container .tab.active .site-icon img {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* All tabs get the same solid background as the selected tab.
+   --colorBg is the theme background: white in light mode, dark grey in dark mode. */
+#browser #tabs-container .tab:not(.active),
+#browser #tabs-container .tab:not(.active):hover {
+  background-color: var(--colorBg) !important;
+  background-image: none !important;
+}
+
+/* New-tab (+) button: icon colour follows the tab bar background.
+   With the website colour on the tab bar, use its matching readable colour
+   (--colorAccentFg: light on dark sites, dark on light sites);
+   otherwise use the theme text colour. */
+#browser.color-behind-tabs-on .tab-strip .newtab,
+#browser.color-behind-tabs-on .tab-strip .newtab button {
+  color: var(--colorAccentFg) !important;
+  fill: var(--colorAccentFg) !important;
+}
+#browser.color-behind-tabs-off .tab-strip .newtab,
+#browser.color-behind-tabs-off .tab-strip .newtab button {
+  color: var(--colorFg) !important;
+  fill: var(--colorFg) !important;
+}
+#browser .tab-strip .newtab svg {
+  fill: currentColor !important;
+}
+
+/* Built-in page icons (Start Page / new tab, Settings, ...) are drawn in the
+   tab's text colour. On a dark tinted tab bar that colour is white, but every
+   tab sits on a theme-coloured circle (white in light mode), so the icon
+   vanished. Use the theme text colour, which always contrasts with the circle. */
+#browser #tabs-container .tab .favicon.svg,
+#browser #tabs-container .tab .favicon.svg span,
+#browser #tabs-container .tab .favicon.svg svg {
+  color: var(--colorFg) !important;
+  fill: var(--colorFg) !important;
+  opacity: 1 !important;
+}
+#browser #tabs-container .tab .favicon.svg svg * {
+  fill: currentColor !important;
+}
+
+/* Tabs of one split window share one long pill (floating-tile.js marks them
+   with data-ft-pill = first / mid / last): the pill is drawn behind them and
+   runs over the gaps between them; a solo app stays a circle. The selected
+   tab keeps its own highlight on top of the pill. */
+#browser #tabs-container .tab-position[data-ft-pill] {
+  position: relative !important;
+  isolation: isolate !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill]::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  height: 30px !important;
+  transform: translateY(-50%) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: -1 !important;
+  background: var(--colorBg) !important;
+  pointer-events: none !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill="first"]::before {
+  right: -6px !important;                     /* across the gap to the next tab */
+  border-radius: 15px 0 0 15px !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill="mid"]::before {
+  right: -6px !important;
+  border-radius: 0 !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill="last"]::before {
+  border-radius: 0 15px 15px 0 !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill] .tab:not(.active),
+#browser #tabs-container .tab-position[data-ft-pill] .tab:not(.active):hover {
+  background-color: transparent !important;
+}
+
+/* a little room inside both ends of a split pill (the icons are not pressed
+   against its edges); the end tabs move out a bit so the pill keeps its gap
+   to the next tab */
+#browser #tabs-container .tab-position[data-ft-pill="first"] {
+  margin-left: 5px !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill="last"] {
+  margin-right: 5px !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill="first"]::before {
+  left: -5px !important;
+}
+#browser #tabs-container .tab-position[data-ft-pill="last"]::before {
+  right: -5px !important;
+}

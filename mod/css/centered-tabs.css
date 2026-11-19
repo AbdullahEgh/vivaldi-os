@@ -1,0 +1,96 @@
+/* Prevent the tab area from collapsing during startup */
+#browser #tabs-container.top .resize,
+#browser #tabs-container.top .tab-strip {
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+}
+
+/* Keep tab clicks out of the window-dragging region */
+#browser #tabs-container.top .tab-strip,
+#browser #tabs-container.top .tab-position,
+#browser #tabs-container.top .tab {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
+  pointer-events: auto !important;
+}
+
+/* Keep tabs above overlapping browser title-bar elements */
+#browser.fullscreen #tabs-container.top {
+  z-index: 100 !important;
+}
+
+/* Make the entire tab surface clickable */
+#browser #tabs-container.top .tab-position,
+#browser #tabs-container.top .tab-position * {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
+  pointer-events: auto !important;
+}
+
+
+/* === TRUE CENTERED TAB BAR (container-level) === */
+
+/* Detach tab bar from left layout (TOP only — absolute positioning
+   collapses the footer to 0px when the tab bar is at the bottom) */
+#tabs-container.top {
+  position: absolute !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+
+  width: max-content !important;
+  max-width: 100vw !important;
+
+  display: flex !important;
+  justify-content: center !important;
+}
+
+/* Prevent internal stretching */
+#tabs-container.top .tab-strip {
+  width: max-content !important;
+  justify-content: center !important;
+}
+
+/* Tabs should size naturally */
+.tab-strip .tab-position {
+  flex: 0 0 auto !important;
+}
+
+/* === BOTTOM TAB BAR: same centering as top, but kept in normal flow ===
+   (position:absolute collapses the footer to 0px, so center with auto margins) */
+#browser #tabs-container.bottom {
+  position: relative !important;
+  left: auto !important;
+  transform: none !important;
+  width: max-content !important;
+  max-width: 100vw !important;
+  min-height: 30px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+#browser #tabs-container.bottom .resize,
+#browser #tabs-container.bottom .tab-strip {
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  justify-content: center !important;
+}
+
+#browser #tabs-container.bottom .tab-strip,
+#browser #tabs-container.bottom .tab-position,
+#browser #tabs-container.bottom .tab {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
+  pointer-events: auto !important;
+}
+
+/* Safety: prevent Vivaldi reflow 
+#tabs-container,
+#tabs-container * {
+  box-sizing: border-box !important;
+}

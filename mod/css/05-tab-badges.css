@@ -1,0 +1,54 @@
+/* Allow badges to overflow without clipping */
+#tabs-container .tab-position,
+#tabs-container .tab,
+#tabs-container .tab-wrapper,
+#tabs-container .tab .tab-header,
+#tabs-container .tab .favicon,
+#tabs-container .site-icon {
+  overflow: visible !important;
+  clip-path: none !important;
+  -webkit-mask-image: none !important;
+}
+
+/* Badge positioning and shape */
+#tabs-container .tab .badge,
+#tabs-container .tab .tab-badge,
+#tabs-container .tab .counter,
+#tabs-container .tab .badge-count,
+#tabs-container .tab .notification,
+#tabs-container .tab .unread-count,
+#tabs-container .tab .tab-indicator,
+#tabs-container .tab .indicator {
+  position: absolute !important;
+  top: 0px !important;
+  right: -6px !important;
+  transform: none !important;
+  z-index: 999999 !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 6px !important;
+  line-height: 18px !important;
+  white-space: nowrap !important;
+  font-size: 11px !important;
+  border-radius: 999px !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  background-clip: padding-box !important;
+}
+
+/* Badge colors */
+#tabs-container .tab .badge,
+#tabs-container .tab .tab-badge,
+#tabs-container .tab .counter {
+  background: #ff4b4b !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+#tabs-container .tab .badge *,
+#tabs-container .tab .badge img,
+#tabs-container .tab .badge svg {
+  overflow: visible !important;
+  clip-path: none !important;
+  -webkit-mask-image: none !important;
+}

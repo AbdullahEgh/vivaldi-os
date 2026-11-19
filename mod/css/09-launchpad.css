@@ -1,0 +1,1283 @@
+/* ==========================================================================
+   09. Launchpad (js/launchpad.js): the Home button opens the Bookmark Bar as
+       a macOS-style Launchpad - a frosted full-window layer, a search field,
+       big app icons with names; folders open as a card in the middle.
+   ========================================================================== */
+#browser .lp-layer {
+  --lp-veil: rgba(246, 246, 248, 0.38);
+  --lp-text: #1d1d1f;
+  --lp-text-shadow: none;
+  --lp-tile: rgba(255, 255, 255, 0.96);
+  --lp-tile-ring: rgba(0, 0, 0, 0.08);
+  --lp-tile-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  --lp-glass: rgba(255, 255, 255, 0.45);
+  --lp-glass-ring: rgba(255, 255, 255, 0.7);
+  --lp-field: rgba(0, 0, 0, 0.07);
+  --lp-field-ring: rgba(0, 0, 0, 0.08);
+  --lp-placeholder: rgba(0, 0, 0, 0.45);
+  --lp-card: rgba(255, 255, 255, 0.55);
+  --lp-letter: #3a3a3c;
+  --lp-icon-filter: none;
+  --lp-mag-filter: invert(1);
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  padding: 44px 48px 40px !important;
+  box-sizing: border-box !important;
+  overflow: auto !important;
+  background: var(--lp-veil) !important;
+  backdrop-filter: blur(44px) saturate(1.5) !important;
+  color: var(--lp-text) !important;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+
+/* the search field: a frosted pill at the top */
+#browser .lp-searchbar {
+  flex: 0 0 auto !important;
+  width: min(340px, 80vw) !important;
+  margin-bottom: 40px !important;
+  position: relative !important;
+}
+#browser .lp-searchbar::before {               /* the magnifier */
+  content: "" !important;
+  position: absolute !important;
+  left: 12px !important;
+  top: 50% !important;
+  width: 14px !important;
+  height: 14px !important;
+  translate: 0 -50% !important;
+  opacity: 0.7 !important;
+  pointer-events: none !important;
+  filter: var(--lp-mag-filter) !important;           /* the white magnifier, dark in light mode */
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='6.8' cy='6.8' r='5' fill='none' stroke='white' stroke-width='1.8'/%3E%3Cpath d='M10.6 10.6L14.5 14.5' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat !important;
+}
+#browser .lp-search {
+  width: 100% !important;
+  height: 34px !important;
+  box-sizing: border-box !important;
+  padding: 0 14px 0 34px !important;
+  border: 0 !important;
+  border-radius: 17px !important;
+  outline: none !important;
+  background: var(--lp-field) !important;
+  box-shadow: inset 0 0 0 1px var(--lp-field-ring) !important;
+  color: var(--lp-text) !important;
+  font: 400 14px/34px -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  caret-color: var(--lp-text) !important;
+}
+#browser .lp-search::placeholder { color: var(--lp-placeholder) !important; }
+#browser .lp-search::-webkit-search-cancel-button { filter: var(--lp-icon-filter) !important; }
+
+/* the grid of apps */
+#browser .lp-grid {
+  width: min(1040px, 100%) !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)) !important;
+  gap: 30px 12px !important;
+  grid-auto-rows: 96px !important;               /* one icon: 72 tile + 8 + name */
+  justify-items: center !important;
+  align-content: start !important;
+  transition: filter 0.25s ease, opacity 0.25s ease !important;
+}
+#browser .lp-layer[data-folder] > .lp-grid,
+#browser .lp-layer[data-folder] > .lp-searchbar {
+  filter: blur(14px) !important;               /* a folder open: the rest steps back */
+  opacity: 0.55 !important;
+  pointer-events: none !important;
+}
+#browser .lp-app {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 104px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  cursor: pointer !important;
+}
+#browser .lp-tile {
+  width: 72px !important;
+  height: 72px !important;
+  border-radius: var(--lp-round-icon, 16px) !important;
+  box-sizing: border-box !important;
+  display: grid !important;
+  place-items: center !important;
+  background: var(--lp-tile) !important;
+  box-shadow: var(--lp-tile-shadow), inset 0 0 0 0.5px var(--lp-tile-ring) !important;
+  transition: transform 0.16s ease !important;
+}
+#browser .lp-app:hover .lp-tile { transform: scale(1.06) !important; }
+#browser .lp-app:active .lp-tile { transform: scale(0.94) !important; }
+#browser .lp-favicon {
+  width: 46px !important;
+  height: 46px !important;
+  object-fit: contain !important;
+  border-radius: 10px !important;
+}
+#browser .lp-letter {
+  display: grid !important;
+  place-items: center !important;
+  color: var(--lp-letter) !important;
+  font: 600 28px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+#browser .lp-name {
+  max-width: 100% !important;
+  font: 500 12px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-shadow: var(--lp-text-shadow) !important;
+}
+
+/* a folder: frosted glass with its first nine icons */
+#browser .lp-tile.lp-folder {
+  grid-template-columns: repeat(3, 1fr) !important;
+  grid-auto-rows: 1fr !important;
+  gap: 4px !important;
+  padding: 10px !important;
+  place-items: center !important;
+  align-content: start !important;
+  background: var(--lp-glass) !important;
+  box-shadow: var(--lp-tile-shadow), inset 0 0 0 0.5px var(--lp-glass-ring) !important;
+  backdrop-filter: blur(10px) !important;
+}
+#browser .lp-mini {
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 3.5px !important;
+  object-fit: contain !important;
+}
+#browser .lp-mini.lp-letter {
+  background: var(--lp-tile) !important;
+  font-size: 8px !important;
+}
+
+/* an open folder: a frosted card in the middle */
+#browser .lp-card {
+  position: fixed !important;
+  left: 50% !important;
+  top: 50% !important;
+  translate: -50% -50% !important;
+  width: min(620px, 86vw) !important;
+  max-height: 72vh !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+  padding: 22px 26px 30px !important;
+  border-radius: 34px !important;
+  background: var(--lp-card) !important;
+  backdrop-filter: blur(40px) saturate(1.6) !important;
+  box-shadow: inset 0 0 0 1px var(--lp-glass-ring), 0 30px 90px rgba(0, 0, 0, 0.4) !important;
+}
+#browser .lp-card-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin-bottom: 24px !important;
+  position: relative !important;
+}
+#browser .lp-card-title {
+  font: 600 24px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  text-shadow: var(--lp-text-shadow) !important;
+}
+#browser .lp-back {
+  position: absolute !important;
+  left: 0 !important;
+  width: 30px !important;
+  height: 30px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  padding: 0 0 3px !important;
+  background: var(--lp-field) !important;
+  color: var(--lp-text) !important;
+  font: 500 22px/1 -apple-system, system-ui, sans-serif !important;
+  cursor: pointer !important;
+}
+#browser .lp-card-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important;
+  gap: 26px 8px !important;
+  justify-items: center !important;
+}
+#browser .lp-empty {
+  grid-column: 1 / -1 !important;
+  text-align: center !important;
+  opacity: 0.65 !important;
+  font-size: 14px !important;
+  padding: 30px 0 !important;
+}
+
+/* ---------- dark: follows the system appearance ---------- */
+@media (prefers-color-scheme: dark) {
+  #browser .lp-layer {
+    --lp-veil: rgba(10, 10, 14, 0.32);
+    --lp-text: #fff;
+    --lp-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --lp-tile: rgba(22, 22, 24, 0.96);
+    --lp-tile-ring: rgba(255, 255, 255, 0.10);
+    --lp-tile-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+    --lp-glass: rgba(18, 18, 20, 0.5);
+    --lp-glass-ring: rgba(255, 255, 255, 0.22);
+    --lp-field: rgba(255, 255, 255, 0.14);
+    --lp-field-ring: rgba(255, 255, 255, 0.14);
+    --lp-placeholder: rgba(255, 255, 255, 0.6);
+    --lp-card: rgba(18, 18, 20, 0.62);
+    --lp-letter: #f2f2f7;
+    --lp-icon-filter: invert(1);
+    --lp-mag-filter: none;
+  }
+}
+
+/* ---------- drag: rearrange, make folders ---------- */
+#browser .lp-ghost {
+  position: fixed !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+  transform: scale(1.1) !important;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.3)) !important;
+}
+#browser .lp-layer[data-dragging] .lp-app { cursor: grabbing !important; }
+#browser .lp-layer[data-dragging] .lp-app:hover .lp-tile { transform: none !important; }
+#browser .lp-app[data-drag-src] { opacity: 0 !important; }          /* its place, kept open */
+#browser .lp-app[data-merge] .lp-tile {                              /* drop here: a folder */
+  transform: scale(1.14) !important;
+  box-shadow: 0 0 0 3px var(--lp-glass-ring), var(--lp-tile-shadow) !important;
+}
+#browser .lp-card-title[contenteditable="true"] {
+  outline: none !important;
+  padding: 2px 10px !important;
+  border-radius: 8px !important;
+  background: var(--lp-field) !important;
+  cursor: text !important;
+}
+#browser .lp-card-title { cursor: text !important; }
+
+/* ---------- right-click menu and the edit sheet ---------- */
+#browser .lp-menu {
+  position: fixed !important;
+  z-index: 5 !important;
+  min-width: 210px !important;
+  padding: 5px !important;
+  border-radius: 12px !important;
+  background: var(--lp-card) !important;
+  backdrop-filter: blur(30px) saturate(1.6) !important;
+  box-shadow: inset 0 0 0 0.5px var(--lp-glass-ring), 0 12px 36px rgba(0, 0, 0, 0.3) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+#browser .lp-menu-item {
+  text-align: left !important;
+  padding: 6px 12px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: var(--lp-text) !important;
+  font: 400 13px/1.35 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: default !important;
+}
+#browser .lp-menu-item:hover { background: var(--colorHighlightBg, #0a84ff) !important; color: var(--colorHighlightFg, #fff) !important; }
+#browser .lp-menu-item.lp-danger { color: #ff453a !important; }
+#browser .lp-menu-item.lp-danger:hover { background: #ff453a !important; color: #fff !important; }
+#browser .lp-menu-sep { height: 1px !important; margin: 4px 8px !important; background: var(--lp-field-ring) !important; }
+#browser .lp-sheet {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 6 !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+#browser .lp-sheet-box {
+  width: min(380px, 88vw) !important;
+  padding: 20px 20px 16px !important;
+  border-radius: 18px !important;
+  background: var(--lp-card) !important;
+  backdrop-filter: blur(40px) saturate(1.6) !important;
+  box-shadow: inset 0 0 0 0.5px var(--lp-glass-ring), 0 24px 70px rgba(0, 0, 0, 0.4) !important;
+  color: var(--lp-text) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+#browser .lp-sheet-title { font: 600 15px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif !important; text-align: center !important; }
+#browser .lp-field { display: flex !important; flex-direction: column !important; gap: 5px !important; font: 500 12px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.95 !important; }
+#browser .lp-field input {
+  height: 30px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  background: var(--lp-field) !important;
+  box-shadow: inset 0 0 0 1px var(--lp-field-ring) !important;
+  color: var(--lp-text) !important;
+  font: 400 13px/30px -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+#browser .lp-field input:focus { box-shadow: inset 0 0 0 2px var(--colorHighlightBg, #0a84ff) !important; }
+#browser .lp-sheet-buttons { display: flex !important; justify-content: flex-end !important; gap: 8px !important; margin-top: 4px !important; }
+#browser .lp-btn {
+  min-width: 76px !important;
+  height: 28px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: var(--lp-field) !important;
+  color: var(--lp-text) !important;
+  font: 500 13px/28px -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: pointer !important;
+}
+#browser .lp-btn-main { background: var(--colorHighlightBg, #0a84ff) !important; color: var(--colorHighlightFg, #fff) !important; }
+
+/* the address / web search tiles */
+#browser .lp-tile.lp-go,
+#browser .lp-tile.lp-web {
+  background: var(--lp-glass) !important;
+  box-shadow: var(--lp-tile-shadow), inset 0 0 0 0.5px var(--lp-glass-ring) !important;
+  backdrop-filter: blur(10px) !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 34px 34px !important;
+}
+#browser .lp-tile.lp-web {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5' fill='none' stroke='%23888' stroke-width='2'/%3E%3Cpath d='M15.5 15.5L21 21' stroke='%23888' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+}
+#browser .lp-tile.lp-go {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23888' stroke-width='1.8'/%3E%3Cpath d='M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18' fill='none' stroke='%23888' stroke-width='1.6'/%3E%3C/svg%3E") !important;
+}
+
+/* ==========================================================================
+   iOS: editing mode, the edge buttons, sheets, suggestions and widgets
+   ========================================================================== */
+#browser .lp-layer {
+  --lp-ios-bg: rgba(242, 242, 247, 0.92);
+  --lp-ios-group: #fff;
+  --lp-ios-sep: rgba(60, 60, 67, 0.18);
+  --lp-ios-sub: rgba(60, 60, 67, 0.6);
+  --lp-blue: #007aff;
+  --lp-red: #ff3b30;
+  --lp-orange: #ff9500;
+  --lp-green: #34c759;
+  --lp-wg: #fff;
+  --lp-wg-text: #000;
+  --lp-wg-sub: rgba(60, 60, 67, 0.6);
+  --lp-face: #fff;
+  --lp-hand: #000;
+  --lp-chip: rgba(118, 118, 128, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  #browser .lp-layer {
+    --lp-ios-bg: rgba(28, 28, 30, 0.92);
+    --lp-ios-group: #2c2c2e;
+    --lp-ios-sep: rgba(84, 84, 88, 0.6);
+    --lp-ios-sub: rgba(235, 235, 245, 0.6);
+    --lp-blue: #0a84ff;
+    --lp-red: #ff453a;
+    --lp-orange: #ff9f0a;
+    --lp-green: #30d158;
+    --lp-wg: #121214;
+    --lp-wg-text: #fff;
+    --lp-wg-sub: rgba(235, 235, 245, 0.6);
+    --lp-face: #000;
+    --lp-hand: #fff;
+    --lp-chip: rgba(118, 118, 128, 0.24);
+  }
+}
+
+/* ---------- editing mode: the icons jiggle, ⊖ removes ---------- */
+@keyframes lp-jiggle {
+  0%   { rotate: -1.6deg; translate: 0 0.4px; }
+  50%  { rotate: 1.6deg;  translate: 0 -0.4px; }
+  100% { rotate: -1.6deg; translate: 0 0.4px; }
+}
+#browser .lp-layer[data-editing] .lp-app:not(.lp-special),
+#browser .lp-layer[data-editing] .lp-widget { animation: lp-jiggle 0.3s linear infinite !important; }
+#browser .lp-layer[data-editing] .lp-app:nth-child(2n),
+#browser .lp-layer[data-editing] .lp-widget:nth-child(2n) { animation-duration: 0.27s !important; animation-delay: -0.1s !important; }
+#browser .lp-layer[data-editing] .lp-app:nth-child(3n) { animation-delay: -0.2s !important; }
+#browser .lp-layer[data-editing][data-dragging] .lp-app { animation: none !important; }
+#browser .lp-app, #browser .lp-widget { position: relative !important; }
+#browser .lp-del {
+  display: none !important;
+  position: absolute !important;
+  z-index: 2 !important;
+  top: -7px !important;
+  left: 9px !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: rgba(142, 142, 147, 0.85) !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25) !important;
+  cursor: pointer !important;
+}
+#browser .lp-del::after {                        /* the minus */
+  content: "" !important;
+  position: absolute !important;
+  left: 6px !important; right: 6px !important; top: 10px !important;
+  height: 2px !important;
+  border-radius: 1px !important;
+  background: #fff !important;
+}
+#browser .lp-widget > .lp-del { left: calc(25% - 46px) !important; top: -7px !important; }
+#browser .lp-widget.lp-w-m > .lp-del { left: calc(12.5% - 47.5px) !important; }
+#browser .lp-layer[data-editing] .lp-del { display: block !important; }
+#browser .lp-layer[data-editing] .lp-app:hover .lp-tile { transform: none !important; }
+
+/* ---------- the edges: auto-hidden buttons ---------- */
+#browser .lp-edge {                              /* the top corners, on the search field's line */
+  position: fixed !important;
+  top: 0 !important;
+  bottom: auto !important;
+  height: 120px !important;
+  margin: 0 !important;
+  padding-top: 42px !important;                  /* 44 + 34/2 = the search field's middle */
+  box-sizing: border-box !important;
+  width: 18px !important;
+  z-index: 4 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+}
+#browser .lp-edge-l { left: 0 !important; justify-content: flex-start !important; }
+#browser .lp-edge-r { right: 0 !important; width: auto !important; justify-content: flex-end !important; padding-right: 14px !important; }
+#browser .lp-edge-r { display: none !important; }                       /* only in editing mode */
+#browser .lp-layer[data-editing] .lp-edge-r { display: flex !important; }
+#browser .lp-edge-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  flex: none !important;
+  height: 38px !important;
+  padding: 0 16px 0 13px !important;
+  border: 0 !important;
+  border-radius: 19px !important;
+  white-space: nowrap !important;
+  background: var(--lp-glass) !important;
+  backdrop-filter: blur(24px) saturate(1.6) !important;
+  box-shadow: inset 0 0 0 0.5px var(--lp-glass-ring), 0 6px 20px rgba(0, 0, 0, 0.18) !important;
+  color: var(--lp-text) !important;
+  font: 600 14px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: pointer !important;
+  transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s ease !important;
+  opacity: 0 !important;
+}
+#browser .lp-edge-btn svg { width: 17px !important; height: 17px !important; flex: none !important; }
+#browser .lp-edge-l .lp-edge-btn { transform: none !important; opacity: 1 !important; margin-left: 14px !important; }
+#browser .lp-edge-l .lp-edge-btn:active { transform: scale(0.95) !important; }
+#browser .lp-edge-l { width: auto !important; }
+#browser .lp-edge-r .lp-edge-btn { transform: translateX(110%) !important; }
+#browser .lp-edge:hover .lp-edge-btn,
+#browser .lp-layer[data-editing] .lp-edge-btn { transform: none !important; opacity: 1 !important; }
+#browser .lp-edge-btn:active { transform: scale(0.95) !important; }
+#browser .lp-edge-btn.lp-edge-done { background: var(--lp-blue) !important; color: #fff !important; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18) !important; }
+
+/* ---------- the suggestion list (under the search field) ---------- */
+#browser .lp-suggest {
+  flex: 0 0 auto !important;
+  width: min(560px, 90vw) !important;
+  margin: -28px 0 30px !important;
+  padding: 6px !important;
+  box-sizing: border-box !important;
+  border-radius: 14px !important;
+  background: var(--lp-ios-bg) !important;
+  backdrop-filter: blur(40px) saturate(1.8) !important;
+  box-shadow: inset 0 0 0 0.5px var(--lp-glass-ring), 0 18px 50px rgba(0, 0, 0, 0.22) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+#browser .lp-suggest[hidden] { display: none !important; }
+#browser .lp-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  min-height: 44px !important;
+  padding: 5px 10px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: var(--lp-text) !important;
+  text-align: left !important;
+  cursor: default !important;
+}
+#browser .lp-row[data-sel] { background: var(--lp-blue) !important; color: #fff !important; }
+#browser .lp-row-icon {
+  flex: none !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 7px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: var(--lp-ios-group) !important;
+  color: var(--lp-ios-sub) !important;
+  box-shadow: inset 0 0 0 0.5px var(--lp-ios-sep) !important;
+}
+#browser .lp-row-icon svg { width: 16px !important; height: 16px !important; }
+#browser .lp-row-fav { width: 18px !important; height: 18px !important; border-radius: 4px !important; object-fit: contain !important; }
+#browser .lp-row-fav.lp-letter { font-size: 12px !important; }
+#browser .lp-row-text { display: flex !important; flex-direction: column !important; min-width: 0 !important; gap: 2px !important; }
+#browser .lp-row-title, #browser .lp-row-sub { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+#browser .lp-row-title { font: 500 14px/1.25 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-row-sub { font: 400 12px/1.25 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-ios-sub) !important; }
+#browser .lp-row[data-sel] .lp-row-sub { color: rgba(255, 255, 255, 0.8) !important; }
+
+/* ---------- iOS alert ---------- */
+#browser .lp-alert {
+  width: 270px !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  background: var(--lp-ios-bg) !important;
+  backdrop-filter: blur(40px) saturate(1.8) !important;
+  color: var(--lp-text) !important;
+  text-align: center !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+}
+#browser .lp-alert-title { padding: 19px 16px 2px !important; font: 600 17px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-alert-msg { padding: 0 16px 19px !important; font: 400 13px/1.35 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-alert-btns { display: flex !important; border-top: 0.5px solid var(--lp-ios-sep) !important; }
+#browser .lp-alert-btns button {
+  flex: 1 !important;
+  height: 44px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--lp-blue) !important;
+  font: 400 17px/44px -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: pointer !important;
+  outline: none !important;
+}
+#browser .lp-alert-btns button + button { border-left: 0.5px solid var(--lp-ios-sep) !important; }
+#browser .lp-alert-btns button:hover { background: rgba(127, 127, 127, 0.12) !important; }
+#browser .lp-alert-btns .lp-alert-danger { color: var(--lp-red) !important; font-weight: 600 !important; }
+
+/* ---------- iOS sheets: the folder picker and the widget gallery ---------- */
+#browser .lp-ios {
+  width: min(440px, 90vw) !important;
+  max-height: 78vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  background: var(--lp-ios-bg) !important;
+  backdrop-filter: blur(50px) saturate(1.8) !important;
+  box-shadow: inset 0 0 0 0.5px var(--lp-glass-ring), 0 30px 90px rgba(0, 0, 0, 0.4) !important;
+  color: var(--lp-text) !important;
+}
+#browser .lp-ios.lp-gallery { width: min(780px, 94vw) !important; }
+#browser .lp-ios-head {
+  position: relative !important;
+  flex: none !important;
+  height: 52px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-bottom: 0.5px solid var(--lp-ios-sep) !important;
+}
+#browser .lp-ios-title { font: 600 17px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-ios-done {
+  position: absolute !important;
+  right: 14px !important;
+  top: 50% !important;
+  translate: 0 -50% !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--lp-blue) !important;
+  font: 600 17px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: pointer !important;
+}
+#browser .lp-ios-body { overflow: auto !important; padding: 8px 16px 20px !important; }
+#browser .lp-ios-label {
+  margin: 18px 16px 7px !important;
+  font: 400 13px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  text-transform: uppercase !important;
+  color: var(--lp-ios-sub) !important;
+}
+#browser .lp-ios-group { margin-top: 12px !important; border-radius: 10px !important; overflow: hidden !important; background: var(--lp-ios-group) !important; }
+#browser .lp-ios-label + .lp-ios-group { margin-top: 0 !important; }
+#browser .lp-ios-row {
+  position: relative !important;
+  width: 100% !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  padding: 0 14px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--lp-text) !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+#browser .lp-ios-row + .lp-ios-row::before {        /* inset separators */
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important; right: 0 !important; left: 50px !important;
+  border-top: 0.5px solid var(--lp-ios-sep) !important;
+}
+#browser .lp-ios-row:active { background: rgba(127, 127, 127, 0.16) !important; }
+#browser .lp-ios-ficon { flex: none !important; width: 24px !important; height: 24px !important; color: var(--lp-blue) !important; }
+#browser .lp-ios-ficon svg { width: 100% !important; height: 100% !important; }
+#browser .lp-ios-rtitle { flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; font: 400 16px/1.25 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-ios-rsub { flex: none !important; color: var(--lp-ios-sub) !important; font: 400 15px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-ios-check { flex: none !important; width: 20px !important; height: 20px !important; color: var(--lp-blue) !important; }
+#browser .lp-ios-check svg { width: 100% !important; height: 100% !important; }
+#browser .lp-gal-row { display: flex !important; flex-wrap: wrap !important; gap: 18px !important; align-items: flex-start !important; padding: 0 4px !important; }
+#browser .lp-gal-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 10px 6px 6px !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: transparent !important;
+  color: var(--lp-text) !important;
+  cursor: pointer !important;
+  transition: transform 0.18s ease, background 0.18s ease !important;
+}
+#browser .lp-gal-cell:hover { background: rgba(127, 127, 127, 0.12) !important; }
+#browser .lp-gal-cell:active { transform: scale(0.96) !important; }
+#browser .lp-gal-cell .lp-widget { pointer-events: none !important; }
+#browser .lp-gal-cell .lp-widget > .lp-name { display: none !important; }
+#browser .lp-gal-cap { font: 500 13px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-ios-sub) !important; }
+
+/* ---------- widgets on the grid: small = 2 x 2 icons, medium = 4 x 2 ---------- */
+#browser .lp-grid { grid-auto-flow: row dense !important; }
+#browser .lp-widget {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  grid-row: span 2 !important;
+  grid-column: span 2 !important;
+  justify-self: stretch !important;
+  align-self: stretch !important;
+  min-width: 0 !important;
+}
+#browser .lp-widget.lp-w-m { grid-column: span 4 !important; }
+#browser .lp-wcard {
+  position: relative !important;
+  flex: none !important;
+  width: calc(50% + 78px) !important;            /* 2 columns: column + gap + one tile */
+  height: 198px !important;                       /* 96 row + 30 gap + 72 tile */
+  box-sizing: border-box !important;
+  border-radius: var(--lp-round-widget, 28px) !important;
+  overflow: hidden !important;
+  background: var(--lp-wg) !important;
+  color: var(--lp-wg-text) !important;
+  box-shadow: var(--lp-tile-shadow), inset 0 0 0 0.5px var(--lp-tile-ring) !important;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 14px !important;
+}
+#browser .lp-w-m .lp-wcard { width: calc(75% + 81px) !important; }   /* 4 columns */
+#browser .lp-widget > .lp-name { max-width: 100% !important; }
+#browser .lp-gal-cell .lp-widget { zoom: 0.72 !important; }
+#browser .lp-gal-cell .lp-w-s { width: 250px !important; }
+#browser .lp-gal-cell .lp-w-m { width: 520px !important; }
+
+/* Clock: analog with numbers, or with pills */
+#browser .lp-wk-clock-num, #browser .lp-wk-clock-pill { background: var(--lp-wg) !important; }
+#browser .lp-clock { flex: none !important; height: 100% !important; width: auto !important; aspect-ratio: 1 !important; max-width: 100% !important; }
+#browser .lp-w-s .lp-clock { margin: 0 auto !important; }
+#browser .lp-clock .lp-face { fill: var(--lp-face) !important; }
+#browser .lp-clock .lp-num { fill: var(--lp-hand) !important; font: 500 11px -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-clock .lp-pill { fill: var(--lp-hand) !important; opacity: 0.68 !important; }   /* grey pills, white hands */
+#browser .lp-clock .lp-hh, #browser .lp-clock .lp-mh, #browser .lp-clock .lp-hub { fill: var(--lp-hand) !important; }
+#browser .lp-clock .lp-sh, #browser .lp-clock .lp-shub { fill: var(--lp-orange) !important; }
+#browser .lp-clock .lp-hub2 { fill: var(--lp-face) !important; }
+#browser .lp-dclock { display: flex !important; flex-direction: column !important; gap: 4px !important; min-width: 0 !important; }
+#browser .lp-dtime { font: 300 46px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; letter-spacing: -1px !important; font-variant-numeric: tabular-nums !important; }
+#browser .lp-dday { margin-top: 6px !important; font: 600 15px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-orange) !important; }
+#browser .lp-ddate { font: 500 15px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-wg-sub) !important; }
+
+/* Calendar: a month */
+#browser .lp-wk-cal { align-items: stretch !important; padding: 15px 16px !important; }
+#browser .lp-cal-mon { flex: 1 !important; display: flex !important; flex-direction: column !important; gap: 5px !important; min-width: 0 !important; }
+#browser .lp-cal-month { font: 700 12px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; letter-spacing: 0.3px !important; color: var(--lp-red) !important; padding-left: 2px !important; }
+#browser .lp-cal-grid {
+  flex: 1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  align-content: space-between !important;
+  justify-items: center !important;
+  font: 600 11px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  font-variant-numeric: tabular-nums !important;
+}
+#browser .lp-cal-grid > span { width: 19px !important; height: 19px !important; display: grid !important; place-items: center !important; border-radius: 50% !important; }
+#browser .lp-cal-wh { font-size: 10px !important; }
+#browser .lp-cal-we { color: var(--lp-wg-sub) !important; }                   /* Friday and Saturday */
+#browser .lp-cal-grid > .lp-today { background: var(--lp-red) !important; color: #fff !important; }
+#browser .lp-w-m .lp-cal-mon { flex: 0 0 52% !important; }
+#browser .lp-cal-left { flex: 1 !important; display: flex !important; flex-direction: column !important; padding: 2px 0 0 2px !important; }
+#browser .lp-cal-wd { font: 700 12px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; letter-spacing: 0.3px !important; color: var(--lp-red) !important; }
+#browser .lp-cal-big { margin-top: 4px !important; font: 300 72px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; letter-spacing: -1.5px !important; }
+#browser .lp-cal-my { margin-top: auto !important; font: 500 13px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-wg-sub) !important; }
+
+/* Timer: an orange ring that runs down */
+#browser .lp-wk-timer { padding: 12px !important; }
+#browser .lp-w-s .lp-wk-timer { flex-direction: column !important; gap: 8px !important; }
+#browser .lp-tm-ringbox { position: relative !important; flex: 1 1 auto !important; min-height: 0 !important; aspect-ratio: 1 !important; }
+#browser .lp-w-m .lp-tm-ringbox { flex: none !important; height: 100% !important; }
+#browser .lp-ring { width: 100% !important; height: 100% !important; }
+#browser .lp-ring-bg { fill: none !important; stroke: var(--lp-chip) !important; stroke-width: 6 !important; }
+#browser .lp-ring-fg {
+  fill: none !important;
+  stroke: var(--lp-orange) !important;
+  stroke-width: 6 !important;
+  stroke-linecap: round !important;
+  stroke-dasharray: 100 !important;
+}
+#browser .lp-wk-timer[data-idle] .lp-ring-fg { stroke: var(--lp-chip) !important; }
+#browser .lp-wg-btn { border: 0 !important; cursor: pointer !important; font-family: -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-tm-time {
+  position: absolute !important;
+  inset: 16% !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  color: var(--lp-wg-text) !important;
+  font: 300 26px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  font-variant-numeric: tabular-nums !important;
+}
+#browser .lp-w-m .lp-tm-time { font-size: 32px !important; }
+#browser .lp-wk-timer[data-idle] .lp-tm-time:hover { color: var(--lp-orange) !important; }
+#browser .lp-tm-side { flex: 1 !important; display: flex !important; flex-direction: column !important; gap: 10px !important; }
+#browser .lp-tm-presets { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+#browser .lp-tm-chip {
+  height: 30px !important;
+  border-radius: 15px !important;
+  background: var(--lp-chip) !important;
+  color: var(--lp-wg-text) !important;
+  font: 500 13px/30px -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+#browser .lp-tm-chip[data-on] { background: var(--lp-orange) !important; color: #000 !important; }
+#browser .lp-tm-btns { display: flex !important; gap: 8px !important; width: 100% !important; justify-content: space-between !important; }
+#browser .lp-tm-btns .lp-wg-btn {
+  flex: 1 !important;
+  height: 30px !important;
+  border-radius: 15px !important;
+  font: 600 12.5px/28px -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+#browser .lp-w-m .lp-tm-btns .lp-wg-btn { height: 32px !important; font-size: 14px !important; }
+#browser .lp-tm-cancel { background: var(--lp-chip) !important; color: var(--lp-wg-text) !important; }
+#browser .lp-tm-cancel:disabled { opacity: 0.45 !important; cursor: default !important; }
+#browser .lp-tm-go { background: rgba(52, 199, 89, 0.22) !important; color: var(--lp-green) !important; }
+#browser .lp-tm-go[data-state="run"] { background: rgba(255, 149, 0, 0.22) !important; color: var(--lp-orange) !important; }
+#browser .lp-layer[data-editing] .lp-wcard * { pointer-events: none !important; }
+
+/* a widget being dragged */
+#browser .lp-wghost { transform: scale(1.04) !important; }
+#browser .lp-wghost .lp-wcard { animation: none !important; }
+#browser .lp-widget[data-drag-src] { opacity: 0 !important; }
+#browser .lp-layer[data-dragging] .lp-widget { animation: none !important; }
+#browser .lp-widget { cursor: grab !important; }
+
+/* the clock's second hand sweeps (iOS) */
+@keyframes lp-sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#browser .lp-clock .lp-sh {
+  transform-box: view-box !important;
+  transform-origin: 50px 50px !important;
+  animation: lp-sweep 60s linear infinite !important;
+}
+
+/* a started timer: only a ring left of the tab bar clock */
+#browser .vos-tm-mini {
+  flex: none !important;
+  align-self: center !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 26px !important;
+  height: 26px !important;
+  margin: 0 4px !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+}
+#browser .vos-tm-mini:hover { background: rgba(0, 0, 0, 0.16) !important; }
+#browser .vos-tm-mini svg { width: 20px !important; height: 20px !important; }
+#browser .vos-tm-mini .vos-tm-bg { fill: none !important; stroke: var(--colorBgIntense, rgba(127, 127, 127, 0.3)) !important; stroke-width: 2.8 !important; }   /* the track: the address field's colour (the same theme colour, so it changes in the same frame) */
+#browser.color-behind-tabs-on:not(.transparent-tabbar) .vos-tm-mini .vos-tm-bg { stroke: var(--colorAccentBgDark) !important; }
+#browser .vos-tm-mini .vos-tm-fg {
+  fill: none !important;
+  stroke: #ff9f0a !important;
+  stroke-width: 2.8 !important;
+  stroke-linecap: round !important;
+  stroke-dasharray: 100 !important;
+}
+#browser .vos-tm-mini[data-paused] { opacity: 0.6 !important; }
+#browser .vos-tm-mini[data-over] .vos-tm-fg { stroke: #8e8e93 !important; }
+#browser .vos-tm-mini[data-late] .vos-tm-fg { stroke: #ff453a !important; }
+
+/* past the end in the widget: +time, grey for a minute, then red */
+#browser .lp-wk-timer[data-over] .lp-ring-fg { stroke: #8e8e93 !important; }
+#browser .lp-wk-timer[data-over] .lp-tm-time { color: #8e8e93 !important; }
+#browser .lp-wk-timer[data-late] .lp-ring-fg { stroke: var(--lp-red, #ff3b30) !important; }
+#browser .lp-wk-timer[data-late] .lp-tm-time { color: var(--lp-red, #ff3b30) !important; }
+#browser .lp-tm-go[data-state="over"] { background: rgba(52, 199, 89, 0.22) !important; color: var(--lp-green) !important; }
+
+/* the Timer popup over the tab bar */
+#browser .vos-tm-pop {
+  --lp-wg: rgba(255, 255, 255, 0.86);
+  --lp-wg-text: #000;
+  --lp-wg-sub: rgba(60, 60, 67, 0.6);
+  --lp-chip: rgba(118, 118, 128, 0.14);
+  --lp-orange: #ff9500;
+  --lp-green: #34c759;
+  --lp-red: #ff3b30;
+  --lp-tile-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+  --lp-tile-ring: rgba(0, 0, 0, 0.08);
+  position: fixed !important;
+  z-index: 100001 !important;
+  width: 188px !important;
+}
+@media (prefers-color-scheme: dark) {
+  #browser .vos-tm-pop {
+    --lp-wg: rgba(28, 28, 30, 0.86);
+    --lp-wg-text: #fff;
+    --lp-wg-sub: rgba(235, 235, 245, 0.6);
+    --lp-chip: rgba(118, 118, 128, 0.26);
+    --lp-orange: #ff9f0a;
+    --lp-green: #30d158;
+    --lp-red: #ff453a;
+    --lp-tile-ring: rgba(255, 255, 255, 0.1);
+  }
+}
+#browser .vos-tm-pop .lp-widget { width: 100% !important; }
+#browser .vos-tm-pop .lp-widget > .lp-name { display: none !important; }
+#browser .vos-tm-pop .lp-wcard {
+  width: 100% !important;
+  height: 210px !important;
+  padding: 14px !important;
+  backdrop-filter: blur(40px) saturate(1.8) !important;
+}
+
+/* the ring when no timer is going: just the track */
+#browser .vos-tm-mini[data-idle] .vos-tm-fg { stroke: transparent !important; }
+
+/* the Launchpad look outside the Launchpad (timer popup, menu, alert over the tab bar) */
+#browser .vos-vars {
+  --lp-text: #1d1d1f;
+  --lp-card: rgba(246, 246, 248, 0.82);
+  --lp-glass-ring: rgba(255, 255, 255, 0.7);
+  --lp-field-ring: rgba(0, 0, 0, 0.1);
+  --lp-ios-bg: rgba(242, 242, 247, 0.94);
+  --lp-ios-sep: rgba(60, 60, 67, 0.18);
+  --lp-blue: #007aff;
+  --lp-red: #ff3b30;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+@media (prefers-color-scheme: dark) {
+  #browser .vos-vars {
+    --lp-text: #fff;
+    --lp-card: rgba(40, 40, 44, 0.82);
+    --lp-glass-ring: rgba(255, 255, 255, 0.18);
+    --lp-field-ring: rgba(255, 255, 255, 0.14);
+    --lp-ios-bg: rgba(28, 28, 30, 0.94);
+    --lp-ios-sep: rgba(84, 84, 88, 0.6);
+    --lp-blue: #0a84ff;
+    --lp-red: #ff453a;
+  }
+}
+#browser .vos-alert { z-index: 100003 !important; }
+#browser .vos-tm-menu { z-index: 100002 !important; min-width: 170px !important; }
+#browser .lp-menu-head { padding: 5px 12px 3px !important; font: 600 11px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-text) !important; opacity: 0.55 !important; }
+#browser .lp-menu-item.lp-menu-on::after { content: "✓" !important; float: right !important; }
+
+/* short timers (1 and 3 min): a green ring, still green past the end */
+#browser .lp-wk-timer[data-short] .lp-ring-fg,
+#browser .lp-wk-timer[data-short][data-over] .lp-ring-fg,
+#browser .lp-wk-timer[data-short][data-late] .lp-ring-fg { stroke: var(--lp-green, #34c759) !important; }
+#browser .lp-wk-timer[data-short][data-over] .lp-tm-time,
+#browser .lp-wk-timer[data-short][data-late] .lp-tm-time { color: var(--lp-green, #34c759) !important; }
+#browser .vos-tm-mini[data-short] .vos-tm-fg,
+#browser .vos-tm-mini[data-short][data-over] .vos-tm-fg,
+#browser .vos-tm-mini[data-short][data-late] .vos-tm-fg { stroke: #30d158 !important; }
+#browser .lp-tm-chip[data-on][data-short-chip] { background: var(--lp-green, #34c759) !important; }
+
+/* Folder: like Widgets and Done - shown in editing mode, always fully there */
+#browser .lp-layer .lp-edge-l { display: none !important; }
+#browser .lp-layer[data-editing] .lp-edge-l { display: flex !important; width: auto !important; }
+#browser .lp-layer[data-editing] .lp-edge-btn { transform: none !important; opacity: 1 !important; visibility: visible !important; }
+#browser .lp-layer[data-editing] .lp-edge-btn:active { transform: scale(0.95) !important; }
+
+/* the ring's hover takes the ring's colour */
+#browser .vos-tm-mini:hover { background: rgba(255, 159, 10, 0.24) !important; }                  /* orange */
+#browser .vos-tm-mini[data-short]:hover { background: rgba(48, 209, 88, 0.24) !important; }        /* green */
+#browser .vos-tm-mini[data-over]:not([data-short]):hover { background: rgba(142, 142, 147, 0.28) !important; }   /* grey */
+#browser .vos-tm-mini[data-late]:not([data-short]):hover { background: rgba(255, 69, 58, 0.26) !important; }     /* red */
+#browser .vos-tm-mini[data-idle]:hover { background: rgba(255, 255, 255, 0.18) !important; }       /* no timer: the track */
+
+/* short timers (1 and 3 min): everything orange turns green - the time on hover, Pause */
+#browser .lp-wk-timer[data-short] .lp-tm-time:hover { color: var(--lp-green, #34c759) !important; }
+#browser .lp-wk-timer[data-short] .lp-tm-go[data-state="run"] { background: rgba(52, 199, 89, 0.22) !important; color: var(--lp-green, #34c759) !important; }
+
+/* ---------- the folder manager (Folder) ---------- */
+#browser .lp-ios-left {
+  position: absolute !important;
+  left: 14px !important;
+  top: 50% !important;
+  translate: 0 -50% !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--lp-blue) !important;
+  font: 400 17px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: pointer !important;
+}
+#browser .lp-picker .lp-ios-row { user-select: none !important; outline: none !important; }
+#browser .lp-picker .lp-ios-row:focus-visible { box-shadow: inset 0 0 0 2px var(--lp-blue) !important; }
+#browser .lp-ios-more {
+  flex: none !important;
+  width: 26px !important;
+  height: 26px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  color: var(--lp-ios-sub) !important;
+  font: 700 16px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: pointer !important;
+  opacity: 0 !important;
+}
+#browser .lp-ios-row:hover .lp-ios-more { opacity: 1 !important; }
+#browser .lp-ios-more:hover { background: rgba(127, 127, 127, 0.16) !important; }
+#browser .lp-ios-input {
+  flex: 1 !important;
+  min-width: 0 !important;
+  height: 30px !important;
+  padding: 0 9px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  background: var(--lp-ios-bg) !important;
+  box-shadow: inset 0 0 0 2px var(--lp-blue) !important;
+  color: var(--lp-text) !important;
+  font: 400 15px/30px -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+#browser .lp-ios-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 8px 14px 12px !important;
+  border-top: 0.5px solid var(--lp-ios-sep) !important;
+}
+#browser .lp-ios-form .lp-ios-input { flex: none !important; box-shadow: inset 0 0 0 1px var(--lp-ios-sep) !important; }
+#browser .lp-ios-form .lp-ios-input:focus { box-shadow: inset 0 0 0 2px var(--lp-blue) !important; }
+#browser .lp-ios-formbtns { display: flex !important; justify-content: flex-end !important; gap: 8px !important; }
+#browser .lp-ios-hint { margin: 10px 16px 0 !important; font: 400 12px/1.35 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-ios-sub) !important; }
+#browser .lp-ios-row[data-dragging] { opacity: 0.35 !important; }
+#browser .lp-ios-ghost {
+  position: fixed !important;
+  z-index: 10 !important;
+  pointer-events: none !important;
+  border-radius: 10px !important;
+  background: var(--lp-ios-group) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25) !important;
+  opacity: 0.95 !important;
+}
+#browser .lp-ios-row[data-drop="into"] { background: color-mix(in srgb, var(--lp-blue) 18%, transparent) !important; }
+#browser .lp-ios-row[data-drop="before"] { box-shadow: inset 0 2px 0 var(--lp-blue) !important; }
+#browser .lp-ios-row[data-drop="after"] { box-shadow: inset 0 -2px 0 var(--lp-blue) !important; }
+#browser .lp-picker + .lp-menu, #browser .lp-sheet > .lp-menu { z-index: 11 !important; }
+
+/* ==========================================================================
+   The desktop: the Launchpad on the wallpaper - no veil, no blur - under the
+   windows (they stay usable); above them only while a sheet or menu is open
+   ========================================================================== */
+#browser #webpage-stack > .lp-layer.lp-desktop {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 85 !important;                        /* under the desktop clock (90) and the windows (100+) */
+  backdrop-filter: none !important;
+  background-color: var(--browserBackgroundColor) !important;
+  background-image: var(--browserBackgroundImage) !important;
+  background-position: var(--browserBackgroundPosition) !important;
+  background-repeat: var(--browserBackgroundRepeat) !important;
+  background-size: var(--browserBackgroundSize) !important;
+  background-attachment: fixed !important;       /* the same wallpaper as the desktop */
+  padding-top: 48px !important;                  /* room for the desktop clock */
+}
+#browser #webpage-stack > .lp-layer.lp-desktop[data-raised] { z-index: 100000 !important; }
+/* names and the search field sit on the wallpaper: white, with a shadow (iOS home screen) */
+#browser .lp-desktop > .lp-grid .lp-name {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55) !important;
+}
+/* the desktop search field follows the appearance: frosted light, or frosted dark */
+#browser .lp-desktop .lp-search {
+  background: rgba(255, 255, 255, 0.62) !important;
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.6), 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(20px) saturate(1.4) !important;
+  color: #1d1d1f !important;
+  caret-color: #1d1d1f !important;
+}
+#browser .lp-desktop .lp-search::placeholder { color: rgba(60, 60, 67, 0.7) !important; }
+@media (prefers-color-scheme: dark) {
+  #browser .lp-desktop .lp-search {
+    background: rgba(18, 18, 20, 0.55) !important;
+    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+    color: #fff !important;
+    caret-color: #fff !important;
+  }
+  #browser .lp-desktop .lp-search::placeholder { color: rgba(235, 235, 245, 0.6) !important; }
+}
+#browser .lp-desktop > .lp-grid .lp-empty { color: #fff !important; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55) !important; }
+
+/* the timer ring is a button of its own: never part of the window-drag area,
+   always clickable (also past the end) */
+#browser .vos-tm-mini {
+  -webkit-app-region: no-drag !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 5 !important;
+}
+#browser .vos-tm-mini svg { pointer-events: none !important; }
+
+/* the clock widget: no face circle, just the hands and marks on the widget */
+#browser .lp-clock .lp-face { fill: transparent !important; }
+#browser .lp-clock .lp-hub2 { fill: var(--lp-wg) !important; }
+
+/* ---------- sheet header: several buttons on the left ---------- */
+#browser .lp-ios-left { display: flex !important; gap: 16px !important; color: inherit !important; }
+#browser .lp-ios-left > button {
+  border: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: var(--lp-blue) !important;
+  font: 400 16px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: pointer !important;
+}
+
+/* ---------- Bookmarks: columns like the Finder ---------- */
+#browser .lp-ios.lp-finder { width: min(1040px, 95vw) !important; height: min(640px, 82vh) !important; max-height: none !important; outline: none !important; }
+#browser .lp-finder-body { padding: 0 !important; flex: 1 !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; min-height: 0 !important; }
+#browser .lp-cols {
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  background: var(--lp-ios-group) !important;
+}
+#browser .lp-col {
+  flex: 0 0 236px !important;
+  overflow-y: auto !important;
+  padding: 6px !important;
+  box-sizing: border-box !important;
+  border-right: 0.5px solid var(--lp-ios-sep) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+}
+#browser .lp-col[data-drop="into"] { background: color-mix(in srgb, var(--lp-blue) 10%, transparent) !important; }
+#browser .lp-col-empty { padding: 14px 10px !important; color: var(--lp-ios-sub) !important; font: 400 13px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-frow {
+  flex: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 28px !important;
+  padding: 0 8px !important;
+  border-radius: 6px !important;
+  color: var(--lp-text) !important;
+  font: 400 13px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  cursor: default !important;
+  user-select: none !important;
+  outline: none !important;
+}
+#browser .lp-frow:hover { background: rgba(127, 127, 127, 0.1) !important; }
+#browser .lp-frow[data-path] { background: rgba(127, 127, 127, 0.2) !important; }
+#browser .lp-frow[data-sel] { background: var(--lp-blue) !important; color: #fff !important; }
+#browser .lp-frow[data-sel] .lp-frow-icon, #browser .lp-frow[data-sel] .lp-frow-chev { color: #fff !important; }
+#browser .lp-frow[data-dragging] { opacity: 0.35 !important; }
+#browser .lp-frow[data-drop="into"] { background: color-mix(in srgb, var(--lp-blue) 22%, transparent) !important; box-shadow: inset 0 0 0 1.5px var(--lp-blue) !important; }
+#browser .lp-frow[data-drop="before"] { box-shadow: inset 0 2px 0 var(--lp-blue) !important; }
+#browser .lp-frow[data-drop="after"] { box-shadow: inset 0 -2px 0 var(--lp-blue) !important; }
+#browser .lp-frow-ghost {
+  position: fixed !important;
+  z-index: 12 !important;
+  pointer-events: none !important;
+  background: var(--lp-ios-group) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25) !important;
+  opacity: 0.95 !important;
+}
+#browser .lp-frow-icon { flex: none !important; width: 18px !important; height: 18px !important; display: grid !important; place-items: center !important; color: var(--lp-blue) !important; }
+#browser .lp-frow-icon svg { width: 18px !important; height: 18px !important; }
+#browser .lp-frow-fav { width: 16px !important; height: 16px !important; border-radius: 3px !important; object-fit: contain !important; }
+#browser .lp-frow-fav.lp-letter { font-size: 10px !important; }
+#browser .lp-frow-title { flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+#browser .lp-frow-input { height: 22px !important; font-size: 13px !important; line-height: 22px !important; padding: 0 6px !important; border-radius: 5px !important; }
+#browser .lp-frow-chev { flex: none !important; color: var(--lp-ios-sub) !important; font: 500 16px/1 -apple-system, system-ui, sans-serif !important; }
+#browser .lp-frow-badge {
+  flex: none !important;
+  padding: 2px 6px !important;
+  border-radius: 6px !important;
+  background: color-mix(in srgb, var(--lp-blue) 16%, transparent) !important;
+  color: var(--lp-blue) !important;
+  font: 600 10px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+}
+#browser .lp-frow[data-sel] .lp-frow-badge { background: rgba(255, 255, 255, 0.25) !important; color: #fff !important; }
+#browser .lp-col-details { flex: 1 0 300px !important; align-items: center !important; gap: 16px !important; padding: 26px 22px !important; border-right: 0 !important; }
+#browser .lp-det-icon { width: 76px !important; height: 76px !important; border-radius: 18px !important; display: grid !important; place-items: center !important; background: var(--lp-ios-bg) !important; box-shadow: inset 0 0 0 0.5px var(--lp-ios-sep) !important; color: var(--lp-ios-sub) !important; }
+#browser .lp-det-icon svg { width: 36px !important; height: 36px !important; }
+#browser .lp-det-form { width: 100% !important; max-width: 360px !important; display: flex !important; flex-direction: column !important; gap: 12px !important; }
+#browser .lp-det-btns { display: flex !important; justify-content: flex-end !important; gap: 8px !important; }
+#browser .lp-finder-foot {
+  flex: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 46px !important;
+  padding: 0 14px !important;
+  border-top: 0.5px solid var(--lp-ios-sep) !important;
+}
+#browser .lp-foot-path, #browser .lp-foot-ask { flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; font: 400 12.5px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-ios-sub) !important; }
+#browser .lp-foot-ask { color: var(--lp-text) !important; font-weight: 600 !important; }
+#browser .lp-finder-foot .lp-btn { min-width: 0 !important; padding: 0 12px !important; }
+#browser .lp-btn-danger { background: var(--lp-red) !important; color: #fff !important; }
+#browser .lp-btn-on { background: transparent !important; color: var(--lp-ios-sub) !important; cursor: default !important; }
+
+/* ---------- add a website: the green ⊕, shown on hover ---------- */
+#browser .lp-add {
+  flex: none !important;
+  position: relative !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin-left: auto !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: var(--lp-green, #34c759) !important;
+  cursor: pointer !important;
+  opacity: 0 !important;
+  transform: scale(0.8) !important;
+  transition: opacity 0.15s ease, transform 0.15s ease !important;
+}
+#browser .lp-add::before, #browser .lp-add::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important; top: 50% !important;
+  width: 12px !important; height: 2.2px !important;
+  border-radius: 1px !important;
+  background: #fff !important;
+  translate: -50% -50% !important;
+}
+#browser .lp-add::after { width: 2.2px !important; height: 12px !important; }
+#browser .lp-row:hover .lp-add, #browser .lp-row[data-sel] .lp-add, #browser .lp-site-row:hover .lp-add { opacity: 1 !important; transform: none !important; }
+#browser .lp-add[data-done] { background: transparent !important; }
+#browser .lp-add[data-done]::before { width: 6px !important; height: 11px !important; background: transparent !important; border: solid var(--lp-green, #34c759) !important; border-width: 0 2.4px 2.4px 0 !important; rotate: 45deg !important; translate: -50% -62% !important; border-radius: 0 !important; }
+#browser .lp-add[data-done]::after { display: none !important; }
+#browser .lp-site-row:hover .lp-add[data-done], #browser .lp-row:hover .lp-add[data-done] { opacity: 1 !important; }
+#browser .lp-ios.lp-sites { width: min(520px, 92vw) !important; }
+#browser .lp-site-row { gap: 12px !important; cursor: pointer !important; padding-right: 12px !important; }
+#browser .lp-site-icon { flex: none !important; width: 28px !important; height: 28px !important; border-radius: 7px !important; display: grid !important; place-items: center !important; background: var(--lp-ios-bg) !important; box-shadow: inset 0 0 0 0.5px var(--lp-ios-sep) !important; }
+#browser .lp-site-row .lp-row-text { flex: 1 !important; }
+#browser .lp-site-row + .lp-site-row::before { left: 54px !important; }
+
+/* Clock & Calendar: the pill clock beside the month */
+/* Clock & Calendar: the same margin on all four sides, the clock as tall as the month
+   (its face is drawn with a margin of its own, so it is scaled to fill its box exactly) */
+#browser .lp-wk-clockcal { padding: 16px !important; gap: 18px !important; align-items: stretch !important; }
+#browser .lp-wk-clockcal .lp-clock { align-self: stretch !important; height: 100% !important; width: auto !important; aspect-ratio: 1 !important; transform: scale(1.2) !important; }
+#browser .lp-wk-clockcal .lp-cal-mon { flex: 1 !important; gap: 6px !important; }
+#browser .lp-wk-clockcal .lp-cal-month { padding-left: 3px !important; }
+#browser .lp-wk-clockcal .lp-cal-grid { align-content: space-between !important; }
+
+/* the same widget over the tab bar clock */
+#browser .vos-clk-pop { width: 364px !important; }
+#browser .vos-clk-pop .lp-wcard { height: 176px !important; padding: 16px !important; }
+
+/* Clock: Square - the face fills the widget, light or dark with the system */
+#browser .lp-wk-clock-sq, #browser .lp-clock-sq {
+  --sq-face: var(--lp-wg); --sq-ink: #000; --sq-num: #1d1d1f; --sq-q: #48484a; --sq-minor: #c7c7cc; --sq-sec: #f0952b;
+}
+@media (prefers-color-scheme: dark) {
+  #browser .lp-wk-clock-sq, #browser .lp-clock-sq { --sq-face: var(--lp-wg); --sq-ink: #fff; --sq-num: #e8e8ed; --sq-q: #c7c7cc; --sq-minor: #545458; --sq-sec: #ff9f0a; }
+}
+/* the face fills the widget */
+#browser .lp-wk-clock-sq { background: var(--sq-face) !important; padding: 0 !important; justify-content: center !important; }
+#browser .lp-clock-sq { height: 100% !important; width: auto !important; aspect-ratio: 1 !important; }
+#browser .lp-w-s .lp-clock-sq { width: 100% !important; aspect-ratio: auto !important; max-width: none !important; margin: 0 !important; }
+#browser .lp-w-m .lp-wk-clock-sq { background: var(--lp-wg) !important; padding: 0 16px 0 0 !important; }
+#browser .lp-clock-sq .lp-sq-face { fill: none !important; stroke: none !important; }   /* the card is the face: one rounded corner */
+#browser .lp-clock-sq line { stroke-linecap: round !important; }
+#browser .lp-clock-sq .lp-sq-min { stroke: var(--sq-minor) !important; stroke-width: 1 !important; }
+#browser .lp-clock-sq .lp-sq-hr { stroke: var(--sq-ink) !important; stroke-width: 1.15 !important; opacity: 0.85 !important; }
+#browser .lp-clock-sq .lp-sq-q { stroke: var(--sq-q) !important; stroke-width: 1.7 !important; }
+#browser .lp-clock-sq .lp-sq-nums { fill: var(--sq-num) !important; font: 600 21px -apple-system, "SF Pro Display", "Segoe UI", sans-serif !important; }
+#browser .lp-clock-sq .lp-hh, #browser .lp-clock-sq .lp-mh, #browser .lp-clock-sq .lp-hub { fill: var(--sq-ink) !important; }
+#browser .lp-clock-sq .lp-sh, #browser .lp-clock-sq .lp-shub { fill: var(--sq-sec) !important; }
+#browser .lp-clock-sq .lp-hub2 { fill: var(--sq-face) !important; }
+#browser .lp-clock.lp-clock-sq .lp-sh { transform-origin: 82px 82px !important; }
+
+/* one roundness for icons and widgets */
+#browser { --lp-round-icon: 16px; --lp-round-widget: 28px; }   /* Apple: icon 72 x 22.4%, widget 198 x 14.5% */
+
+/* dark mode: the icons as dim as the widgets */
+@media (prefers-color-scheme: dark) {
+  #browser .lp-tile .lp-favicon, #browser .lp-tile .lp-mini { filter: brightness(0.86) !important; }
+}
+
+/* medium Calendar: even padding, a larger month that fills the height */
+#browser .lp-w-m .lp-wk-cal { padding: 18px 22px 18px 20px !important; gap: 26px !important; }
+#browser .lp-w-m .lp-cal-left { padding: 0 !important; }
+#browser .lp-w-m .lp-cal-wd { font-size: 13px !important; }
+#browser .lp-w-m .lp-cal-big { margin-top: 6px !important; font-size: 78px !important; }
+#browser .lp-w-m .lp-cal-my { font-size: 14px !important; }
+#browser .lp-w-m .lp-cal-mon { flex: 0 0 55% !important; gap: 6px !important; }
+#browser .lp-w-m .lp-cal-month { font-size: 13px !important; padding-left: 4px !important; }
+#browser .lp-w-m .lp-cal-grid { font-size: 12.5px !important; }
+#browser .lp-w-m .lp-cal-grid > span { width: 20px !important; height: 20px !important; }
+#browser .lp-w-m .lp-cal-wh { font-size: 11px !important; }
+
+/* the desktop, as the Launchpad: an open folder blurs everything behind it, wallpaper too */
+@keyframes lp-veil-in { from { opacity: 0; } to { opacity: 1; } }
+#browser .lp-desktop[data-folder]::before {
+  content: "" !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  background: var(--lp-veil) !important;
+  backdrop-filter: blur(40px) saturate(1.5) !important;
+  animation: lp-veil-in 0.25s ease both !important;
+  pointer-events: auto !important;
+}
+#browser .lp-desktop > .lp-card { z-index: 2 !important; }
+
+/* Calendar days: the digits centred on their own height (not the line box), so
+   today's number sits in the middle of its red circle; the circle a little roomier */
+#browser .lp-cal-grid > span { line-height: 1 !important; }
+#browser .lp-cal-grid > .lp-today { font-variant-numeric: proportional-nums !important; }   /* the digits' own widths: centred */
+#browser .lp-cal-grid > .lp-today > i { font-style: normal !important; display: block !important; }
+#browser .lp-cal-grid > .lp-today { box-shadow: 0 0 0 1.5px var(--lp-red) !important; font-weight: 700 !important; }
+
+/* Clock & Calendar: the month takes the room left beside the clock (not the medium
+   Calendar's 55%), so the right margin is the same as the others */
+#browser .lp-w-m .lp-wk-clockcal .lp-cal-mon { flex: 1 1 0 !important; min-width: 0 !important; }
+
+/* the update notice (top centre, like an iOS / macOS notification) */
+#browser .vos-upd {
+  position: fixed !important;
+  top: 52px !important;
+  left: 50% !important;
+  translate: none !important;
+  transform: translate(-50%, 0);
+  z-index: 2147483000 !important;
+  width: min(440px, calc(100vw - 32px)) !important;
+  box-sizing: border-box !important;
+  padding: 14px 16px 12px !important;
+  border-radius: 20px !important;
+  background: var(--lp-card) !important;
+  color: var(--lp-text) !important;
+  backdrop-filter: blur(40px) saturate(1.8) !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3), inset 0 0 0 0.5px var(--lp-glass-ring) !important;
+}
+#browser .vos-upd-title { font: 600 14px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .vos-upd-sub { margin-top: 3px !important; font: 400 12.5px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.72 !important; }
+#browser .vos-upd-btns { display: flex !important; justify-content: flex-end !important; gap: 8px !important; margin-top: 12px !important; flex-wrap: wrap !important; }
+#browser .vos-upd-btn {
+  border: 0 !important; border-radius: 999px !important; padding: 6px 14px !important; cursor: pointer !important;
+  font: 500 12.5px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  background: rgba(127, 127, 127, 0.18) !important; color: inherit !important;
+}
+#browser .vos-upd-btn.vos-upd-main { background: var(--lp-blue, #007aff) !important; color: #fff !important; }

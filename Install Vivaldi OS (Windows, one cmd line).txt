@@ -1,0 +1,13 @@
+Vivaldi OS - install on Windows with one cmd command (no .cmd file, no PowerShell)
+==================================================================================
+1. Keep this zip in your Downloads folder (the newest one there is used).
+2. Close Vivaldi.
+3. Open Command Prompt (Start > type cmd > Enter), paste this ONE line, press Enter:
+
+(for /f "delims=" %Z in ('dir /b /o:d "%USERPROFILE%\Downloads\VivaldiOS*Manual*.zip"') do tar -xf "%USERPROFILE%\Downloads\%Z" -C "%USERPROFILE%\Documents") & (for /d %D in ("%LOCALAPPDATA%\Vivaldi\Application\*.*.*.*") do (copy /y "%USERPROFILE%\Documents\VivaldiOS\custom-vivaldi-os*.*" "%D\resources\vivaldi\" >nul & (if not exist "%D\resources\vivaldi\window.html.orig" copy "%D\resources\vivaldi\window.html" "%D\resources\vivaldi\window.html.orig" >nul) & (findstr /v /l /x /c:"</body>" /c:"</html>" "%D\resources\vivaldi\window.html.orig" & echo   ^<script src="custom-vivaldi-os.js"^>^</script^>& echo ^</body^>& echo ^</html^>) > "%D\resources\vivaldi\window.html" & echo Vivaldi OS installed in %D)) & start "" "%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe"
+
+Vivaldi opens with the mod. The first time, it also sets the tab bar, toolbars and the
+Vivaldi OS Light/Dark themes with the wallpaper (your later changes are kept).
+No wallpaper? Settings > Themes > Background Image > pick Documents\VivaldiOS\custom-vivaldi-os-wallpaper.jpg
+After a Vivaldi update, or with a newer zip: close Vivaldi and paste the same line again.
+Undo: put back window.html.orig in %LOCALAPPDATA%\Vivaldi\Application\<version>\resources\vivaldi

@@ -1,0 +1,83 @@
+/* Hide Windows minimize, maximize/restore, and close buttons */
+#browser .window-buttongroup {
+  display: none !important;
+}
+
+/* Remove the space reserved for the buttons */
+#browser .window-buttongroup,
+#browser .window-buttongroup * {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+
+/* ==========================================================================
+   1. TOTAL ELIMINATION OF THE WINDOW CONTROL GRID TRACKS
+   ========================================================================== */
+#browser, :root {
+  --window-control-width: 0px !important;
+}
+
+/* Force the top UI container grid to stop allocating a right column slot */
+#browser #titlebar,
+#browser #header,
+#browser .mainbar {
+  grid-template-columns: 1fr !important;
+  padding-right: 0px !important;
+  margin-right: 0px !important;
+}
+
+/* ==========================================================================
+   2. VANISH BUTTONS AND THE INVISIBLE CONTAINER BOX
+   ========================================================================== */
+.window-buttongroup,
+.window-buttongroup-container,
+#titlebar .window-buttongroup {
+  display: none !important;
+  width: 0px !important;
+  min-width: 0px !important;
+  max-width: 0px !important;
+  visibility: hidden !important;
+}
+
+/* ==========================================================================
+   3. RE-CENTER THE ADDRESS BAR AND CORNER BUTTONS
+   ========================================================================== */
+/* Strip layout buffer on the right side of the main container */
+.toolbar-mainbar,
+.toolbar-addressbar {
+  padding-right: 0px !important;
+  margin-right: 0px !important;
+}
+
+/* Break inner flex layouts skewing elements like extensions off-center */
+.toolbar-addressbar .inner {
+  padding-right: 0px !important;
+  margin-right: 0px !important;
+}
+
+/* Fix any floating spacer/flex region hiding at the end of the address bar */
+.toolbar-addressbar > .extensions-wrapper {
+  margin-right: 0px !important;
+  padding-right: 0px !important;
+}
+
+/* ==========================================================================
+   4. RE-CENTER THE TOP TAB STRIP
+   ========================================================================== */
+/* Kill the invisible padding that forces tabs away from the right edge */
+#tabs-tabbar-container.top,
+.tabs-top,
+.tabs-top #tabs-container,
+.tabs-top .tab-strip {
+  padding-right: 0px !important;
+  margin-right: 0px !important;
+}
+

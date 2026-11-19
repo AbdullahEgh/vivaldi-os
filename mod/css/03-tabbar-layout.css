@@ -1,0 +1,128 @@
+
+
+/* Hide and collapse window buttons completely */
+.window-buttongroup {
+top: -7px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 0 0 0 !important;
+}
+
+/* Remove any left gutter that Vivaldi reserves */
+#titlebar,
+#header,
+#header .vivaldi,
+#header .toolbar {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* VISUAL CENTERING — independent of hidden space */
+.tab-strip {
+  position: absolute !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Tabbar container: full width, no scrollbars 
+#tabs-tabbar-container,
+#tabs-container,
+#tabs-container.top {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+ 
+}*/
+
+/* Tab strip – top, left aligned */
+.tab-strip {
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  box-sizing: border-box !important;
+  align-items: center !important;
+  justify-content: flex-start !important; /* left-aligned tabs */
+  gap: 6px !important; /* was var(--tabGap) */
+  order: -999 !important;
+  align-self: flex-start !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important; /* no scrollbars on the strip itself */
+}
+
+/* Tabs and new-tab button: simple layout */
+.tab-strip > * {
+  flex: 0 0 auto !important;
+}
+
+/* Positioning: keep UI elements relative, no transforms */
+.tab-strip,
+#tabs-container,
+#tabs-container .tab-position,
+.vivaldi-tabbar {
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  transform: none !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* make it draggable */
+
+.tabbar-wrapper,
+#tabs-container {
+    -webkit-app-region: drag !important;
+}
