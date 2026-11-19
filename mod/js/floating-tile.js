@@ -1213,6 +1213,7 @@
     if (action === "zoom") {
       const win = winOf(id);
       if (win && floating.has(win)) {                               // back to its place
+        if (bento.on && bento.root && bWins(bento.root).some(l => l.win === win)) bento.memo.set(win, bento.root);   // Bento: its layout, kept for its return
         quiet();                                                    // only this window animates
         const wEl = targetOf(pageOf(win));
         if (groupFloat.has(win)) groupMemory.set(win, new Set(membersOf(pageOf(win))));
@@ -1390,6 +1391,7 @@
      arrange / insert, Workspace.placing; minimum sizes are always kept. */
   const BGAP = 10, BHOLD = 450, BENTO_KEY = "vivaldiOsBento";
   const bento = { on: false, root: null, pre: {}, skip: new Set(), layout: null, rects: new Map(), shape: "", pendingFlip: null,
+                  memo: new Map(),                // window -> the layout it left for full screen (it comes back to it)
                   handles: [], handlesKey: "", gesture: null, undo: [], redo: [] };
   let bentoDrag = null;                             // { id, rect } a tiled window being dragged
   let bUid = 0;
@@ -1749,6 +1751,13 @@
       const r = bRestore(members, area);
       if (r) bento.root = r;
     }
+    for (const [w, saved] of [...bento.memo]) {                     // back from full screen: exactly where it was
+      if (!live.has(w) || bento.skip.has(w)) continue;             // still full screen, or still being dragged
+      bento.memo.delete(w);
+      const ids = new Set(bWins(saved).map(l => l.win)), cur = members.filter(id => !bento.skip.has(id));
+      if (ids.size === cur.length && cur.every(id => ids.has(id)) && bFits(saved, area)) bento.root = saved;
+    }
+    for (const w of [...bento.memo.keys()]) if (!floating.has(w) && !pageOf(w)) bento.memo.delete(w);   // closed meanwhile
     const have = new Set(bWins(bento.root).map(l => l.win));
     let joined = false;
     for (const id of members) {
@@ -1876,7 +1885,7 @@
         const members = bMembers();
         bento.root = members.length ? (bRestore(members, bArea()) || bActivate(members.map(bLeaf), bArea())) : null;
       } else {
-        bento.on = false; bento.root = null; bento.shape = ""; bento.undo = []; bento.redo = []; bentoDrag = null;
+        bento.on = false; bento.root = null; bento.shape = ""; bento.undo = []; bento.redo = []; bentoDrag = null; bento.memo.clear();
         for (const id of floating) {                // every window back to where it was before Bento
           if (bento.pre[id]) frac[id] = bento.pre[id];
           persist(id);
@@ -2289,6 +2298,7 @@
   }
   /* a window snapped to a side: Bento, this window on that half, the others beside it */
   function snapBento(id, side) {
+    bento.memo.delete(id);                                          // a new place was chosen: not back to the old one
     const area = bArea();
     const others = bMembers().filter(m => m !== id);
     let rest = bento.on && bento.root ? bRemove(bento.root, id) : null;
