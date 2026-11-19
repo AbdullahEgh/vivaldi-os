@@ -2259,7 +2259,9 @@
   let tagFor = null, tagEl = null;
   function updTag(tag) {
     tagFor = tag;
-    const bar = document.querySelector("#browser #tabs-container > .toolbar-tabbar-before") ||
+    // right after the Bento button (else at the start of the tab bar's left part)
+    const bento = document.querySelector("#browser .bento-toggle");
+    const bar = bento?.parentElement || document.querySelector("#browser #tabs-container > .toolbar-tabbar-before") ||
                 document.querySelector("#browser .toolbar-tabbar-before");
     if (!bar) return;
     if (!tagEl) {
@@ -2270,9 +2272,14 @@
     }
     tagEl.textContent = "New Update";
     tagEl.title = `Install Vivaldi OS ${tag} (you have ${window.vosVersion})`;
-    if (bar.firstChild !== tagEl) bar.insertBefore(tagEl, bar.firstChild);
+    const after = bento && bento.parentElement === bar ? bento : null;
+    if (after ? after.nextSibling !== tagEl : bar.firstChild !== tagEl) bar.insertBefore(tagEl, after ? after.nextSibling : bar.firstChild);
   }
-  setInterval(() => { if (tagFor && !tagEl?.isConnected) updTag(tagFor); }, 2000);   // a re-drawn tab bar gets it back
+  setInterval(() => {                                // a re-drawn tab bar (or a late Bento button) gets it back in place
+    if (!tagFor) return;
+    const b = document.querySelector("#browser .bento-toggle");
+    if (!tagEl?.isConnected || (b && b.nextSibling !== tagEl)) updTag(tagFor);
+  }, 2000);
   setTimeout(() => checkUpdate(false), 20000);
   // every 30 minutes, only while Vivaldi is in use; coming back after longer checks once
   let lastCheck = 0;
