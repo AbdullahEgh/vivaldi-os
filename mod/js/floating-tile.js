@@ -2301,7 +2301,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (!Array.isArray(list)) return;
       if (!list.some(c => c?.name === BENTO_CHAIN))
         await prefSet("vivaldi.chained_commands.command_list", [...list, { category: "CATEGORY_COMMAND_CHAIN", chain: [], key: "vosbento", label: "Bento", name: BENTO_CHAIN }]);
-      if (await vstore.get("vosBentoChain2")) { chainReady = true; return; }   // put on the toolbar once only
+      // on no toolbar (an installer reset the tab bar, or it was taken off): back after Workspaces
       const bars = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
       const vals = await Promise.all(bars.map(b => prefGet("vivaldi.toolbars." + b)));
       if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN))) {
@@ -2340,7 +2340,7 @@ window.vosBeat = window.vosBeat || (() => {
       wrap.toggleAttribute("data-on", bento.on);
       return;
     }
-    if (chainReady) { $$("#browser .bento-toggle:not(.vos-bento-chain)").forEach(x => x.remove()); return; }   // taken off the toolbar: no button
+    // no chain button (yet): the mod's own Bento button - there is always one
     const bar = $("#tabs-tabbar-container .toolbar-tabbar-before");
     if (!bar) return;
     let btn = $(":scope > .bento-toggle", bar);
@@ -2875,23 +2875,31 @@ window.vosBeat = window.vosBeat || (() => {
   const sameWs = (a, b) => (a == null && b == null) || String(a) === String(b);
   async function toDesk(id, ws) {
     const key = String(id), cur = curWs();
+    const pg = pageOf(key);                                          // every page of the window (a split has several)
+    const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
     // Vivaldi goes along with the active tab when it moves: another one of this desktop
     // becomes active first (or its desktop page), so you stay here
     try {
       const tabs = await tabsQuery({ currentWindow: true });
-      if (tabs.find(t => String(t.id) === key)?.active) {
-        const z = [...zOrder].reverse().find(o => o !== key && floating.has(o) && !minimized.has(o) && sameWs(wsOfTab.get(o), cur));
-        const other = tabs.find(t => String(t.id) === z) || tabs.find(t => String(t.id) !== key && sameWs(wsOfTab.get(String(t.id)), cur));
+      if (tabs.some(t => ids.includes(String(t.id)) && t.active)) {
+        const z = [...zOrder].reverse().find(o => !ids.includes(o) && floating.has(o) && !minimized.has(o) && sameWs(wsOfTab.get(o), cur));
+        const other = tabs.find(t => String(t.id) === z) || tabs.find(t => !ids.includes(String(t.id)) && sameWs(wsOfTab.get(String(t.id)), cur));
         await new Promise(r => other ? chrome.tabs.update(other.id, { active: true }, () => { void chrome.runtime.lastError; r(); })
                                      : chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, () => { void chrome.runtime.lastError; r(); }));
       }
     } catch (e) { wsErr("hand over", e); }
-    wsOfTab.set(key, ws); wsNowAt = 0;
-    try {
-      const r = vivaldi.tabsPrivate.move({ tabIds: [Number(id)], target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
-        () => void chrome.runtime.lastError);
-      if (r?.catch) r.catch(err => wsErr("move window", err));
-    } catch (err) { wsErr("move window", err); }
+    ids.forEach(i => wsOfTab.set(i, ws)); wsNowAt = 0;
+    queueRender();                                                   // gone from this desktop at once
+    await tpMove(ids, ws);
+    setTimeout(() => {                                               // did it arrive? (kept for a look if not)
+      chrome.tabs.query({ currentWindow: true }, tabs => {
+        void chrome.runtime.lastError;
+        const got = (tabs || []).filter(t => ids.includes(String(t.id))).map(t => extOf(t)?.workspaceId ?? null);
+        const ok = got.length && got.every(g => sameWs(g, ws));
+        vstore.set("vosMoveDiag", JSON.stringify({ ws, ids, got, ok, t: Date.now() }));
+        if (!ok) { LOG("move to desktop did not stick", ws, got); tpMove(ids, ws).then(readTiling); }   // once more
+      });
+    }, 900);
     if (mission) missionGlide();                                     // the windows left close up, gliding
     queueRender();
   }
@@ -3116,8 +3124,14 @@ window.vosBeat = window.vosBeat || (() => {
       return undefined;
     };
     try {
-      return Promise.resolve(api.addWorkspace(name, undefined, undefined, undefined, !!stay))
-        .catch(e => wsErr("new", e)).then(() => find(20));
+      return Promise.resolve(api.addWorkspace(name, undefined, undefined, undefined, !!stay)).then(async id => {
+        if (id == null) return find(20);                           // an older Vivaldi: look it up
+        let own = {};                                                // a new desktop belongs to this window
+        try { own = JSON.parse((await vstore.get(OWN_KEY)) || "{}") || {}; } catch (e) {}
+        own[String(id)] = String(myWin());
+        vstore.set(OWN_KEY, JSON.stringify(own));
+        return id;
+      }).catch(e => { wsErr("new", e); return undefined; });
     } catch (e) { wsErr("new", e); return null; }
   }
   /* Vivaldi's move of tabs to a desktop (null: none), as a promise */
@@ -3259,7 +3273,8 @@ window.vosBeat = window.vosBeat || (() => {
     removeEventListener("keydown", wsKey, true);
     removeEventListener("pointerdown", wsOut, true);
     const pn = st.querySelector(".vos-ws-panel") || st;            // back up, under the tab bar
-    pn.animate([{ transform: "none" }, { transform: "translateY(-100%)" }], { duration: 220, easing: "cubic-bezier(0.4, 0, 0.8, 0.4)", fill: "forwards" })
+    st.querySelector(".vos-ws-row")?.animate([{ transform: "none", opacity: 1 }, { transform: "translateY(-16px)", opacity: 0 }], { duration: 200, easing: "ease-in", fill: "forwards" });
+    pn.animate([{ clipPath: "inset(0 0 0 0 round 18px)" }, { clipPath: "inset(0 0 100% 0 round 18px)" }], { duration: 220, easing: "cubic-bezier(0.4, 0, 0.8, 0.4)", fill: "forwards" })
       .finished.catch(() => {}).then(() => st.remove());
   }
   // a click outside the strip closes it - its own right-click menu and the Workspaces button are not outside
@@ -3379,7 +3394,10 @@ window.vosBeat = window.vosBeat || (() => {
     (browserEl() || document.body).appendChild(strip);
     const top = ss.top;
     strip.style.top = top + "px";
-    panel.animate([{ transform: "translateY(-100%)" }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    // the frosted panel itself never moves (a moving blur flickers): it is revealed from the top,
+    // and only its desktops slide down
+    panel.animate([{ clipPath: "inset(0 0 100% 0 round 18px)" }, { clipPath: "inset(0 0 0 0 round 18px)" }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    row.animate([{ transform: "translateY(-24px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
     wsStrip = strip; strip.__list = list;
     { const pb = strip.offsetTop + panel.offsetTop + panel.offsetHeight;   // Mission Control: the windows below the panel
       const oy = Math.max(0, pb - ss.top) + 16, k = Math.max(0.3, Math.min(0.8, (ss.height - oy - 16) / Math.max(1, ss.height)));
