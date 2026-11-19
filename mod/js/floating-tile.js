@@ -3201,9 +3201,10 @@ window.vosBeat = window.vosBeat || (() => {
   /* Vivaldi's move of tabs to a desktop (null: none), as a promise */
   const tpMove = (ids, ws) => new Promise(res => {
     try {
+      tpMove.lastErr = null;
       const r = vivaldi.tabsPrivate.move({ tabIds: ids.map(Number), target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
-        () => { void chrome.runtime.lastError; res(); });
-      if (r?.then) r.then(res, e => { wsErr("move", e); res(); });
+        () => { tpMove.lastErr = chrome.runtime.lastError?.message || null; res(); });
+      if (r?.then) r.then(res, e => { tpMove.lastErr = String(e); wsErr("move", e); res(); });
     } catch (e) { wsErr("move", e); res(); }
   });
   /* NO DEFAULT DESKTOP: pages of no desktop (Vivaldi's "this window") go to a real one -
@@ -3252,30 +3253,54 @@ window.vosBeat = window.vosBeat || (() => {
     } catch (e) { wsErr("cleanup", e); }
   }, 8000);
   /* a window dropped on New: a new desktop, and the window goes there */
+  /* a trace of the last "window to New desktop" (vstore vosNewDiag), to see what Vivaldi did */
+  let ntr = [];
+  const ntrace = (step, v) => { ntr.push([step, v, Date.now() % 1000000]); vstore.set("vosNewDiag", JSON.stringify(ntr)); };
   function toNewDesk(id, list) {
+    ntr = []; ntrace("start", { id: String(id), api: !!vivWs(), pages: !!vivPages() });
     const p = newDesk(list, true);
-    if (!p) return;
+    if (!p) { ntrace("no api", null); return; }
     p.then(async ws => {
+      ntrace("created", ws);
       if (ws === undefined) return wsErr("new + move", "no new desktop");
       const key = String(id), pg = pageOf(key);
       const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
+      // Vivaldi's engine only moves a tab to a desktop it has saved: wait for that
+      let t0 = Date.now(), listed = false;
+      while (Date.now() - t0 < 3000) {
+        const nl = (await prefGet("vivaldi.workspaces.list")) || [];
+        if (nl.some(w => sameWs(w.id, ws))) { listed = true; break; }
+        await new Promise(r => setTimeout(r, 60));
+      }
+      ntrace("listed", { listed, ms: Date.now() - t0 });
+      const arrived = async ms => {
+        const t1 = Date.now();
+        while (Date.now() - t1 < ms) {
+          const tabs = await tabsQuery({ currentWindow: true });
+          const mine = tabs.filter(t => ids.includes(String(t.id)));
+          if (mine.length && mine.every(t => sameWs(extOf(t)?.workspaceId ?? null, ws))) return true;
+          await new Promise(r => setTimeout(r, 70));
+        }
+        return false;
+      };
       await toDesk(id, ws);
       render();                                                      // gone from this desktop before the swipe starts
-      // Vivaldi opens a blank page on a desktop it thinks is empty: wait until it knows the window is there
-      const t0 = Date.now();
-      while (Date.now() - t0 < 2500) {
-        const tabs = await tabsQuery({ currentWindow: true });
-        const mine = tabs.filter(t => ids.includes(String(t.id)));
-        if (mine.length && mine.every(t => sameWs(extOf(t)?.workspaceId ?? null, ws))) break;
-        await new Promise(r => setTimeout(r, 80));
+      let ok = await arrived(1500);
+      ntrace("moved", { ok, err: tpMove.lastErr || null, ids });
+      for (let i = 0; !ok && i < 2; i++) {                           // not there: once or twice more
+        await tpMove(ids, ws);
+        ok = await arrived(1200);
+        ntrace("retry", { ok, err: tpMove.lastErr || null });
       }
-      await new Promise(r => setTimeout(r, 120));                   // its own page list catches up
+      if (!ok) { wsErr("new + move", "the window did not reach the new desktop"); return; }
+      await new Promise(r => setTimeout(r, 120));                   // Vivaldi's own page list catches up
       const pa = vivPages(), wid = await winId();
       swipeTo({ id: ws, name: "", keep: ids, go: async () => {       // and you go with it, swiping, onto the window
         if (pa?.setActiveWorkspace) await pa.setActiveWorkspace(wid, ws);
         else await switchWs({ id: ws }, (await prefGet("vivaldi.workspaces.list")) || list);
         chrome.tabs.update(Number(id), { active: true }, () => void chrome.runtime.lastError);
       } }, list, 1);
+      setTimeout(() => ntrace("shown", { now: curWs() ?? null, want: ws }), 1200);
     });
   }
   /* Vivaldi's page actions (move to a desktop, show a desktop), found like the workspace ones */
@@ -3346,15 +3371,24 @@ window.vosBeat = window.vosBeat || (() => {
     const has = !info || !!info.ds[info.i + dir];
     const shown = has ? sw.acc : sw.acc * 0.2;                       // nothing there: a little rubber band
     for (const el of sw.items) el.style.setProperty("translate", `${Math.round(-shown)}px 0px`);
-    clearTimeout(sw.timer);
+    // the next desktop's windows come in from the side, with the fingers (macOS)
     const t = info?.ds[info.i + dir];
-    if (t && (Math.abs(sw.acc) > Math.min(220, innerWidth * 0.12) || (Math.abs(sw.speed) > 0.5 && Math.abs(sw.acc) > 30))) {
-      sw = null; swQuietUntil = now + 250;                          // far or fast enough: it goes now, while the fingers still move
-      swipeTo({ id: t.id, name: t.name }, info.list, dir);
-      return;
-    }
-    sw.timer = setTimeout(swipeEnd, 120);                            // stopped short: spring back (or late: go)
+    if (sw.inc && sw.incDir !== dir) clearIncoming(sw);
+    if (t && !sw.inc) { sw.inc = incomingFor(t.id); sw.incDir = dir; }
+    for (const el of sw.inc || []) el.style.setProperty("translate", `${Math.round(dir * innerWidth - shown)}px 0px`);
+    clearTimeout(sw.timer);
+    sw.timer = setTimeout(swipeEnd, 110);                            // let go: decided then, not before
   }, { capture: true, passive: false });
+  function incomingFor(ws) {                                         // another desktop's windows (and frames), shown for the swipe
+    const els = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), ws))
+      .flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
+    els.forEach(el => { el.setAttribute("data-ft-ws-leave", ""); el.setAttribute("data-vos-incoming", ""); });
+    return els;
+  }
+  function clearIncoming(s) {
+    for (const el of s.inc || []) { el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-incoming"); el.style.removeProperty("translate"); }
+    s.inc = null;
+  }
   async function swipeEnd() {
     const s = sw; sw = null;
     if (!s) return;
@@ -3362,12 +3396,20 @@ window.vosBeat = window.vosBeat || (() => {
     const info = s.info || await desksNow();                         // still looking: wait for it, don't give up
     const dir = s.acc > 0 ? 1 : -1, t = info?.ds[info.i + dir];
     const go = t && (Math.abs(s.acc) > Math.min(220, innerWidth * 0.12) || (Math.abs(s.speed) > 0.35 && Math.abs(s.acc) > 30));
-    if (go) { swipeTo({ id: t.id, name: t.name }, info.list, dir); return; }   // carries on from where the fingers left it
+    if (go) { swipeTo({ id: t.id, name: t.name, incoming: s.incDir === dir ? s.inc : null }, info.list, dir); return; }   // carries on from where the fingers left it
+    const ease = { duration: 260, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" };
     for (const el of s.items) {                                       // springs back
       const from = el.style.getPropertyValue("translate") || "0px 0px";
       el.style.removeProperty("translate");
-      el.animate([{ translate: from }, { translate: "0px 0px" }], { duration: 260, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+      el.animate([{ translate: from }, { translate: "0px 0px" }], ease);
     }
+    const inc = s.inc, d = s.incDir;                                  // the other desktop's windows slide back out
+    for (const el of inc || []) {
+      const from = el.style.getPropertyValue("translate") || "0px 0px";
+      el.animate([{ translate: from }, { translate: `${d * innerWidth}px 0px` }], { ...ease, fill: "forwards" })
+        .finished.catch(() => {}).then(() => { el.getAnimations().forEach(a => a.cancel()); });
+    }
+    setTimeout(() => clearIncoming({ inc }), 280);
   }
   /* DESKTOP DOTS: over the Mission Control (Workspaces) button, a small pill shows the desktops of
      this window as dots, the shown one bright, with its name - also while you swipe */
@@ -3685,6 +3727,14 @@ window.vosBeat = window.vosBeat || (() => {
     b.setAttribute("data-vos-swipe-in", side);                        // set first: a new window never shows before it slides in
     // the leaving windows stay visible while they slide out, even once they belong to another desktop
     leaving.forEach(el => { el.setAttribute("data-ft-swipe-out", ""); el.setAttribute("data-ft-ws-leave", ""); });
+    for (const el of sp.incoming || []) {                            // already on their way in (the fingers): they finish from there
+      const from = el.style.getPropertyValue("translate") || "0px 0px";
+      el.animate([{ translate: from }, { translate: "0px 0px" }], { duration: 300, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)", fill: "forwards" })
+        .finished.catch(() => {}).then(() => {
+          el.style.removeProperty("translate"); el.getAnimations().forEach(a => a.cancel());
+          el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave");
+        });
+    }
     const t1 = Date.now();
     await (sp.go ? sp.go() : switchWs(sp, list));                    // at once: both desktops move together
     while (Date.now() - t1 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
