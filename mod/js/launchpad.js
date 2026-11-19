@@ -519,7 +519,7 @@
     add("Add Widget…", () => { enterEdit(); widgetGallery(); });
     add("Bookmarks…", () => { enterEdit(); folderPicker(); });
     const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d);
-    add("Check for Updates…", () => checkUpdate(true));
+    add("Vivaldi OS Updates…" + (window.vosVersion ? "  (" + window.vosVersion + ")" : ""), () => checkUpdate(true));
     add("Change Wallpaper…", changeWallpaper);
     add("Theme & Wallpaper Settings…", wallpaperSettings);
     m.addEventListener("click", ev => ev.stopPropagation());
@@ -846,6 +846,7 @@
     return true;
   }
   const ICON = {
+    update: '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M19.6 4.6v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     globe: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M3.6 12h16.8M12 3.4c2.4 2.6 2.4 14.6 0 17.2M12 3.4c-2.4 2.6-2.4 14.6 0 17.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
     wall: '<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M5.5 17l4.6-5 3.4 3.4 2.2-2.2 3.3 3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="15.8" cy="8.8" r="1.6" fill="currentColor"/></svg>',
     folder: '<svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2h7.4A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" fill="currentColor"/></svg>',
@@ -869,7 +870,8 @@
       e.addEventListener("click", ev => ev.stopPropagation());
       return e;
     };
-    return [mk("l", [["Folder", ICON.folder, folderPicker], ["Wallpaper", ICON.wall, changeWallpaper]]),
+    return [mk("l", [["Folder", ICON.folder, folderPicker], ["Wallpaper", ICON.wall, changeWallpaper],
+                     ["Updates" + (window.vosVersion ? " · " + window.vosVersion : ""), ICON.update, () => checkUpdate(true)]]),
             mk("r", [["Websites", ICON.globe, siteGallery], ["Widgets", ICON.plus, widgetGallery], ["Done", ICON.check, exitEdit, "lp-edge-done"]])];
   }
 
