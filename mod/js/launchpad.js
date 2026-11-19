@@ -2112,6 +2112,17 @@
       } else if (manual) updateNotice(null, "Vivaldi OS is up to date", "Version " + window.vosVersion);
     } catch (e) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); }
   }
+  /* Mac: the Vivaldi OS Updater app (set up by the installer) takes vivaldios://update:
+     it asks, then runs the update line in Terminal. The link carries nothing else. */
+  function macUpdate(b, msg) {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
+      const t = tabs?.[0];
+      const go = () => void chrome.runtime.lastError;
+      if (t) chrome.tabs.update(t.id, { url: "vivaldios://update" }, go);
+      else chrome.tabs.create({ url: "vivaldios://update", active: true }, go);
+      msg.textContent = "If Vivaldi asks, choose Open Vivaldi OS Updater (tick Always allow). Then press Update. If nothing opens, use Terminal below.";
+    });
+  }
   /* Windows: download the one-file installer and open it (SmartScreen may ask once) */
   function winUpdate(b, msg) {
     b.textContent = "Downloading…"; b.disabled = true;
@@ -2139,7 +2150,7 @@
     head.textContent = title || `Vivaldi OS ${tag} is available`;
     const p = document.createElement("div"); p.className = "vos-upd-sub";
     p.textContent = sub || (isMac
-      ? `You have ${window.vosVersion}. Copy the update line, paste it into Terminal and press Enter. Vivaldi restarts with your tabs.`
+      ? `You have ${window.vosVersion}. Update Now asks once more, then runs the update in Terminal. Vivaldi restarts with your tabs.`
       : `You have ${window.vosVersion}. Update Now downloads the installer and opens it (if Windows asks: More info → Run anyway). Vivaldi restarts with your tabs.`);
     n.append(head, p);
     const row = document.createElement("div"); row.className = "vos-upd-btns";
@@ -2151,8 +2162,8 @@
     const close = () => { n.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -8px)" }], { duration: 180, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => n.remove()); if (updEl === n) updEl = null; };
     if (tag) {
       btn("Later", () => { vstore.set(UPD_KEY, tag); close(); });
-      const auto = !isMac && chrome.downloads?.download;
-      if (auto) btn("Update Now", b => winUpdate(b, p), "vos-upd-main");
+      const auto = isMac || chrome.downloads?.download;
+      if (auto) btn("Update Now", b => (isMac ? macUpdate(b, p) : winUpdate(b, p)), "vos-upd-main");
       // copying the line: a row of its own, apart from Update Now
       const copyRow = document.createElement("div"); copyRow.className = "vos-upd-copy";
       const cap = document.createElement("span"); cap.className = "vos-upd-copy-cap";
