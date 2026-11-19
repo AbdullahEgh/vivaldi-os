@@ -101,7 +101,7 @@ $procs = Get-Process vivaldi -ErrorAction SilentlyContinue
 if ($procs) {
   Write-Host 'Closing Vivaldi...'
   $procs | ForEach-Object { [void]$_.CloseMainWindow() }
-  for ($i = 0; $i -lt 40 -and (Get-Process vivaldi -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 }
+  for ($i = 0; $i -lt 90 -and (Get-Process vivaldi -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 }   # up to 45 s: Vivaldi saves your session as it closes
   if (Get-Process vivaldi -ErrorAction SilentlyContinue) {
     Write-Host 'Vivaldi is still running in the background - stopping it.'
     Get-Process vivaldi -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -240,5 +240,5 @@ Write-Json $lsPath $ls
 Write-Host 'settings applied (themes, wallpaper, tab bar, CSS folder, CSS experiment)'
 
 # 4. start Vivaldi again
-Start-Process (Join-Path $app 'vivaldi.exe')
+Start-Process (Join-Path $app 'vivaldi.exe') -ArgumentList '--restore-last-session'   # your windows and tabs, as they were
 Write-Host 'Done. Vivaldi is now an OS.'

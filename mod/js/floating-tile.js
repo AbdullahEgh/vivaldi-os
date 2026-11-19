@@ -32,9 +32,10 @@
        window and it becomes its own floating window
      Places are relative to the Vivaldi window and survive a restart.
 
-   SNAP (like macOS / Windows): move a window until ITS edge meets the edge of
-     the desktop and hold: its top at the top -> full screen; its left or right
-     side at that side -> Bento with the window on that half. A frosted preview shows where it goes; leave the
+   SNAP (like Windows Aero Snap / macOS tiling): drag a window and bring the
+     POINTER within 10% of an edge of the desktop: top -> full screen; left or
+     right -> Bento with the window on that half. Windows can be dragged partly
+     off the desktop (100px stays on it, the top never goes above it). A frosted preview shows where it goes; leave the
      edge before letting go and nothing snaps. A full-screen page has a handle
      in the middle of its top edge: drag it down and the page floats again.
 
@@ -488,8 +489,11 @@
   function clampRect(r, s = stackRect()) {
     const w = Math.min(Math.max(r.w, MIN_W), s.width - MARGIN * 2);
     const h = Math.min(Math.max(r.h, MIN_H), s.height - MARGIN * 2);
-    const x = Math.min(Math.max(r.x, MARGIN), s.width - w - MARGIN);
-    const y = Math.min(Math.max(r.y, MARGIN), s.height - h - MARGIN);
+    // partly off the desktop is fine (like Windows / macOS): 100px stays on it sideways,
+    // and the top never goes above it, so the window can always be grabbed back
+    const KEEP = 100;
+    const x = Math.min(Math.max(r.x, KEEP - w), s.width - KEEP);
+    const y = Math.min(Math.max(r.y, 0), s.height - 48);
     return { x, y, w, h };
   }
   function pxRect(id, s = stackRect()) {
@@ -1919,7 +1923,7 @@
       bentoDrag = { id, rect: { x: r0.x + dx, y: r0.y + dy, w: r0.w, h: r0.h } };
       setStyle(el, "z-index", "2000");
       place(el, bentoDrag.rect, ss); placeFrame(id, el, bentoDrag.rect, ss);
-      const atTop = r0.y + (last.cy - sy) <= 0;                   // the window's top at the top of the desktop
+      const atTop = snapZone(last.cx, last.cy) === "full";           // the pointer near the top: full screen
       if (atTop !== top) {
         top = atTop; clearTimeout(topTimer);
         if (topShown) { snapPreview(null); topShown = false; }
@@ -2143,12 +2147,9 @@
        where it goes, and letting go puts it there. Leave the edge: no snap. */
     let zone = null, shown = null, zoneTimer = 0;
     const shake = shaker();
-    // the WINDOW's edge decides (not the pointer): its top at the top of the desktop,
-    // its left or right side at that side (where it would go past, unclamped)
-    const zoneOf = (L, T, R) => T <= 0 ? "full" : L <= 0 ? "left" : R >= ss.width ? "right" : null;
-    const snapCheck = (L, T, R) => {
+    const snapCheck = (x, y) => {
       if (how !== "move") return;
-      const z = zoneOf(L, T, R);
+      const z = snapZone(x, y);
       if (z === zone) return;
       zone = z;
       clearTimeout(zoneTimer);
@@ -2159,13 +2160,14 @@
     const onMove = ev => {
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
+      snapCheck(px, py);
       if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
         frame = 0;
         const dx = last.clientX - sx, dy = last.clientY - sy;
         let L = s0.x, T = s0.y, R = s0.x + s0.w, B = s0.y + s0.h;
-        if (how === "move") { L += dx; R += dx; T += dy; B += dy; snapCheck(L, T, R); }
+        if (how === "move") { L += dx; R += dx; T += dy; B += dy; }
         else {
           if (how.includes("l")) L = Math.max(MARGIN, Math.min(L + dx, R - MIN_W));
           if (how.includes("r")) R = Math.min(ss.width - MARGIN, Math.max(R + dx, L + MIN_W));
@@ -2237,7 +2239,16 @@
   }
 
   /* the snap preview: a frosted rounded area where the window will go */
-  const SNAP_EDGE = 6, SNAP_HOLD = 280;
+  const SNAP_ZONE = 0.1, SNAP_HOLD = 200;
+  /* which snap zone the pointer is in: within 10% of the top (full screen) or of the
+     left / right side (that half); in a corner, the nearer edge */
+  function snapZone(x, y) {
+    const r = stack()?.getBoundingClientRect();
+    if (!r) return null;
+    const t = (y - r.top) / r.height, l = (x - r.left) / r.width, rt = (r.right - x) / r.width;
+    const near = [["full", t], ["left", l], ["right", rt]].filter(([, d]) => d <= SNAP_ZONE).sort((a, b) => a[1] - b[1]);
+    return near[0]?.[0] || null;
+  }
   let snapEl = null;
   function snapPreview(zone, fromEl, taken) {
     const host = stack();

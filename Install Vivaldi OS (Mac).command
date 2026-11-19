@@ -58,5 +58,5 @@ done
 osascript -l JavaScript "$PKG/installer/apply-settings-mac.js" "$PKG" "$USERDATA" "$PERS"
 
 # 4. start Vivaldi again
-open -a Vivaldi
+open -a Vivaldi --args --restore-last-session      # your windows and tabs, as they were
 echo "Done. Vivaldi is now an OS."

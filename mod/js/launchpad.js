@@ -2102,6 +2102,24 @@
       } else if (manual) updateNotice(null, "Vivaldi OS is up to date", "Version " + window.vosVersion);
     } catch (e) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); }
   }
+  /* Windows: download the one-file installer and open it (SmartScreen may ask once) */
+  function winUpdate(b, msg) {
+    b.textContent = "Downloading…"; b.disabled = true;
+    const fail = text => { b.textContent = "Update Now"; b.disabled = false; msg.textContent = text; };
+    chrome.downloads.download({ url: relUrl() + "VivaldiOS-Windows.cmd", filename: "VivaldiOS-Update.cmd", conflictAction: "overwrite", saveAs: false }, id => {
+      if (chrome.runtime.lastError || !id) return fail("The download didn't start. Use Copy for PowerShell instead.");
+      const on = d => {
+        if (d.id !== id || !d.state) return;
+        if (d.state.current === "complete") {
+          chrome.downloads.onChanged.removeListener(on);
+          b.textContent = "Opening…";
+          try { chrome.downloads.open(id); msg.textContent = "The installer is starting: Vivaldi will close and come back with your tabs."; }
+          catch (e) { chrome.downloads.show?.(id); msg.textContent = "Double-click VivaldiOS-Update.cmd (shown in its folder) to update."; }
+        } else if (d.state.current === "interrupted") { chrome.downloads.onChanged.removeListener(on); fail("The download was stopped. Use Copy for PowerShell instead."); }
+      };
+      chrome.downloads.onChanged.addListener(on);
+    });
+  }
   let updEl = null;
   function updateNotice(tag, title, sub) {
     updEl?.remove();
@@ -2110,7 +2128,9 @@
     const head = document.createElement("div"); head.className = "vos-upd-title";
     head.textContent = title || `Vivaldi OS ${tag} is available`;
     const p = document.createElement("div"); p.className = "vos-upd-sub";
-    p.textContent = sub || `You have ${window.vosVersion}. Copy the update line, close Vivaldi, paste it into ${updateLines()[0][0]} and press Enter.`;
+    p.textContent = sub || (isMac
+      ? `You have ${window.vosVersion}. Copy the update line, paste it into Terminal and press Enter. Vivaldi restarts with your tabs.`
+      : `You have ${window.vosVersion}. Update Now downloads the installer and opens it (if Windows asks: More info → Run anyway). Vivaldi restarts with your tabs.`);
     n.append(head, p);
     const row = document.createElement("div"); row.className = "vos-upd-btns";
     const btn = (label, fn, cls) => {
@@ -2121,6 +2141,7 @@
     const close = () => { n.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -8px)" }], { duration: 180, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => n.remove()); if (updEl === n) updEl = null; };
     if (tag) {
       btn("Later", () => { vstore.set(UPD_KEY, tag); close(); });
+      if (!isMac && chrome.downloads?.download) btn("Update Now", b => winUpdate(b, p), "vos-upd-main");
       for (const [where, line] of updateLines()) {
         const label = updateLines().length > 1 ? `Copy for ${where}` : "Copy Update Line";
         btn(label, async b => {
