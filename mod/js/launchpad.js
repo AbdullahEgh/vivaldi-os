@@ -2092,9 +2092,11 @@
   async function checkUpdate(manual) {
     if (!window.vosRepo || !window.vosVersion) return;
     try {
-      const r = await fetch(`https://api.github.com/repos/${window.vosRepo}/releases/latest`, { cache: "no-store" });
+      // a few bytes: the VERSION file of the published mod (GitHub's cache, no API limits)
+      lastCheck = Date.now();
+      const r = await fetch(`https://raw.githubusercontent.com/${window.vosRepo}/main/mod/VERSION?t=${Math.floor(Date.now() / 6e5)}`, { cache: "no-store" });
       if (!r.ok) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); return; }
-      const tag = String((await r.json()).tag_name || "").replace(/^v/, "");
+      const tag = (await r.text()).trim().replace(/^v/, "");
       if (tag && newer(tag, window.vosVersion)) {
         updTag(tag);                                                  // the tag at the left of the tab bar stays
         if (!manual && (await vstore.get(UPD_KEY)) === tag) return;   // "Later" for this version
@@ -2272,7 +2274,11 @@
   }
   setInterval(() => { if (tagFor && !tagEl?.isConnected) updTag(tagFor); }, 2000);   // a re-drawn tab bar gets it back
   setTimeout(() => checkUpdate(false), 20000);
-  setInterval(() => checkUpdate(false), 30 * 60 * 1000);
+  // every 30 minutes, only while Vivaldi is in use; coming back after longer checks once
+  let lastCheck = 0;
+  const due = () => !document.hidden && Date.now() - lastCheck >= 30 * 60 * 1000;
+  setInterval(() => { if (due()) checkUpdate(false); }, 5 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => { if (due()) checkUpdate(false); });
 
   vstore.get(TM_KEY).then(v => { if (v && typeof v === "object") { tm = { ...tm, ...v }; ensureTick(); } });              // the seed file may load after this one
 })();
