@@ -209,8 +209,8 @@
 #browser #main [data-ft-float][data-ft-front] {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.10),
-    0 36px 96px rgba(0, 0, 0, 0.58),
-    0 14px 32px rgba(0, 0, 0, 0.34) !important;
+    0 28px 72px rgba(0, 0, 0, 0.46),
+    0 10px 24px rgba(0, 0, 0, 0.28) !important;
 }
 /* rounded-windows.css clips pages with clip-path, which would cut off the shadow */
 #browser .webpageview[data-ft-float] {
@@ -706,7 +706,7 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 8px 22px rgba(0, 0, 0, 0.22) !important;
 }
 #browser #main .webpageview[data-ft-float][data-ft-front] {   /* the active window: lifted higher */
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 36px 96px rgba(0, 0, 0, 0.58), 0 14px 32px rgba(0, 0, 0, 0.34) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 28px 72px rgba(0, 0, 0, 0.46), 0 10px 24px rgba(0, 0, 0, 0.28) !important;
 }
 #browser #main .webpageview[data-ft-float]::after {
   content: none !important;
@@ -1242,12 +1242,14 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* a full-screen page stays under the floating windows chosen from the tab bar */
 #browser[data-ft-desktop] #webpage-stack .webpageview[data-ft-under] { visibility: visible !important; opacity: 1 !important; }
-/* DESKTOP SWIPE: choosing a desktop slides it (floating-tile.js swipeTo) - transforms only */
+/* DESKTOP SWIPE: choosing a desktop slides it (floating-tile.js swipeTo) - the translate property only, so it adds to
+   any scale already on a window (Mission Control) and never fights it */
+#browser:is([data-vos-swipe], [data-vos-mission-anim]) :is(#webpage-stack [data-ft-float], .ft-frame, #webpage-stack > .lp-desktop) { will-change: transform, translate; }
 #browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left 0.19s cubic-bezier(0.5, 0, 0.9, 0.5) forwards !important; }
 #browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right 0.19s cubic-bezier(0.5, 0, 0.9, 0.5) forwards !important; }
 #browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-desktop):not([data-ft-swipe-out]) { animation: vos-swipe-in-right 0.36s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
 #browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-desktop):not([data-ft-swipe-out]) { animation: vos-swipe-in-left 0.36s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
-@keyframes vos-swipe-out-left { to { transform: translateX(-100vw); } }
-@keyframes vos-swipe-in-right { from { transform: translateX(100vw); } }
-@keyframes vos-swipe-out-right { to { transform: translateX(100vw); } }
-@keyframes vos-swipe-in-left { from { transform: translateX(-100vw); } }
+@keyframes vos-swipe-out-left { to { translate: -100vw 0; } }
+@keyframes vos-swipe-in-right { from { translate: 100vw 0; } }
+@keyframes vos-swipe-out-right { to { translate: 100vw 0; } }
+@keyframes vos-swipe-in-left { from { translate: -100vw 0; } }

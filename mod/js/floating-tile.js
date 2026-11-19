@@ -1072,7 +1072,7 @@
       if (!origins.has(w.el.parentElement)) origins.set(w.el.parentElement, fixedOrigin(w.el.parentElement));
     }
     bentoSync(s);
-    const slots = mission ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip), s) : null;
+    const slots = mission ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))), s) : null;
     if (mission) mission.slots = slots;
     for (const { id, el } of windows) {
       addChrome(el, id);
@@ -2883,11 +2883,33 @@
   /* a picture of a window's web page, through Vivaldi's own tab thumbnails (any loaded
      tab, not only the visible one); kept, so the strip opens with the last ones at once */
   const pagePics = new Map();                         // tab id -> data URL
+  /* another desktop in Bento: where its tiles are (its windows at their real size there) */
+  const tilesOf = new Map();
+  function otherTiles(ws, ss) {
+    const key = ws == null ? "default" : String(ws), st = bentoWs.get(key);
+    if (!st?.on || !st.root) return new Map();
+    const memo = tilesOf.get(key);
+    if (memo && memo.root === st.root && memo.w === ss.width && memo.h === ss.height) return memo.map;
+    const map = new Map();
+    try { for (const { leaf, r } of bCalc(st.root, bArea(ss)).regions) map.set(leaf.win, r); } catch (e) {}
+    tilesOf.set(key, { root: st.root, w: ss.width, h: ss.height, map });
+    return map;
+  }
+  const picAt = new Map();                          // tab -> when its picture was taken
   function pagePicture(box, tabId, r) {
     const show = url => { if (!url) return; box.style.setProperty("background-image", `url("${url}")`, "important"); box.setAttribute("data-pic", ""); };
     show(pagePics.get(tabId));
     const cap = vivaldi?.thumbnails?.captureTab;
     if (!cap || !tabId) return;
+    if (pagePics.has(tabId) && Date.now() - (picAt.get(tabId) || 0) < 20000) return;   // a fresh one: no new picture
+    picAt.set(tabId, Date.now());
+    pagePicture.n = (pagePicture.n || 0) + 1;                        // one after another, after the panel is down
+    const wait = 320 + 60 * (pagePicture.n - 1);
+    clearTimeout(pagePicture.reset); pagePicture.reset = setTimeout(() => { pagePicture.n = 0; }, wait + 100);
+    setTimeout(() => capturePic(box, tabId, r, show, cap), wait);
+  }
+  function capturePic(box, tabId, r, show, cap) {
+    if (!box.isConnected) return;
     const W = 420, H = Math.max(120, Math.round(W * (r.h / Math.max(1, r.w))));
     const done = d => { void chrome.runtime.lastError; const url = typeof d === "string" ? d : d?.image || d?.dataUrl || ""; if (url) { pagePics.set(tabId, url); show(url); } };
     try {
@@ -3025,10 +3047,10 @@
     clearTimeout(missionMode.t); missionMode.t = setTimeout(() => b?.removeAttribute("data-vos-mission-anim"), 320);
     render();
   }
-  function closeWsStrip(instant) {
+  function closeWsStrip(instant, keepMission) {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
-    missionMode(null, instant);
+    if (!keepMission) missionMode(null, instant);                    // a swipe: the small windows slide out as they are
     if (instant) {                                                  // a swipe follows: gone at once
       st.__back?.remove(); closeWsMenu(); st.remove();
       removeEventListener("keydown", wsKey, true); removeEventListener("pointerdown", wsOut, true);
@@ -3084,7 +3106,7 @@
       // its windows, where they are (the front ones on top)
       const wins = [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
       for (const id of wins) {
-        const r = same(sp.id, cur) ? pxRect(id, ss) : (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })();
+        const r = same(sp.id, cur) ? pxRect(id, ss) : (otherTiles(sp.id, ss).get(id) || (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })());
         if (!r) continue;
         const w = document.createElement("div");
         w.className = "vos-ws-win"; w.dataset.tab = String(id);
@@ -3112,7 +3134,7 @@
         if (same(sp.id, cur)) return closeWsStrip();
         const order = [...row.querySelectorAll(".vos-ws-card[data-ws]")];
         const dir = order.indexOf(card) - order.findIndex(c => c.hasAttribute("data-current"));
-        closeWsStrip(true);
+        closeWsStrip(true, true);
         swipeTo(sp, list, dir >= 0 ? 1 : -1);
       });
       row.appendChild(card);
@@ -3223,14 +3245,16 @@
     const side = dir > 0 ? "next" : "prev";
     swiping = true;
     const leaving = [...document.querySelectorAll(SWIPE_ITEMS)];
+    if (mission) mission.frozen = new Set(mission.slots ? mission.slots.keys() : []);   // the new desktop's windows come in at full size
     b.setAttribute("data-vos-swipe", side);
     leaving.forEach(el => el.setAttribute("data-ft-swipe-out", ""));
     await new Promise(r => setTimeout(r, 190));                       // the old desktop is on its way out
+    b.setAttribute("data-vos-swipe-in", side);                        // set first: a new window never shows before it slides in
     await switchWs(sp, list);
     const t0 = Date.now();
     while (Date.now() - t0 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 25)); }
+    missionMode(null, true);                                          // Mission Control ends with the old desktop out of sight
     render();
-    b.setAttribute("data-vos-swipe-in", side);                        // the new one comes in
     leaving.forEach(el => el.removeAttribute("data-ft-swipe-out"));
     setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; }, 380);
   }
