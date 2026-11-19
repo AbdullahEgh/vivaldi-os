@@ -1110,7 +1110,7 @@
     "account_values.vivaldi.panels": {
       "as_overlay": {
         "auto_close": false,
-        "enabled": false
+        "enabled": true
       },
       "lazy_load": true,
       "show_close_button": true,

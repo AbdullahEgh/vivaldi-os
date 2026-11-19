@@ -2214,8 +2214,11 @@
       const snap = ev.type === "pointerup" ? shown : null;
       if (shown) snapPreview(null, null, !!snap);
       persist(id);
+      const toBento = backToBento.delete(id);
+      if (toBento) bento.skip.delete(id);                           // Bento takes it back now
       if (snap === "full") act("zoom", pageOf(id));                // full screen (the green button's way)
       else if (snap) snapBento(id, snap);
+      else if (toBento) bTransition(() => render());               // let go elsewhere: it glides into its Bento slot
     };
     // pointer events: mouse, touch and pen move/resize the same way
     addEventListener("pointermove", onMove, true);
@@ -2302,6 +2305,7 @@
     });
     bentoButton();
   }
+  const backToBento = new Set();                     // windows dragged out of full screen with Bento on
   /* a full-screen page: drag its top edge down and it floats again, under the pointer */
   function ensureMaxGrab() {
     const host = stack();
@@ -2324,6 +2328,7 @@
       const h = Math.min(old?.h || Math.round(ss.height * 0.72), ss.height - 2 * MARGIN);
       const px = ev.clientX - ss.left, py = ev.clientY - ss.top;
       setPx(id, clampRect({ x: px - w / 2, y: Math.max(MARGIN, py - 14), w, h }, ss), ss);
+      if (bento.on) { bento.skip.add(id); backToBento.add(id); }    // under the pointer, not in a Bento slot, while held
       floatNow(id, page);
       render();
       const el = targetOf(pageOf(id));
