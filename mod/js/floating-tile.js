@@ -952,6 +952,7 @@
   let lastSiteTab = null;
   function render() {
     reconcile();
+    bentoForDesk();
     {                                                // the selected tile of a floating split
       const a0 = pendingActive ?? activePage()?.dataset.id, w0 = winOf(a0);
       if (w0 && groupFloat.has(w0) && pageOf(a0)) splitFocus.set(w0, String(a0));
@@ -1668,13 +1669,42 @@
   const bSerialize = n => n.t === "w" ? { w: n.win, h: hostOf(n.win) }
     : { s: n.axis, r: +n.ratio.toFixed(4), a: bSerialize(n.a), b: bSerialize(n.b) };
   let bSaved = "";
+  /* BENTO PER DESKTOP (workspace): each desktop has its own Bento - on or off (off by
+     default), its layout, its undo - kept when you go to another desktop and back */
+  const bentoOn = {}, bentoLayouts = {};              // desktop -> true / its saved layout
+  const bentoWs = new Map();                          // desktop -> its Bento state while away
+  const deskKey = () => {
+    const w = curWs();
+    if (w === undefined && bento.ws != null) return bento.ws;      // in the middle of a switch: not known yet, keep it
+    return w == null ? "default" : String(w);
+  };
   function bentoSave() {
     if (!bento.on || !bento.root || bento.gesture) return;
     const j = JSON.stringify(bSerialize(bento.root));
     if (j === bSaved) return;
     bSaved = j;
     bLayoutSaved = j;
-    vstore.set(BENTO_LAYOUT, j);
+    bentoLayouts[bento.ws || deskKey()] = j;
+    vstore.set(BENTO_LAYOUT, JSON.stringify(bentoLayouts));
+  }
+  function bentoForDesk() {                            // another desktop: its own Bento comes out
+    const k = deskKey();
+    if (bento.ws === k) return;
+    if (bento.ws != null) bentoWs.set(bento.ws, { on: bento.on, root: bento.root, pre: bento.pre, skip: bento.skip,
+      memo: bento.memo, undo: bento.undo, redo: bento.redo });
+    bento.ws = k; bento.shape = ""; bentoDrag = null; bSaved = "";
+    const st = bentoWs.get(k);
+    if (st) Object.assign(bento, st);
+    else {
+      Object.assign(bento, { on: !!bentoOn[k], root: null, pre: {}, skip: new Set(), memo: new Map(), undo: [], redo: [] });
+      bLayoutSaved = bentoLayouts[k] || null;
+      if (bento.on) {                                  // on for this desktop: its saved layout, else a fresh one
+        for (const id of floating) if (frac[id]) bento.pre[id] = { ...frac[id] };
+        bento.restoreUntil = Date.now() + 10000;
+      }
+    }
+    bLayoutSaved = bentoLayouts[k] || null;
+    bentoButton();
   }
   function bRestore(members, area) {
     let saved = null;
@@ -1894,7 +1924,9 @@
       }
       render();
     });
-    vstore.set(BENTO_KEY, on ? "1" : "0");
+    const dk = bento.ws || deskKey();
+    if (on) bentoOn[dk] = true; else delete bentoOn[dk];
+    vstore.set(BENTO_KEY, JSON.stringify(bentoOn));
     bentoButton();
   }
 
@@ -2309,7 +2341,7 @@
       if (!bento.on) {
         bento.on = true; bento.pre = {}; bento.skip = new Set(); bento.shape = ""; bento.undo = []; bento.redo = [];
         for (const f of floating) if (frac[f]) bento.pre[f] = { ...frac[f] };
-        vstore.set(BENTO_KEY, "1");
+        bentoOn[bento.ws || deskKey()] = true; vstore.set(BENTO_KEY, JSON.stringify(bentoOn));
       } else if (bento.root) bPush(bento.root);
       bento.root = next;
       render();
@@ -3189,8 +3221,9 @@
     render();
     restoreSession();
     Promise.all([vstore.get(BENTO_KEY), vstore.get(BENTO_LAYOUT)]).then(([on, layout]) => {
-      if (layout) bLayoutSaved = layout;
-      if (on === "1") setTimeout(() => { bento.restoreUntil = Date.now() + 10000; bentoToggle(true); }, 1500);
+      try { const o = JSON.parse(on || "{}"); if (o && typeof o === "object") Object.assign(bentoOn, o); } catch (e) {}
+      try { const l = JSON.parse(layout || "{}"); if (l && typeof l === "object" && !l.s && !l.w) Object.assign(bentoLayouts, l); } catch (e) {}
+      setTimeout(() => { bento.ws = null; bentoWs.clear(); queueRender(); }, 1500);   // this desktop's own Bento
     });
     setInterval(() => { if (!document.hidden) bentoButton(); }, 2000);   // the tab bar can be rebuilt
     document.addEventListener("pointermove", bentoHover, { capture: true, passive: true });
