@@ -1430,7 +1430,32 @@
       box.addEventListener("click", ev => { ev.stopPropagation(); if (lp?.swallow) lp.swallow = false; });
     }
     buildWidget(card, w);
+    if (!preview) pinEdge(box, w);
     return box;
+  }
+  /* a widget at the left or right edge stays at that edge whatever the width (the icons
+     flow around it); one elsewhere flows with the icons */
+  const edgeOfW = w => w.edge === undefined ? "l" : w.edge;
+  function edgeRow(w) {                             // its row at its edge: where it was put, under the ones above it
+    const same = widgets.filter(x => edgeOfW(x) === edgeOfW(w))
+      .map((x, i) => ({ x, k: x.row ?? 0, p: x.pos ?? i })).sort((a, b) => a.k - b.k || a.p - b.p);
+    let end = 1;
+    for (const { x } of same) { const st = Math.max(x.row ?? 1, end); if (x.id === w.id) return st; end = st + 2; }
+    return 1;
+  }
+  function pinEdge(box, w) {
+    const span = w.s === "m" ? 4 : 2, edge = edgeOfW(w);
+    if (!edge) { box.style.removeProperty("grid-column"); box.style.removeProperty("grid-row"); return; }
+    box.style.setProperty("grid-column", edge === "l" ? `1 / span ${span}` : `${-span - 1} / -1`, "important");
+    box.style.setProperty("grid-row", `${edgeRow(w)} / span 2`, "important");
+  }
+  function edgeOf(box, grid) {                      // where it sits now: { edge: "l" | "r" | null, row }
+    const cs = getComputedStyle(grid);
+    const tracks = cs.gridTemplateColumns.split(" ").map(parseFloat).filter(n => n > 0);
+    const g = grid.getBoundingClientRect(), r = box.getBoundingClientRect(), half = (tracks[0] || 112) / 2;
+    const step = (parseFloat(cs.gridAutoRows) || 96) + (parseFloat(cs.rowGap) || 30);
+    const row = Math.max(1, Math.round((r.top - g.top) / step) + 1);
+    return { edge: r.left - g.left < half ? "l" : g.right - r.right < half ? "r" : null, row };
   }
   const pad = n => String(n).padStart(2, "0");
   function buildWidget(card, w) {
@@ -1902,6 +1927,7 @@
         st.ghost = ghost; st.dx = st.x - r.left; st.dy = st.y - r.top;
         el.setAttribute("data-drag-src", "");
         lp.layer.setAttribute("data-dragging", "");
+        el.style.removeProperty("grid-column"); el.style.removeProperty("grid-row");   // it flows with the icons while dragged
       }
       st.ghost.style.left = (e.clientX - st.dx) + "px";
       st.ghost.style.top = (e.clientY - st.dy) + "px";
@@ -1919,17 +1945,22 @@
       removeEventListener("pointerup", up, true);
       removeEventListener("pointercancel", up, true);
       if (!st.on) return;
-      const goal = el.querySelector(".lp-wcard").getBoundingClientRect();
-      st.ghost.animate([{ left: st.ghost.style.left, top: st.ghost.style.top }, { left: goal.left + "px", top: goal.top + "px" }],
-                       { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove());
       el.removeAttribute("data-drag-src");
       lp?.layer.removeAttribute("data-dragging");
       justDragged = true; setTimeout(() => { justDragged = false; }, 60);
       const order = [...lp.grid.children].filter(c => c.matches(".lp-app, .lp-widget"));
+      const at = edgeOf(el, lp.grid);                // dropped at an edge: it stays at that edge
       widgets = widgets.map(w => {                  // each widget keeps its place among the icons
         const i = order.findIndex(c => c.__w?.id === w.id);
-        return i >= 0 ? { ...w, pos: i } : w;
+        const nw = i >= 0 ? { ...w, pos: i } : w;
+        if (w.id === el.__w?.id) { nw.edge = at.edge; nw.row = at.row; }
+        return nw;
       });
+      el.__w = widgets.find(w => w.id === el.__w?.id) || el.__w;
+      for (const c of lp.grid.querySelectorAll(".lp-widget")) if (c.__w) { c.__w = widgets.find(w => w.id === c.__w.id) || c.__w; pinEdge(c, c.__w); }
+      const goal = el.querySelector(".lp-wcard").getBoundingClientRect();
+      st.ghost.animate([{ left: st.ghost.style.left, top: st.ghost.style.top }, { left: goal.left + "px", top: goal.top + "px" }],
+                       { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove());
       saveWidgets();
       drag = null;
     };

@@ -2738,7 +2738,9 @@
         const ids = cards.map(c => c.dataset.ws);
         ids.splice(to, 0, ids.splice(from, 1)[0]);
         const byId = new Map(list.map(w => [String(w.id), w.id]));
-        try { vivWs()?.setOrder(ids.map(i => byId.get(i))); } catch (e2) { LOG("workspaces: reorder failed", e2); }
+        const shown = new Set(ids), next = ids[Symbol.iterator]();        // other windows' desktops keep their places
+        const all = list.map(w => String(w.id)).map(i => shown.has(i) ? next.next().value : i);
+        try { vivWs()?.setOrder(all.map(i => byId.get(i))); } catch (e2) { LOG("workspaces: reorder failed", e2); }
         const others = cards.filter(o => o !== card);                // show the new order right away
         row.insertBefore(card, others[to] || row.querySelector(".vos-ws-more"));
       };
@@ -2760,6 +2762,24 @@
       const p = cap.call(vivaldi.thumbnails, tabId, { encodeFormat: "jpg", encodeQuality: 70, fullPage: false, width: W, height: H }, done);
       if (p && typeof p.then === "function") p.then(done, () => {});
     } catch (e) {}
+  }
+  /* DESKTOPS PER WINDOW: Vivaldi's workspaces are shared by all its windows; each window
+     shows only its own - the ones with its pages, the one it is on, the ones made or used
+     in it. A desktop of a window that is gone (after a restart) shows in every window. */
+  const OWN_KEY = "vosWsOwner";
+  async function myDesks(list, tabs, cur) {
+    const me = String(myWin());
+    let own = {};
+    try { own = JSON.parse((await vstore.get(OWN_KEY)) || "{}") || {}; } catch (e) {}
+    const live = await new Promise(res => { try { chrome.windows.getAll({}, ws => { void chrome.runtime.lastError; res(new Set((ws || []).map(w => String(w.id)))); }); } catch (e) { res(null); } });
+    const used = new Set((tabs || []).map(t => wsOfTab.get(String(t.id))).filter(v => v != null).map(String));
+    if (cur != null) used.add(String(cur));
+    let changed = false;
+    for (const id of used) if (own[id] !== me) { own[id] = me; changed = true; }
+    const ids = new Set(list.map(w => String(w.id)));
+    for (const k of Object.keys(own)) if (!ids.has(k)) { delete own[k]; changed = true; }
+    if (changed) vstore.set(OWN_KEY, JSON.stringify(own));
+    return new Set(list.map(w => String(w.id)).filter(id => used.has(id) || own[id] === me || !own[id] || (live && !live.has(own[id]))));
   }
   function closeWsStrip() {
     if (!wsStrip) return;
@@ -2786,7 +2806,8 @@
     const info = new Map((tabs || []).map(t => [String(t.id), t]));
     const ss = stackRect(), cur = curWs();
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
-    const spaces = [{ id: null, name: "Default", icon: null }, ...list.map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
+    const mine = await myDesks(list, tabs, cur);
+    const spaces = [{ id: null, name: "Default", icon: null }, ...list.filter(w => mine.has(String(w.id))).map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
     const cardW = Math.round(Math.min(220, 128 * (ss.width / Math.max(1, ss.height))));   // at most 128px high
 
     const strip = document.createElement("div");
@@ -2855,7 +2876,19 @@
       let n = list.length + 2, name;
       do { name = "Desktop " + n++; } while (names.has(name));
       if (api) {
-        try { Promise.resolve(api.addWorkspace(name, undefined, undefined, undefined, false)).catch(e => wsErr("new", e)); return; }
+        try {
+          const before = new Set(list.map(w => String(w.id)));
+          Promise.resolve(api.addWorkspace(name, undefined, undefined, undefined, false)).catch(e => wsErr("new", e))
+            .then(() => new Promise(r => setTimeout(r, 400))).then(() => prefGet("vivaldi.workspaces.list")).then(async nl => {
+              const fresh = (nl || []).map(w => String(w.id)).filter(i => !before.has(i));
+              if (!fresh.length) return;
+              let own = {};                                          // a new desktop belongs to this window
+              try { own = JSON.parse((await vstore.get(OWN_KEY)) || "{}") || {}; } catch (e) {}
+              for (const i of fresh) own[i] = String(myWin());
+              vstore.set(OWN_KEY, JSON.stringify(own));
+            });
+          return;
+        }
         catch (e) { wsErr("new", e); }
       }
       openVivaldiWs(false);                                          // fallback: Vivaldi's own list (its New button)
