@@ -153,6 +153,8 @@ window.vosBeat = window.vosBeat || (() => {
     raise(w); activate(groupFloat.has(w) ? (splitFocus.get(w) || w) : w); render();
     setTimeout(() => chrome.tabs.remove(Number(sid), () => void chrome.runtime.lastError), 120);
   }
+  const wsPending = new Map();                        // tab -> { ws, until }: sent to a desktop, not confirmed yet
+  const pend = (ids, ws) => { const until = Date.now() + 2500; for (const i of ids) { wsPending.set(String(i), { ws, until }); wsOfTab.set(String(i), ws); } wsNowAt = 0; };
   let underId = null;                                 // the full-screen page under the floating windows
   let liveMove = null;                                // { id, base } a window being moved (by a translate)
   function endLiveMove() {                            // the move is over: its real place, the translate gone
@@ -293,7 +295,9 @@ window.vosBeat = window.vosBeat || (() => {
           const k = String(t.id), g = tilingOfTab(t);
           live.add(k);
           if (splitOfTab.get(k) !== g) { splitOfTab.set(k, g); changed = true; }
-          const w = extOf(t)?.workspaceId ?? null;
+          let w = extOf(t)?.workspaceId ?? null;
+          const pd = wsPending.get(k);                                 // just moved: Vivaldi may not say so yet
+          if (pd) { if (sameWs(w, pd.ws) || Date.now() > pd.until) wsPending.delete(k); else w = pd.ws; }
           if (wsOfTab.get(k) !== w) { wsOfTab.set(k, w); wsChanged = true; wsNowAt = 0; }
           // a Start Page is the desktop, never a window (one that became a window by mistake)
           if (floating.has(k) && !groupFloat.has(k) && /^chrome:\/\/vivaldi-webui\/startpage/.test(t.url || t.pendingUrl || "")) { forget(k); wsChanged = true; }
@@ -2106,7 +2110,7 @@ window.vosBeat = window.vosBeat || (() => {
     host?.appendChild(preview);
     let key = "", split = false, holdTimer = 0, proposal = null, frame = 0, last = null;
     let top = false, topTimer = 0, topShown = false;                 // held at the top edge: full screen
-    let deskT = 0, desk = false, deskOn = null;                      // held longer: the desktops come down - drop it on one
+    let deskT = 0, desk = false, deskOn = null, bEnded = false;      // held longer: the desktops come down - drop it on one
     let leavingB = false;                                            // past the edge of this Vivaldi window
     const shake = shaker();
     const show = (r, conflict) => {
@@ -2146,7 +2150,7 @@ window.vosBeat = window.vosBeat || (() => {
           deskT = setTimeout(() => {                                 // still holding: the desktops (like without Bento)
             desk = true; show(null);
             if (topShown) { snapPreview(null); topShown = false; }
-            if (!wsStrip) openWsStrip();
+            if (!wsStrip) openWsStrip().then(() => { if (bEnded && wsStrip) closeWsStrip(); });
           }, SNAP_HOLD + 700);
         }
       }
@@ -2184,7 +2188,7 @@ window.vosBeat = window.vosBeat || (() => {
     };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
-      cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer); clearTimeout(deskT);
+      cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer); clearTimeout(deskT); bEnded = true;
       let toCard = null, deskList = [];
       if (desk) {                                                    // let go over the desktops
         toCard = ev.type === "pointerup" ? deskOn : null; deskOn?.removeAttribute("data-drop");
@@ -2519,12 +2523,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (!inMission && how === "move") missionSkip = id;               // held from the top edge: it keeps its size
     const slot0 = inMission ? mission.slots?.get(id) : null, kHeld = slot0?.k ?? mission?.k ?? 1;
     let gOff = inMission ? (() => { const d = slot0 || mr(s0); return { x: sx - ss.left - d.x, y: sy - ss.top - d.y }; })() : null;
-    let moved = false;
+    let moved = false, ended = false;
     const openDeskDrop = () => {
       deskDrop = true;
       clearTimeout(zoneTimer);
       if (shown) { snapPreview(null); shown = null; }
-      if (!wsStrip) openWsStrip();
+      if (!wsStrip) openWsStrip().then(() => { if (ended && wsStrip) closeWsStrip(); });   // let go meanwhile: not after
     };
     const shake = shaker();
     const snapCheck = (x, y) => {
@@ -2605,6 +2609,7 @@ window.vosBeat = window.vosBeat || (() => {
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame);
+      ended = true;
       endLiveMove();
       clearTimeout(holdTimer);
       if (scaling) { breathOut(el); label?.remove(); }
@@ -2963,22 +2968,34 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* a window to another desktop (workspace): Vivaldi's own move; it leaves this one */
   const sameWs = (a, b) => (a == null && b == null) || String(a) === String(b);
+  /* Vivaldi goes along with the active tab when it moves: another one of this desktop becomes
+     active first (or its desktop page), so you stay here until you choose to go */
+  async function handOver(ids, cur) {
+    try {
+      const tabs = await tabsQuery({ currentWindow: true });
+      if (!tabs.some(t => ids.includes(String(t.id)) && t.active)) return;
+      const z = [...zOrder].reverse().find(o => !ids.includes(o) && floating.has(o) && !minimized.has(o) && sameWs(wsOfTab.get(o), cur));
+      const other = tabs.find(t => String(t.id) === z) || tabs.find(t => !ids.includes(String(t.id)) && sameWs(wsOfTab.get(String(t.id)), cur));
+      await new Promise(r => other ? chrome.tabs.update(other.id, { active: true }, () => { void chrome.runtime.lastError; r(); })
+                                   : chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, () => { void chrome.runtime.lastError; r(); }));
+    } catch (e) { wsErr("hand over", e); }
+  }
+  async function arrivedAt(ids, ws, ms) {             // Vivaldi says every one of these tabs is on that desktop
+    const t1 = Date.now();
+    while (Date.now() - t1 < ms) {
+      const tabs = await tabsQuery({ currentWindow: true });
+      const mine = tabs.filter(t => ids.includes(String(t.id)));
+      if (mine.length && mine.every(t => sameWs(extOf(t)?.workspaceId ?? null, ws))) return true;
+      await new Promise(r => setTimeout(r, 70));
+    }
+    return false;
+  }
   async function toDesk(id, ws) {
     const key = String(id), cur = curWs();
     const pg = pageOf(key);                                          // every page of the window (a split has several)
     const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
-    // Vivaldi goes along with the active tab when it moves: another one of this desktop
-    // becomes active first (or its desktop page), so you stay here
-    try {
-      const tabs = await tabsQuery({ currentWindow: true });
-      if (tabs.some(t => ids.includes(String(t.id)) && t.active)) {
-        const z = [...zOrder].reverse().find(o => !ids.includes(o) && floating.has(o) && !minimized.has(o) && sameWs(wsOfTab.get(o), cur));
-        const other = tabs.find(t => String(t.id) === z) || tabs.find(t => !ids.includes(String(t.id)) && sameWs(wsOfTab.get(String(t.id)), cur));
-        await new Promise(r => other ? chrome.tabs.update(other.id, { active: true }, () => { void chrome.runtime.lastError; r(); })
-                                     : chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, () => { void chrome.runtime.lastError; r(); }));
-      }
-    } catch (e) { wsErr("hand over", e); }
-    ids.forEach(i => wsOfTab.set(i, ws)); wsNowAt = 0;
+    await handOver(ids, cur);
+    pend(ids, ws);
     queueRender();                                                   // gone from this desktop at once
     await tpMove(ids, ws);
     setTimeout(() => {                                               // did it arrive? (kept for a look if not)
@@ -3065,14 +3082,18 @@ window.vosBeat = window.vosBeat || (() => {
       lastDelete = Date.now();
       try {
         const wid = await winId();
-        if (keep && n) await tpMove(ids, near.id);                  // its windows go to the nearest desktop
+        const now = await tabsQuery({ currentWindow: true });          // its tabs as they are now
+        const its = now.filter(t => sameWs(extOf(t)?.workspaceId ?? null, sp.id)).map(t => String(t.id));
+        if (keep && its.length) {                                    // its windows go to the nearest desktop - checked
+          await tpMove(its, near.id);
+          if (!(await arrivedAt(its, near.id, 2000))) { wsErr("delete", "its windows did not move - not deleted"); return; }
+        }
         if (sameWs(curWs(), sp.id)) {                                // on it now: go to that desktop first (not to "no desktop")
-          const i = list.findIndex(w => String(w.id) === String(near.id));
-          api.activateWorkspaceByIndex(wid, i);
+          await switchWs({ id: near.id, name: near.name }, list);     // (it reads the order as it is now)
           await new Promise(r => setTimeout(r, 250));
         }
         await api.removeWorkspace(wid, sp.id);
-        lastDelete = Date.now();
+        lastDelete = Date.now(); deskInfo = null;
         closeWsStrip(); setTimeout(openWsStrip, 300);
       } catch (e) { wsErr("delete", e); }
     };
@@ -3126,7 +3147,7 @@ window.vosBeat = window.vosBeat || (() => {
         const byId = new Map(list.map(w => [String(w.id), w.id]));
         const shown = new Set(ids), next = ids[Symbol.iterator]();        // other windows' desktops keep their places
         const all = list.map(w => String(w.id)).map(i => shown.has(i) ? next.next().value : i);
-        try { vivWs()?.setOrder(all.map(i => byId.get(i))); } catch (e2) { LOG("workspaces: reorder failed", e2); }
+        try { vivWs()?.setOrder(all.map(i => byId.get(i))); deskInfo = null; } catch (e2) { LOG("workspaces: reorder failed", e2); }
         const others = cards.filter(o => o !== card);                // show the new order right away
         row.insertBefore(card, others[to] || row.querySelector(".vos-ws-more"));
       };
@@ -3282,8 +3303,78 @@ window.vosBeat = window.vosBeat || (() => {
   /* a trace of the last "window to New desktop" (vstore vosNewDiag), to see what Vivaldi did */
   let ntr = [];
   const ntrace = (step, v) => { ntr.push([step, v, Date.now() % 1000000]); ntr = ntr.slice(-40); vstore.set("vosNewDiag", JSON.stringify(ntr)); };
-  function toNewDesk(id, list) {
-    ntrace("start", { id: String(id), api: !!vivWs(), pages: !!vivPages() });
+  /* Vivaldi's list of pages (tabs) per window - what its own "New Workspace with Selected Tabs" uses */
+  let storeApi = null;
+  function vivStore() {
+    if (storeApi) return storeApi;
+    try {
+      let host = null;
+      try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
+      const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
+      if (!ch?.push) return null;
+      let req = null;
+      ch.push([["vos-store-" + Date.now()], {}, r => { req = r; }]);
+      const isS = v => v && typeof v.getPages === "function" && typeof v.getPageInWindow === "function" && typeof v.getWorkspacePages === "function";
+      for (const id of Object.keys(req?.m || {})) {
+        let src = "";
+        try { src = Function.prototype.toString.call(req.m[id]); } catch (e) { continue; }
+        if (!src.includes("getWorkspaceWindowId(") || !src.includes("getPageInWindow(")) continue;
+        let ex; try { ex = req(id); } catch (e) { continue; }
+        if (isS(ex)) return (storeApi = ex);
+        for (const k of Object.keys(ex || {})) { let v; try { v = ex[k]; } catch (e) { continue; } if (isS(v)) return (storeApi = v); }
+      }
+    } catch (e) { LOG("pages: Vivaldi's page list not found", e); }
+    return null;
+  }
+  /* A WINDOW DROPPED ON NEW: exactly what Vivaldi's "New Workspace with Selected Tabs" does -
+     1. a new desktop, 2. the window's pages moved into it, 3. that desktop shown - in one
+     call of Vivaldi's own, with the desktop swipe around it. The step-by-step way is kept
+     for a Vivaldi without that call. */
+  async function toNewDesk(id, list) {
+    const key = String(id), pg = pageOf(key);
+    const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
+    const api = vivWs(), store = vivStore(), wid = await winId();
+    let pages = null;
+    try { pages = store?.getPages(wid)?.filter(p => ids.includes(String(p.id))); } catch (e) { pages = null; }
+    ntrace("start", { id: key, api: !!api, store: !!store, pages: pages?.size ?? null });
+    if (api && pages && pages.size && typeof api.addWorkspace === "function") {
+      const names = new Set(list.map(w => w.name));
+      let n = list.length + 1, name;
+      do { name = "Desktop " + n++; } while (names.has(name));
+      await handOver(ids, curWs());                                  // you stay here while it moves (no jump)
+      let ws;
+      try { ws = await api.addWorkspace(name, undefined, undefined, pages, true); }   // 1. the desktop + 2. the move (Vivaldi's own)
+      catch (e) { ntrace("add failed", String(e)); wsErr("new + move", e); return; }
+      ntrace("added", ws);
+      const undo = () => { ids.forEach(i => wsPending.delete(String(i))); readTiling(); };   // it stays where it really is
+      if (ws == null) return undo();
+      deskInfo = null;
+      pend(ids, ws); render();                                       // gone from this desktop at once
+      try { const own = JSON.parse((await vstore.get(OWN_KEY)) || "{}") || {}; own[String(ws)] = String(myWin()); vstore.set(OWN_KEY, JSON.stringify(own)); } catch (e) {}
+      let ok = await arrivedAt(ids, ws, 1500);                       // Vivaldi confirms the window is there
+      for (let i = 0; !ok && i < 3; i++) {                           // not yet: move it again (the desktop is saved by now)
+        await new Promise(r => setTimeout(r, 250));
+        pend(ids, ws);                                               // still on its way: it stays off this desktop
+        await tpMove(ids, ws);
+        ok = await arrivedAt(ids, ws, 1200);
+        ntrace("retry", { ok, err: tpMove.lastErr || null });
+      }
+      ntrace("moved", ok);
+      if (!ok) { wsErr("new + move", "the window did not reach the new desktop"); undo(); return; }
+      await new Promise(r => setTimeout(r, 120));                   // Vivaldi's page list catches up
+      const pa = vivPages();
+      swipeTo({ id: ws, name, keep: ids, go: async () => {           // 3. that desktop, shown with the window in front
+        if (pa?.setActiveWorkspace) await pa.setActiveWorkspace(wid, ws);
+        else await switchWs({ id: ws, name }, (await prefGet("vivaldi.workspaces.list")) || list);
+        chrome.tabs.update(Number(id), { active: true }, () => void chrome.runtime.lastError);
+      } }, list, 1);
+      setTimeout(() => ntrace("shown", { now: curWs() ?? null, want: ws }), 1500);
+      return;
+    }
+    return toNewDeskSteps(id, list);
+  }
+  function toNewDeskSteps(id, list) {
+    ntrace("steps", { id: String(id), api: !!vivWs(), pages: !!vivPages() });
     const p = newDesk(list, true);
     if (!p) { ntrace("no api", null); return; }
     p.then(async ws => {
@@ -3422,7 +3513,11 @@ window.vosBeat = window.vosBeat || (() => {
     const info = s.info || await desksNow();                         // still looking: wait for it, don't give up
     const dir = s.acc > 0 ? 1 : -1, t = info?.ds[info.i + dir];
     const go = t && (Math.abs(s.acc) > Math.min(220, innerWidth * 0.12) || (Math.abs(s.speed) > 0.35 && Math.abs(s.acc) > 30));
-    if (go) { swipeTo({ id: t.id, name: t.name, incoming: s.incDir === dir ? s.inc : null }, info.list, dir); return; }   // carries on from where the fingers left it
+    if (go) {                                                        // carries on from where the fingers left it
+      if (wsStrip) closeWsStrip(false, !!mission);
+      swipeTo({ id: t.id, name: t.name, incoming: s.incDir === dir ? s.inc : null }, info.list, dir);
+      return;
+    }
     const ease = { duration: 260, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" };
     for (const el of s.items) {                                       // springs back
       const from = el.style.getPropertyValue("translate") || "0px 0px";
@@ -3432,10 +3527,14 @@ window.vosBeat = window.vosBeat || (() => {
     const inc = s.inc, d = s.incDir;                                  // the other desktop's windows slide back out
     for (const el of inc || []) {
       const from = el.style.getPropertyValue("translate") || "0px 0px";
+      el.style.removeProperty("translate");
       el.animate([{ translate: from }, { translate: `${d * innerWidth}px 0px` }], { ...ease, fill: "forwards" })
-        .finished.catch(() => {}).then(() => { el.getAnimations().forEach(a => a.cancel()); });
+        .finished.catch(() => {}).then(() => {
+          if (sw?.inc?.includes(el)) return;                         // a new swipe has it again: leave it be
+          el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-incoming");   // hidden again first, then the animation goes
+          el.getAnimations().forEach(a => a.cancel());
+        });
     }
-    setTimeout(() => clearIncoming({ inc }), 280);
   }
   /* DESKTOP DOTS: over the Mission Control (Workspaces) button, a small pill shows the desktops of
      this window as dots, the shown one bright, with its name - also while you swipe */
@@ -3573,7 +3672,7 @@ window.vosBeat = window.vosBeat || (() => {
     const list = (await prefGet("vivaldi.workspaces.list")) || [];
     defaultIcons(list);
     const tabs = await tabsQuery({ currentWindow: true });
-    if (await noDefault(list, tabs)) return setTimeout(openWsStrip, 350);   // made "Desktop 1": open with it
+    if (await noDefault(list, tabs)) return new Promise(r => setTimeout(() => r(openWsStripNow()), 350));   // made "Desktop 1": open with it (the caller waits for it)
     const urls = new Map((tabs || []).map(t => [String(t.id), t.url || t.pendingUrl || ""]));
     const info = new Map((tabs || []).map(t => [String(t.id), t]));
     const ss = stackRect(), cur = curWs();
@@ -3741,9 +3840,22 @@ window.vosBeat = window.vosBeat || (() => {
      you chose, and the new desktop's windows slide in from that side - one transform on
      elements already on the graphics card (no pictures taken, nothing re-laid out) */
   const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])";
+  let swipeGen = 0;
   async function swipeTo(sp, list, dir) {
-    const b = browserEl();
-    if (!b || matchMedia("(prefers-reduced-motion: reduce)").matches) return switchWs(sp, list);
+    const b = browserEl(), gen = ++swipeGen;
+    if (!b || matchMedia("(prefers-reduced-motion: reduce)").matches) {   // no animation (Windows "Animation effects" off): the same work
+      swiping = true;
+      const items = swItems();                                        // before the switch hides them
+      try { const made = await (sp.go ? sp.go() : switchWs(sp, list)); if (sp.id == null && made != null) sp.id = made; }
+      catch (e) { wsErr("switch", e); }
+      finally {
+        missionMode(null, true);
+        for (const el of sp.incoming || []) { el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); }
+        for (const el of items) el.style.removeProperty("translate");
+        if (gen === swipeGen) swiping = false;
+      }
+      return;
+    }
     const side = dir > 0 ? "next" : "prev";
     swiping = true;
     const keep = new Set((sp.keep || []).map(String));                // the window that moves along: not left behind
@@ -3762,18 +3874,26 @@ window.vosBeat = window.vosBeat || (() => {
         });                                                          // without it, the slide-in would play a second time
     }
     const t1 = Date.now();
-    await (sp.go ? sp.go() : switchWs(sp, list));                    // at once: both desktops move together
-    while (Date.now() - t1 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
-    render();
-    await new Promise(r => setTimeout(r, Math.max(0, 300 - (Date.now() - t1))));
-    missionMode(null, true);                                          // Mission Control ends with the old desktop out of sight
-    leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
-    setTimeout(() => {
-      b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true);
-      for (const el of sp.incoming || []) el.removeAttribute("data-vos-incoming");
-    }, 420);
+    try {
+      const made = await (sp.go ? sp.go() : switchWs(sp, list));    // at once: both desktops move together
+      if (sp.id == null && made != null) sp.id = made;                // a desktop made just now
+      while (Date.now() - t1 < 1500) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
+      render();
+      await new Promise(r => setTimeout(r, Math.max(0, 300 - (Date.now() - t1))));
+    } catch (e) { wsErr("swipe", e); }
+    finally {                                                        // whatever happened: nothing stays half-done
+      missionMode(null, true);                                        // Mission Control ends with the old desktop out of sight
+      leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
+      setTimeout(() => {
+        for (const el of sp.incoming || []) el.removeAttribute("data-vos-incoming");
+        if (gen !== swipeGen) return;                                // a newer swipe owns the rest
+        b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true);
+      }, 420);
+    }
   }
   async function switchWs(sp, list) {
+    const fresh = await prefGet("vivaldi.workspaces.list");
+    if (Array.isArray(fresh) && fresh.some(w => sameWs(w.id, sp.id))) list = fresh;   // the order as it is now
     const api = vivWs();
     if (api) {                                                      // Vivaldi's own switch
       try {
