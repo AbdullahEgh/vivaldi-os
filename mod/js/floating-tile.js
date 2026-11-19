@@ -2559,12 +2559,12 @@
   const favicon = url => `chrome://favicon2/?size=32&scaleFactor=2x&pageUrl=${encodeURIComponent(url)}&allowGoogleServerFallback=0`;
   function editableName(nm, sp) {
     nm.title = "Click to rename";
-    nm.addEventListener("click", ev => {
-      ev.stopPropagation(); ev.preventDefault();
+    const start = () => {
       if (nm.isContentEditable) return;
       nm.contentEditable = "true"; nm.spellcheck = false; nm.focus();
       getSelection().selectAllChildren(nm);
-    });
+    };
+    nm.addEventListener("click", ev => { ev.stopPropagation(); ev.preventDefault(); start(); });
     nm.addEventListener("pointerdown", ev => ev.stopPropagation());
     const done = save => {
       if (!nm.isContentEditable) return;
@@ -2582,7 +2582,90 @@
       else ev.stopPropagation();
     });
     nm.addEventListener("blur", () => done(true));
+    return start;
   }
+  /* right-click a desktop: Rename, Delete (Vivaldi's own; it closes that desktop's tabs, so
+     the first click asks, the second deletes) */
+  let wsMenuEl = null;
+  const closeWsMenu = () => { wsMenuEl?.remove(); wsMenuEl = null; };
+  function wsMenu(sp, card, x, y, tabs, list) {
+    closeWsMenu();
+    const m = document.createElement("div");
+    m.className = "lp-menu vos-vars vos-ws-menu";
+    const add = (label, svg, fn, cls) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : "");
+      b.innerHTML = `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${svg}</svg><span class="lp-mi-text"></span>`;
+      b.querySelector(".lp-mi-text").textContent = label;
+      b.addEventListener("click", ev => { ev.stopPropagation(); fn(b); });
+      m.appendChild(b); return b;
+    };
+    add("Rename", '<path d="M4 20l1.2-4.2L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z"/><path d="M14 7l3 3"/>',
+        () => { closeWsMenu(); card.querySelector(".vos-ws-name")?.__edit?.(); });
+    const n = (tabs || []).filter(t => wsOfTab.has(String(t.id)) && String(wsOfTab.get(String(t.id))) === String(sp.id)).length;
+    add("Delete", '<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>', async b => {
+      if (!b.dataset.sure) {                                         // first click: say what it does
+        b.dataset.sure = "1";
+        b.querySelector(".lp-mi-text").textContent = n ? `Delete and close ${n} tab${n === 1 ? "" : "s"}?` : "Delete this desktop?";
+        return;
+      }
+      closeWsMenu();
+      const api = vivWs();
+      try { if (api?.removeWorkspace) { await api.removeWorkspace(await winId(), sp.id); closeWsStrip(); setTimeout(openWsStrip, 260); } }
+      catch (e) { LOG("workspaces: delete failed", e); }
+    }, "lp-danger");
+    m.addEventListener("pointerdown", ev => ev.stopPropagation());
+    m.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); });
+    (browserEl() || document.body).appendChild(m);
+    m.style.left = Math.max(8, Math.min(x, innerWidth - m.offsetWidth - 8)) + "px";
+    m.style.top = Math.max(8, Math.min(y, innerHeight - m.offsetHeight - 8)) + "px";
+    wsMenuEl = m;
+    setTimeout(() => addEventListener("pointerdown", ev => { if (!m.contains(ev.target)) closeWsMenu(); }, { capture: true, once: true }));
+  }
+  /* drag a desktop sideways to put it elsewhere (Default stays first, New last) */
+  function wsReorder(row, list) {
+    row.addEventListener("pointerdown", ev => {
+      const card = ev.target.closest(".vos-ws-card[data-ws]");
+      if (!card || ev.button !== 0 || ev.target.closest(".vos-ws-name")) return;
+      const cards = [...row.querySelectorAll(".vos-ws-card[data-ws]")];
+      if (cards.length < 2) return;
+      const rects = cards.map(c => c.getBoundingClientRect()), from = cards.indexOf(card);
+      const step = rects[1].left - rects[0].left;
+      const sx = ev.clientX, pid = ev.pointerId;
+      let on = false, to = from;
+      const move = e => {
+        if (e.pointerId !== pid) return;
+        const dx = e.clientX - sx;
+        if (!on && Math.abs(dx) < 6) return;
+        if (!on) { on = true; card.classList.add("vos-ws-dragging"); }
+        card.style.transform = `translateX(${dx}px) scale(1.04)`;
+        const c = rects[from].left + rects[from].width / 2 + dx;
+        to = rects.reduce((best, r, i) => Math.abs(r.left + r.width / 2 - c) < Math.abs(rects[best].left + rects[best].width / 2 - c) ? i : best, from);
+        cards.forEach((o, i) => {
+          if (o === card) return;
+          const shift = from < to && i > from && i <= to ? -step : from > to && i >= to && i < from ? step : 0;
+          o.style.transform = shift ? `translateX(${shift}px)` : "";
+        });
+      };
+      const up = e => {
+        if (e.pointerId !== pid) return;
+        removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+        cards.forEach(o => { o.style.transform = ""; });
+        card.classList.remove("vos-ws-dragging");
+        if (!on) return;
+        card.__dragged = true;                                       // the click that follows is not a switch
+        if (to === from || e.type !== "pointerup") return;
+        const ids = cards.map(c => c.dataset.ws);
+        ids.splice(to, 0, ids.splice(from, 1)[0]);
+        const byId = new Map(list.map(w => [String(w.id), w.id]));
+        try { vivWs()?.setOrder(ids.map(i => byId.get(i))); } catch (e2) { LOG("workspaces: reorder failed", e2); }
+        const others = cards.filter(o => o !== card);                // show the new order right away
+        row.insertBefore(card, others[to] || row.querySelector(".vos-ws-more"));
+      };
+      addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+    });
+  }
+
   /* a picture of a window's web page, through Vivaldi's own tab thumbnails (any loaded
      tab, not only the visible one); kept, so the strip opens with the last ones at once */
   const pagePics = new Map();                         // tab id -> data URL
@@ -2619,6 +2702,7 @@
     const ss = stackRect(), cur = curWs();
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
     const spaces = [{ id: null, name: "Default", icon: null }, ...list.map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
+    const cardW = Math.round(Math.min(220, 128 * (ss.width / Math.max(1, ss.height))));   // at most 128px high
 
     const strip = document.createElement("div");
     strip.className = "vos-ws-strip";                               // a clip starting at the tab bar's lower edge
@@ -2637,6 +2721,7 @@
       const mini = document.createElement("div");
       mini.className = "vos-ws-mini";
       mini.style.aspectRatio = `${Math.max(1, ss.width)} / ${Math.max(1, ss.height)}`;
+      card.style.setProperty("flex-basis", cardW + "px", "important");
       if (wall && wall !== "none") mini.style.backgroundImage = wall;
       // its windows, where they are (the front ones on top)
       const wins = [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
@@ -2656,19 +2741,26 @@
       const label = document.createElement("div");
       label.className = "vos-ws-label";
       const nm = document.createElement("span"); nm.className = "vos-ws-name"; nm.textContent = sp.name; label.appendChild(nm);
-      if (sp.id != null) editableName(nm, sp);                      // click the name to rename it (Default is Vivaldi's own)
+      if (sp.id != null) nm.__edit = editableName(nm, sp);          // click the name to rename it (Default is Vivaldi's own)
       card.appendChild(label);
+      if (sp.id != null) {
+        card.dataset.ws = String(sp.id);
+        card.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); wsMenu(sp, card, ev.clientX, ev.clientY, tabs, list); });
+      }
       card.addEventListener("click", ev => {
+        if (card.__dragged) { card.__dragged = false; ev.stopPropagation(); return; }   // it was a drag, not a click
         if (ev.target.closest(".vos-ws-name[contenteditable=true]")) return;   // editing the name
         ev.stopPropagation(); closeWsStrip(); if (!same(sp.id, cur)) switchWs(sp, list);
       });
       row.appendChild(card);
     }
+    wsReorder(row, list);
     // New: another desktop (a workspace), and you are on it
     const more = document.createElement("button");
     more.type = "button"; more.className = "vos-ws-card vos-ws-more";
     more.innerHTML = '<div class="vos-ws-mini"><span class="vos-ws-plus">+</span></div><div class="vos-ws-label"><span>New</span></div>';
     more.querySelector(".vos-ws-mini").style.aspectRatio = `${Math.max(1, ss.width)} / ${Math.max(1, ss.height)}`;
+    more.style.setProperty("flex-basis", cardW + "px", "important");
     more.addEventListener("click", ev => {
       ev.stopPropagation(); closeWsStrip();
       const api = vivWs();
@@ -2693,7 +2785,8 @@
     wsStrip = strip;
     addEventListener("keydown", wsKey, true);
     setTimeout(() => addEventListener("pointerdown", wsOut, true));
-    row.querySelector("[data-current]")?.scrollIntoView({ inline: "center", block: "nearest" });
+    { const cur = row.querySelector("[data-current]");               // the current desktop in view (the row only scrolls itself)
+      if (cur && row.scrollWidth > row.clientWidth) row.scrollLeft = cur.offsetLeft - (row.clientWidth - cur.offsetWidth) / 2; }
   }
   /* Vivaldi's own workspace actions - the ones its menu calls - found by their names
      (setName, addWorkspace, activateWorkspaceByIndex) in its module registry, which is in

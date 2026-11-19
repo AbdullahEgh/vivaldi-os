@@ -1208,3 +1208,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* a mini window with its page picture: the page fills it, its icon steps aside */
 #browser .vos-ws-win[data-pic] { background-size: cover !important; background-position: top center !important; }
 #browser .vos-ws-win[data-pic] img { display: none !important; }
+
+/* the desktop strip: cards no taller than 128px (portrait windows: narrow cards); a dragged card rides on top */
+#browser .vos-ws-card { flex-grow: 0 !important; flex-shrink: 0 !important; transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser .vos-ws-card.vos-ws-dragging { transition: none !important; z-index: 2 !important; cursor: grabbing !important; }
+#browser .vos-ws-card.vos-ws-dragging .vos-ws-mini { box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important; }
+#browser .lp-menu.vos-ws-menu { position: fixed !important; z-index: 2147483000 !important; }   /* above the strip */
