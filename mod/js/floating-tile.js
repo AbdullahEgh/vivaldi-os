@@ -1733,7 +1733,9 @@
     els.forEach((e, i) => slideFrom(e, first[i]));
   }
   const bArea = (s = stackRect()) => ({ x: MARGIN, y: MARGIN, w: Math.round(s.width - 2 * MARGIN), h: Math.round(s.height - 2 * MARGIN) });
-  const bMembers = () => [...zOrder].reverse().filter(id => floating.has(id) && !minimized.has(id) && !awayWs(id));   // front first
+  // front first; only windows that are really there: a tab Vivaldi has not loaded yet (after a
+  // restart or an update) has no page to show, and would leave an empty slot until it loads
+  const bMembers = () => [...zOrder].reverse().filter(id => floating.has(id) && !minimized.has(id) && !awayWs(id) && !!targetOf(pageOf(id)));
 
   /* keep the tree in step with the windows (render calls this first) */
   function bentoSync(s) {
