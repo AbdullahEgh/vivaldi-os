@@ -1060,6 +1060,14 @@ window.vosBeat = window.vosBeat || (() => {
     };
 
     const front = topWindow(null);
+    { // the keyboard focus never stays in a window behind the front one: a click in it is
+      // then always heard (it focuses the page) and brings that window to the front
+      const aw = document.activeElement?.closest?.("[data-ft-float]");
+      if (aw && front && aw.dataset.ftFloat !== front) setTimeout(() => {
+        const w = document.activeElement?.closest?.("[data-ft-float]");
+        if (w && w.dataset.ftFloat !== topWindow(null)) unfocusPage();
+      }, 0);
+    }
     const windows = [];
     for (const id of new Set([...floating, ...minimized])) {
       const page = pageOf(id), el = targetOf(page);
@@ -1095,6 +1103,7 @@ window.vosBeat = window.vosBeat || (() => {
     bentoSync(s);
     const slots = mission ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))), s) : null;
     if (mission) mission.slots = slots;
+    missionIcons(slots, s);
     for (const { id, el } of windows) {
       addChrome(el, id);
       const held = missionDrag?.id === id;
@@ -1489,7 +1498,7 @@ window.vosBeat = window.vosBeat || (() => {
        drop anywhere else                            it springs back
      Engine (BentoCore): LayoutEngine.calculate, AutoLayout.activating /
      arrange / insert, Workspace.placing; minimum sizes are always kept. */
-  const BGAP = 10, BHOLD = 450, BENTO_KEY = "vivaldiOsBento";
+  const BGAP = 10, BHOLD = 320, BENTO_KEY = "vivaldiOsBento";
   const bento = { on: false, root: null, pre: {}, skip: new Set(), layout: null, rects: new Map(), shape: "", pendingFlip: null,
                   memo: new Map(),                // window -> the layout it left for full screen (it comes back to it)
                   handles: [], handlesKey: "", gesture: null, undo: [], redo: [] };
@@ -1627,7 +1636,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   function bPlacement(r, p) {                      // LayoutEngine.placement
     const x = (p.x - r.x) / r.w, y = (p.y - r.y) / r.h;
-    if (x >= 0.25 && x <= 0.75 && y >= 0.25 && y <= 0.75) return "center";
+    if (x >= 0.35 && x <= 0.65 && y >= 0.35 && y <= 0.65) return "center";   // the sides: 35% each, easy to reach
     const near = Math.min(x, 1 - x, y, 1 - y);
     return near === x ? "left" : near === 1 - x ? "right" : near === y ? "top" : "bottom";
   }
@@ -1857,10 +1866,17 @@ window.vosBeat = window.vosBeat || (() => {
     el.animate([{ transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
                 { transformOrigin: "0 0", transform: "none" }], MJ);
   }
-  const bEls = () => [...floating].map(id => targetOf(pageOf(id))).filter(Boolean);
+  // a window and its frame (ring + shadow) move together - before, the frame jumped
+  const bEls = () => [...floating].flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
+  function bentoSettle() {                          // the gaps stay out of sight while windows move
+    const b = browserEl();
+    b?.setAttribute("data-bento-moving", "");
+    clearTimeout(bentoSettle.t); bentoSettle.t = setTimeout(() => b?.removeAttribute("data-bento-moving"), 380);
+  }
   function bTransition(mutate) {                    // every window slides to its new slot
     const els = bEls(), first = els.map(e => e.getBoundingClientRect());
     mutate();
+    bentoSettle();
     els.forEach((e, i) => slideFrom(e, first[i]));
   }
   const bArea = (s = stackRect()) => ({ x: MARGIN, y: MARGIN, w: Math.round(s.width - 2 * MARGIN), h: Math.round(s.height - 2 * MARGIN) });
@@ -1908,13 +1924,15 @@ window.vosBeat = window.vosBeat || (() => {
     for (const { leaf, r } of bento.layout?.regions || []) bento.rects.set(leaf.win, r);
     const shape = bShape(bento.root);
     if (bento.shape && shape !== bento.shape && !bento.pendingFlip) {   // windows came or went: the rest slide
-      bento.pendingFlip = new Map(members.map(id => [id, targetOf(pageOf(id))?.getBoundingClientRect()]));
+      bento.pendingFlip = new Map(members.flatMap(id => [[targetOf(pageOf(id)), targetOf(pageOf(id))?.getBoundingClientRect()],
+                                                         [frames.get(id), frames.get(id)?.getBoundingClientRect()]]).filter(([e]) => e));
     }
     bento.shape = shape;
   }
   function bentoAfterPlace(s) {
     if (bento.pendingFlip) {
-      for (const [id, f] of bento.pendingFlip) slideFrom(targetOf(pageOf(id)), f);
+      bentoSettle();
+      for (const [el, f] of bento.pendingFlip) slideFrom(el, f);
       bento.pendingFlip = null;
     }
     // the gaps between windows: grab one to resize that split
@@ -2214,7 +2232,61 @@ window.vosBeat = window.vosBeat || (() => {
     `h${-(w - 2 * r)}a${r} ${r} 0 0 1 ${-r} ${-r}v${-(h - 2 * r)}a${r} ${r} 0 0 1 ${r} ${-r}z`;
   const bentoIcon = on => `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill-rule="evenodd" d="` +
     BENTO_SLOTS.map(([x, y, w, h]) => rrect(x, y, w, h, 1.9) + (on ? "" : rrect(x + 1.3, y + 1.3, w - 2.6, h - 2.6, 0.8))).join("") + `"/></svg>`;
+  /* THE BENTO BUTTON IN THE TOOLBAR EDITOR: a Command Chain named "Bento" (made once, put
+     after the Workspaces button) is Vivaldi's own toolbar button - so View > Customize
+     Toolbar moves it, removes it, adds it back. The mod gives it the Bento drawing and click. */
+  const BENTO_CHAIN = "COMMAND_vosbento";
+  const prefSet = (path, value) => new Promise(res => {
+    try { const r = vivaldi.prefs.set({ path, value }, () => { void chrome.runtime.lastError; res(true); }); if (r?.then) r.then(() => res(true), () => res(false)); }
+    catch (e) { res(false); }
+  });
+  let chainReady = false;
+  setTimeout(async function bentoChainSetup() {      // after start (every helper ready)
+    try {
+      if (await vstore.get("vosBentoChain1")) { chainReady = true; return; }
+      const list = (await prefGet("vivaldi.chained_commands.command_list")) || [];
+      if (!Array.isArray(list)) return;
+      if (!list.some(c => c?.name === BENTO_CHAIN))
+        await prefSet("vivaldi.chained_commands.command_list", [...list, { category: "CATEGORY_COMMAND_CHAIN", chain: [], key: "vosbento", label: "Bento", name: BENTO_CHAIN }]);
+      const bars = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
+      const vals = await Promise.all(bars.map(b => prefGet("vivaldi.toolbars." + b)));
+      if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN))) {
+        const tb = Array.isArray(vals[4]) ? [...vals[4]] : [];
+        const at = tb.indexOf("WorkspaceButton");
+        tb.splice(at >= 0 ? at + 1 : 0, 0, BENTO_CHAIN);
+        await prefSet("vivaldi.toolbars.tabbar_before", tb);
+      }
+      vstore.set("vosBentoChain1", true);
+      chainReady = true;
+    } catch (e) { LOG("bento chain", e); }
+  }, 4000);
+  function chainButton() {                          // Vivaldi's button for the "Bento" chain, wherever it is
+    for (const b of document.querySelectorAll("#browser .toolbar button")) {
+      const t = (b.getAttribute("title") || b.getAttribute("aria-label") || "").trim();
+      if (!/^Bento\b/.test(t) || b.closest(".bento-toggle:not(.vos-bento-chain)")) continue;
+      return b;
+    }
+    return null;
+  }
   function bentoButton() {
+    const chain = chainButton();
+    if (chain) {                                    // Vivaldi's own: the injected one goes
+      $$("#browser .bento-toggle:not(.vos-bento-chain)").forEach(x => x.remove());
+      const wrap = chain.closest(".button-toolbar") || chain;
+      if (!wrap.__vosBento) {
+        wrap.__vosBento = true;
+        wrap.classList.add("bento-toggle", "vos-bento-chain");
+        const stop = ev => { ev.stopPropagation(); };
+        wrap.addEventListener("pointerdown", stop, true);
+        wrap.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); bentoToggle(); }, true);
+      }
+      let ic = chain.querySelector(":scope > .vos-bento-ic");
+      if (!ic) { ic = document.createElement("span"); ic.className = "vos-bento-ic"; chain.appendChild(ic); ic.__on = null; }
+      if (ic.__on !== bento.on) { ic.__on = bento.on; ic.innerHTML = bentoIcon(bento.on); }
+      wrap.toggleAttribute("data-on", bento.on);
+      return;
+    }
+    if (chainReady) { $$("#browser .bento-toggle:not(.vos-bento-chain)").forEach(x => x.remove()); return; }   // taken off the toolbar: no button
     const bar = $("#tabs-tabbar-container .toolbar-tabbar-before");
     if (!bar) return;
     let btn = $(":scope > .bento-toggle", bar);
@@ -3064,6 +3136,27 @@ window.vosBeat = window.vosBeat || (() => {
     el.__mt = true; setStyle(el, "transform-origin", "0 0"); setStyle(el, "transform", t);
     if (f) { const g = f.hasAttribute("data-ft-grab") ? GRAB : 0; f.__mt = true; setStyle(f, "transform-origin", `${RING}px ${RING + g}px`); setStyle(f, "transform", t); }
   }
+  /* Mission Control: each window's app icon sits on its lower edge, as in macOS */
+  let mcIcons = null;
+  function missionIcons(slots, s) {
+    if (!mission || !slots?.size || mission.frozen) {
+      if (mcIcons) { const box = mcIcons; mcIcons = null; box.setAttribute("data-out", ""); setTimeout(() => box.remove(), 180); }
+      return;
+    }
+    if (!mcIcons) { mcIcons = document.createElement("div"); mcIcons.className = "vos-mc-icons"; (browserEl() || document.body).appendChild(mcIcons); }
+    const seen = new Set();
+    for (const [id, sl] of slots) {
+      const url = mission.urls?.get(String(id)) || mission.urls?.get(String(splitFocus.get(id) || ""));
+      if (!url) continue;
+      seen.add(id);
+      let ic = mcIcons.querySelector(`[data-id="${CSS.escape(String(id))}"]`);
+      if (!ic) { ic = document.createElement("div"); ic.className = "vos-mc-icon"; ic.dataset.id = String(id); ic.innerHTML = `<img alt="" decoding="async">`; ic.firstChild.src = favicon(url); mcIcons.appendChild(ic); }
+      const r = pxRect(id, s), cx = s.left + sl.x + r.w * sl.k / 2, by = s.top + sl.y + r.h * sl.k;
+      ic.style.setProperty("translate", `${Math.round(cx - 22)}px ${Math.round(by - 22)}px`);
+      ic.toggleAttribute("data-held", missionDrag?.id === id);
+    }
+    for (const ic of [...mcIcons.children]) if (!seen.has(ic.dataset.id)) ic.remove();
+  }
   function missionMode(m, instant) {
     if (!m && !mission) return;
     mission = m;
@@ -3102,6 +3195,7 @@ window.vosBeat = window.vosBeat || (() => {
     defaultIcons(list);
     const tabs = await tabsQuery({ currentWindow: true });
     if (await noDefault(list, tabs)) return setTimeout(openWsStrip, 350);   // made "Desktop 1": open with it
+    const urls = new Map((tabs || []).map(t => [String(t.id), t.url || t.pendingUrl || ""]));
     const info = new Map((tabs || []).map(t => [String(t.id), t]));
     const ss = stackRect(), cur = curWs();
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
@@ -3202,7 +3296,7 @@ window.vosBeat = window.vosBeat || (() => {
     wsStrip = strip; strip.__list = list;
     { const pb = strip.offsetTop + panel.offsetTop + panel.offsetHeight;   // Mission Control: the windows below the panel
       const oy = Math.max(0, pb - ss.top) + 16, k = Math.max(0.3, Math.min(0.8, (ss.height - oy - 16) / Math.max(1, ss.height)));
-      missionMode({ k, ox: (ss.width - ss.width * k) / 2, oy }); }
+      missionMode({ k, ox: (ss.width - ss.width * k) / 2, oy, urls }); }
     addEventListener("keydown", wsKey, true);
     setTimeout(() => addEventListener("pointerdown", wsOut, true));
     { const cur = row.querySelector("[data-current]");               // the current desktop in view (the row only scrolls itself)
@@ -3264,7 +3358,7 @@ window.vosBeat = window.vosBeat || (() => {
   /* DESKTOP SWIPE (like macOS Spaces): what is on this desktop slides away toward the one
      you chose, and the new desktop's windows slide in from that side - one transform on
      elements already on the graphics card (no pictures taken, nothing re-laid out) */
-  const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-desktop";
+  const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])";
   async function swipeTo(sp, list, dir) {
     const b = browserEl();
     if (!b || matchMedia("(prefers-reduced-motion: reduce)").matches) return switchWs(sp, list);
@@ -3273,16 +3367,17 @@ window.vosBeat = window.vosBeat || (() => {
     const leaving = [...document.querySelectorAll(SWIPE_ITEMS)];
     if (mission) mission.frozen = new Set(mission.slots ? mission.slots.keys() : []);   // the new desktop's windows come in at full size
     b.setAttribute("data-vos-swipe", side);
-    leaving.forEach(el => el.setAttribute("data-ft-swipe-out", ""));
-    await new Promise(r => setTimeout(r, 190));                       // the old desktop is on its way out
     b.setAttribute("data-vos-swipe-in", side);                        // set first: a new window never shows before it slides in
-    await switchWs(sp, list);
-    const t0 = Date.now();
-    while (Date.now() - t0 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 25)); }
-    missionMode(null, true);                                          // Mission Control ends with the old desktop out of sight
+    // the leaving windows stay visible while they slide out, even once they belong to another desktop
+    leaving.forEach(el => { el.setAttribute("data-ft-swipe-out", ""); el.setAttribute("data-ft-ws-leave", ""); });
+    const t1 = Date.now();
+    await switchWs(sp, list);                                         // at once: both desktops move together
+    while (Date.now() - t1 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
     render();
-    leaving.forEach(el => el.removeAttribute("data-ft-swipe-out"));
-    setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; }, 380);
+    await new Promise(r => setTimeout(r, Math.max(0, 400 - (Date.now() - t1))));
+    missionMode(null, true);                                          // Mission Control ends with the old desktop out of sight
+    leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); });
+    setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; }, 420);
   }
   async function switchWs(sp, list) {
     const api = vivWs();
@@ -3742,7 +3837,7 @@ window.vosBeat = window.vosBeat || (() => {
     const inner = e.target.closest?.(".webpageview[data-id]")?.dataset.id;
     const want = groupFloat.has(id) && inner ? inner : id;
     const own = hover && hover.id === want &&
-      (hover.landed ? Date.now() - hover.landed < 150 : Date.now() - hover.t < 400);
+      (hover.landed ? Date.now() - hover.landed < 60 : Date.now() - hover.t < 250);
     if (own) {                                                      // Vivaldi's own focus after a hover:
       hover = null;                                                 // give it back right away, so the
       setTimeout(() => { if (window.__ftQuietTint === want) unfocusPage(); }, 0);   // next click is heard

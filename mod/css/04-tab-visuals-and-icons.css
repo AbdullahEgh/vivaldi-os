@@ -235,3 +235,10 @@
 #browser #tabs-container .tab-position[data-ft-pill="last"]::before {
   right: -5px !important;
 }
+
+/* pinned tabs: the icon sits fully inside its circle (a square icon's corners were cut off) */
+#tabs-container .tab-position.is-pinned .tab .favicon,
+#tabs-container .tab-position.is-pinned .tab .site-icon { width: 16px !important; height: 16px !important; overflow: visible !important; }
+#tabs-container .tab-position.is-pinned .tab .favicon img,
+#tabs-container .tab-position.is-pinned .tab .favicon svg { width: 16px !important; height: 16px !important; object-fit: contain !important; }
+#tabs-container .tab-position.is-pinned, #tabs-container .tab-position.is-pinned .tab, #tabs-container .tab-position.is-pinned .tab-header { overflow: visible !important; }
