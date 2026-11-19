@@ -1160,9 +1160,10 @@
 #browser .vos-ws-icon { display: inline-grid !important; width: 16px !important; height: 16px !important; place-items: center !important; }
 #browser .vos-ws-icon svg { width: 16px !important; height: 16px !important; }
 #browser .vos-ws-count { opacity: 0.55 !important; font-weight: 400 !important; }
-#browser .vos-ws-more .vos-ws-mini { aspect-ratio: 16 / 10 !important; background: rgba(127, 127, 127, 0.18) !important; display: grid !important; place-items: center !important; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.3) !important; }
+#browser .vos-ws-more { opacity: 0.55 !important; transition: opacity 0.15s ease !important; }           /* the same size as a desktop, quieter */
+#browser .vos-ws-more:hover { opacity: 0.9 !important; }
+#browser .vos-ws-more .vos-ws-mini { background: rgba(127, 127, 127, 0.22) !important; display: grid !important; place-items: center !important; box-shadow: inset 0 0 0 1.5px rgba(127, 127, 127, 0.45) !important; }
 #browser .vos-ws-plus { font: 300 34px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.6 !important; }
-#browser .vos-ws-more { flex-basis: 120px !important; }
 @media (prefers-color-scheme: dark) {
   #browser .vos-ws-strip { background: rgba(28, 28, 32, 0.62) !important; color: #f2f2f7 !important; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), inset 0 -0.5px 0 rgba(255, 255, 255, 0.1) !important; }
   #browser .vos-ws-win { background: rgba(44, 44, 48, 0.95) !important; }
@@ -1170,3 +1171,6 @@
 /* switching from the strip: Vivaldi's own list does it, unseen */
 html[data-vos-ws-silent] .WorkspacePopup,
 html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-events: none !important; }
+
+/* behind the workspace strip: an invisible layer over everything; a click there closes it */
+#browser .vos-ws-back { position: fixed !important; inset: 0 !important; z-index: 2147481999 !important; background: transparent !important; }

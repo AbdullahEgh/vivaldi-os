@@ -34,7 +34,7 @@
 
    SNAP (like Windows Aero Snap / macOS tiling): drag a window and bring the
      POINTER to the top 2% of the desktop or onto the tab bar -> full screen;
-     within 10% of the left or right side -> Bento with the window on that half. Windows can be dragged partly
+     within 2% of the left or right side -> Bento with the window on that half. Windows can be dragged partly
      off the desktop (100px stays on it, the top never goes above it). A frosted preview shows where it goes; leave the
      edge before letting go and nothing snaps. A full-screen page has a handle
      in the middle of its top edge: drag it down and the page floats again.
@@ -2253,9 +2253,9 @@
   }
 
   /* the snap preview: a frosted rounded area where the window will go */
-  const SNAP_ZONE = 0.1, SNAP_TOP = 0.02, SNAP_HOLD = 200;
+  const SNAP_ZONE = 0.02, SNAP_TOP = 0.02, SNAP_HOLD = 200;
   /* which snap zone the pointer is in: the top 2% of the desktop, or the tab bar above
-     it (full screen); within 10% of the left / right side (that half) */
+     it (full screen); within 2% of the left / right side (that half) */
   function snapZone(x, y) {
     const r = stack()?.getBoundingClientRect();
     if (!r) return null;
@@ -2373,6 +2373,7 @@
   function closeWsStrip() {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
+    st.__back?.remove();
     removeEventListener("keydown", wsKey, true);
     removeEventListener("pointerdown", wsOut, true);
     st.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-12px)" }], { duration: 160, easing: "ease-in", fill: "forwards" })
@@ -2433,10 +2434,16 @@
     const more = document.createElement("button");
     more.type = "button"; more.className = "vos-ws-card vos-ws-more";
     more.innerHTML = '<div class="vos-ws-mini"><span class="vos-ws-plus">+</span></div><div class="vos-ws-label"><span>Manage…</span></div>';
+    more.querySelector(".vos-ws-mini").style.aspectRatio = `${Math.max(1, ss.width)} / ${Math.max(1, ss.height)}`;
     more.addEventListener("click", ev => { ev.stopPropagation(); closeWsStrip(); openVivaldiWs(false); });
     row.appendChild(more);
 
-    strip.addEventListener("pointerdown", ev => { if (ev.target === strip) closeWsStrip(); ev.stopPropagation(); });
+    strip.addEventListener("pointerdown", ev => ev.stopPropagation());
+    const back = document.createElement("div");                    // clicking anywhere else closes it (also over a page)
+    back.className = "vos-ws-back";
+    back.addEventListener("pointerdown", ev => { ev.preventDefault(); ev.stopPropagation(); closeWsStrip(); });
+    strip.__back = back;
+    (browserEl() || document.body).appendChild(back);
     (browserEl() || document.body).appendChild(strip);
     const top = ss.top;
     strip.style.top = top + "px";
@@ -2448,7 +2455,8 @@
   }
   /* open Vivaldi's own workspace list (silent: only to press one of its items) */
   function openVivaldiWs(silent) {
-    const b = document.querySelector(WS_BTN);
+    const w = document.querySelector(WS_BTN);
+    const b = w && (w.matches("button") ? w : w.querySelector("button")) || w;   // the button itself: a press never travels down
     if (!b) return false;
     document.documentElement.toggleAttribute("data-vos-ws-silent", !!silent);
     wsPass = true;
@@ -2464,7 +2472,16 @@
       const pop = document.querySelector(".WorkspacePopup");
       const item = !pop ? null : sp.id == null ? pop.querySelector("button.this-window")
         : [...pop.querySelectorAll("button.workspace-item-wrapper")].find(b => (b.getAttribute("title") || "").trim().startsWith(sp.name));
-      if (item) { item.click(); setTimeout(() => document.documentElement.removeAttribute("data-vos-ws-silent"), 250); return; }
+      if (item) {
+        item.click();
+        setTimeout(() => {
+          document.documentElement.removeAttribute("data-vos-ws-silent");
+          if (document.querySelector(".WorkspacePopup")) document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          wsNowAt = 0;
+          if (String(curWs()) !== String(sp.id)) wsByTab(sp);      // not switched: show one of its tabs instead
+        }, 500);
+        return;
+      }
       if (Date.now() - t0 < 900) return setTimeout(look, 30);
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
       document.documentElement.removeAttribute("data-vos-ws-silent");
