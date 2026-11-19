@@ -3257,11 +3257,24 @@ window.vosBeat = window.vosBeat || (() => {
     if (!p) return;
     p.then(async ws => {
       if (ws === undefined) return wsErr("new + move", "no new desktop");
+      const key = String(id), pg = pageOf(key);
+      const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
       await toDesk(id, ws);
+      render();                                                      // gone from this desktop before the swipe starts
+      // Vivaldi opens a blank page on a desktop it thinks is empty: wait until it knows the window is there
+      const t0 = Date.now();
+      while (Date.now() - t0 < 2500) {
+        const tabs = await tabsQuery({ currentWindow: true });
+        const mine = tabs.filter(t => ids.includes(String(t.id)));
+        if (mine.length && mine.every(t => sameWs(extOf(t)?.workspaceId ?? null, ws))) break;
+        await new Promise(r => setTimeout(r, 80));
+      }
+      await new Promise(r => setTimeout(r, 120));                   // its own page list catches up
       const pa = vivPages(), wid = await winId();
-      swipeTo({ id: ws, name: "", go: async () => {                 // and you go with it, swiping
+      swipeTo({ id: ws, name: "", keep: ids, go: async () => {       // and you go with it, swiping, onto the window
         if (pa?.setActiveWorkspace) await pa.setActiveWorkspace(wid, ws);
         else await switchWs({ id: ws }, (await prefGet("vivaldi.workspaces.list")) || list);
+        chrome.tabs.update(Number(id), { active: true }, () => void chrome.runtime.lastError);
       } }, list, 1);
     });
   }
@@ -3300,21 +3313,83 @@ window.vosBeat = window.vosBeat || (() => {
     if (wsStrip) closeWsStrip(false, !!mission);
     swipeTo({ id: t.id, name: t.name }, list, dir);
   }
-  let swAcc = 0, swAt = 0, swLast = 0;
+  /* the desktops of this window, in order, and which one is shown (kept for a moment) */
+  let deskInfo = null;
+  async function desksNow(fresh) {
+    if (!fresh && deskInfo && Date.now() - deskInfo.at < 1500) return deskInfo;
+    const list = (await prefGet("vivaldi.workspaces.list")) || [];
+    const tabs = await tabsQuery({ currentWindow: true });
+    const mine = await myDesks(list, tabs, curWs());
+    const ds = list.filter(w => mine.has(String(w.id)));
+    return (deskInfo = { list, ds, i: ds.findIndex(w => sameWs(w.id, curWs())), at: Date.now() });
+  }
+  /* SWIPE THAT FOLLOWS THE FINGERS: two fingers sideways over the Mission Control (Workspaces)
+     button move the windows with them; let go past a fifth of the screen (or flick) and the
+     next desktop comes in, else they spring back. No desktop that way: they only stretch a little. */
+  let sw = null;
+  const swItems = () => [...document.querySelectorAll(SWIPE_ITEMS)];
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
-    if (Math.abs(ev.deltaX) <= Math.abs(ev.deltaY)) return;
+    if (!sw && Math.abs(ev.deltaX) <= Math.abs(ev.deltaY)) return;
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
-    const now = Date.now();
-    if (now - swLast > 250) swAcc = 0;
-    swLast = now;
-    if (now - swAt < 700) return;                                    // one desktop per swipe
-    swAcc += ev.deltaX;
-    if (Math.abs(swAcc) < 40) return;
-    const dir = swAcc > 0 ? 1 : -1;
-    swAcc = 0; swAt = now;
-    swipeDesk(dir);
+    if (swiping) return;
+    if (!sw) {
+      sw = { acc: 0, items: swItems(), info: null, speed: 0, at: performance.now() };
+      desksNow().then(d => { if (sw) sw.info = d; });
+      deskDots(true);
+    }
+    const now = performance.now();
+    sw.speed = ev.deltaX / Math.max(8, now - sw.at); sw.at = now;
+    sw.acc += ev.deltaX;
+    const dir = sw.acc > 0 ? 1 : -1, info = sw.info;
+    const has = !info || !!info.ds[info.i + dir];
+    const shown = has ? sw.acc : sw.acc * 0.2;                       // nothing there: a little rubber band
+    for (const el of sw.items) el.style.setProperty("translate", `${Math.round(-shown)}px 0px`);
+    clearTimeout(sw.timer);
+    sw.timer = setTimeout(swipeEnd, 140);
   }, { capture: true, passive: false });
+  function swipeEnd() {
+    const s = sw; sw = null;
+    if (!s) return;
+    const dir = s.acc > 0 ? 1 : -1, info = s.info, t = info?.ds[info.i + dir];
+    const go = t && (Math.abs(s.acc) > innerWidth * 0.2 || (Math.abs(s.speed) > 0.6 && Math.abs(s.acc) > 40));
+    if (go) { swipeTo({ id: t.id, name: t.name }, info.list, dir); return; }   // carries on from where the fingers left it
+    for (const el of s.items) {                                       // springs back
+      const from = el.style.getPropertyValue("translate") || "0px 0px";
+      el.style.removeProperty("translate");
+      el.animate([{ translate: from }, { translate: "0px 0px" }], { duration: 260, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+    }
+  }
+  /* DESKTOP DOTS: over the Mission Control (Workspaces) button, a small pill shows the desktops of
+     this window as dots, the shown one bright, with its name - also while you swipe */
+  let dotsEl = null, dotsTimer = 0;
+  async function deskDots(show) {
+    const btn = document.querySelector(".vos-chain-vosmission") || document.querySelector(WS_BTN);
+    if (!show || !btn) { clearTimeout(dotsTimer); dotsTimer = setTimeout(() => { dotsEl?.setAttribute("data-out", ""); }, 600); return; }
+    clearTimeout(dotsTimer);
+    const info = await desksNow(true);
+    if (!dotsEl) { dotsEl = document.createElement("div"); dotsEl.className = "vos-ws-dots"; (browserEl() || document.body).appendChild(dotsEl); }
+    dotsEl.textContent = "";
+    const row = document.createElement("div"); row.className = "vos-ws-dots-row";
+    info.ds.forEach((w, i) => { const d = document.createElement("i"); if (i === info.i) d.setAttribute("data-on", ""); row.appendChild(d); });
+    const name = document.createElement("span"); name.textContent = info.ds[info.i]?.name || "";
+    dotsEl.append(row, name);
+    const r = btn.getBoundingClientRect();
+    dotsEl.style.left = Math.round(r.left + r.width / 2) + "px";
+    dotsEl.style.top = Math.round(r.bottom + 8) + "px";
+    dotsEl.removeAttribute("data-out");
+    if (!sw && !btn.matches(":hover")) deskDots(false);
+  }
+  addEventListener("pointerover", ev => {
+    if (document.querySelector("#browser.toolbar-edit-mode") || wsStrip) return;
+    const on = ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission");
+    const was = ev.relatedTarget?.closest?.(WS_BTN + ", .vos-chain-vosmission");
+    if (on && on !== was) deskDots(true);
+  }, true);
+  addEventListener("pointerout", ev => {
+    const from = ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission");
+    if (from && !from.contains(ev.relatedTarget)) deskDots(false);
+  }, true);
   /* Mission Control shows a window smaller by scaling it (the page keeps its size): its
      top-left goes to disp; null: back to normal */
   function missionLook(id, el, disp, r) {
@@ -3591,7 +3666,8 @@ window.vosBeat = window.vosBeat || (() => {
     if (!b || matchMedia("(prefers-reduced-motion: reduce)").matches) return switchWs(sp, list);
     const side = dir > 0 ? "next" : "prev";
     swiping = true;
-    const leaving = [...document.querySelectorAll(SWIPE_ITEMS)];
+    const keep = new Set((sp.keep || []).map(String));                // the window that moves along: not left behind
+    const leaving = [...document.querySelectorAll(SWIPE_ITEMS)].filter(el => !keep.has(el.dataset.ftFloat || el.dataset.ftFor || ""));
     if (mission) mission.frozen = new Set(mission.slots ? mission.slots.keys() : []);   // the new desktop's windows come in at full size
     b.setAttribute("data-vos-swipe", side);
     b.setAttribute("data-vos-swipe-in", side);                        // set first: a new window never shows before it slides in
@@ -3603,8 +3679,8 @@ window.vosBeat = window.vosBeat || (() => {
     render();
     await new Promise(r => setTimeout(r, Math.max(0, 400 - (Date.now() - t1))));
     missionMode(null, true);                                          // Mission Control ends with the old desktop out of sight
-    leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); });
-    setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; }, 420);
+    leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
+    setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true); }, 420);
   }
   async function switchWs(sp, list) {
     const api = vivWs();

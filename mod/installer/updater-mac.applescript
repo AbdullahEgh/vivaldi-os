@@ -8,10 +8,25 @@ on open location theURL
 	on error
 		return
 	end try
+	do shell script "rm -f /tmp/vivaldi-os-updated"
 	tell application "Terminal"
 		activate
-		do script "curl -fsSL https://github.com/AbdullahEgh/vivaldi-os/releases/latest/download/VivaldiOS-Mac.command -o /tmp/vivaldi-os.command && bash /tmp/vivaldi-os.command"
+		set t to do script "curl -fsSL https://github.com/AbdullahEgh/vivaldi-os/releases/latest/download/VivaldiOS-Mac.command -o /tmp/vivaldi-os.command && bash /tmp/vivaldi-os.command && touch /tmp/vivaldi-os-updated"
+		set w to front window
 	end tell
+	-- done: the Terminal window closes by itself (it stays open only if something went wrong)
+	repeat 600 times
+		delay 1
+		try
+			tell application "Terminal" to if not (busy of t) then exit repeat
+		on error
+			exit repeat
+		end try
+	end repeat
+	try
+		do shell script "test -e /tmp/vivaldi-os-updated"
+		tell application "Terminal" to close w saving no
+	end try
 end open location
 
 on run

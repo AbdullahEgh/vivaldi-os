@@ -1288,3 +1288,15 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-bl { bottom: -14px !important; left: -14px !important; clip-path: polygon(0 0, 20px 0, 20px calc(100% - 20px), 100% calc(100% - 20px), 100% 100%, 0 100%) !important; }
 #browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-br { bottom: -14px !important; right: -14px !important; clip-path: polygon(calc(100% - 20px) 0, 100% 0, 100% 100%, 0 100%, 0 calc(100% - 20px), calc(100% - 20px) calc(100% - 20px)) !important; }
 #browser .ft-frame > .ft-grab, #browser .ft-max-grab, #browser .vos-ws-card, #browser .bento-divider, #browser .bento-grip { touch-action: none !important; }
+
+/* DESKTOP DOTS under the Mission Control (Workspaces) button: the desktops of this window, the shown one bright */
+#browser .vos-ws-dots { position: fixed !important; z-index: 2147482500 !important; translate: -50% 0 !important; pointer-events: none !important;
+  display: flex !important; flex-direction: column !important; align-items: center !important; gap: 4px !important;
+  padding: 6px 10px 5px !important; border-radius: 12px !important; background: rgba(30, 30, 34, 0.72) !important; color: #fff !important;
+  backdrop-filter: blur(20px) saturate(1.6) !important; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25) !important;
+  font: 500 11px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; white-space: nowrap !important;
+  transition: opacity 0.18s ease, translate 0.18s ease !important; opacity: 1 !important; }
+#browser .vos-ws-dots[data-out] { opacity: 0 !important; translate: -50% -4px !important; }
+#browser .vos-ws-dots-row { display: flex !important; gap: 5px !important; }
+#browser .vos-ws-dots-row > i { width: 6px !important; height: 6px !important; border-radius: 50% !important; background: rgba(255, 255, 255, 0.35) !important; transition: background 0.2s ease, scale 0.2s ease !important; }
+#browser .vos-ws-dots-row > i[data-on] { background: #fff !important; scale: 1.2 !important; }
