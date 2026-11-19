@@ -1174,3 +1174,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* behind the workspace strip: an invisible layer over everything; a click there closes it */
 #browser .vos-ws-back { position: fixed !important; inset: 0 !important; z-index: 2147481999 !important; background: transparent !important; }
+
+/* the workspace name: click to rename it right there */
+#browser .vos-ws-name { padding: 1px 5px !important; border-radius: 5px !important; cursor: text !important; outline: none !important; }
+#browser .vos-ws-name:hover { background: rgba(127, 127, 127, 0.16) !important; }
+#browser .vos-ws-name[contenteditable="true"] { background: rgba(255, 255, 255, 0.85) !important; color: #1d1d1f !important; box-shadow: 0 0 0 2px var(--colorHighlightBg, #0a84ff) !important; cursor: text !important; }

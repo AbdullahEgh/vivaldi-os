@@ -2370,6 +2370,32 @@
     } catch (e) { res(null); }
   });
   const favicon = url => `chrome://favicon2/?size=32&scaleFactor=2x&pageUrl=${encodeURIComponent(url)}&allowGoogleServerFallback=0`;
+  function editableName(nm, sp) {
+    nm.title = "Click to rename";
+    nm.addEventListener("click", ev => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (nm.isContentEditable) return;
+      nm.contentEditable = "true"; nm.spellcheck = false; nm.focus();
+      getSelection().selectAllChildren(nm);
+    });
+    nm.addEventListener("pointerdown", ev => ev.stopPropagation());
+    const done = save => {
+      if (!nm.isContentEditable) return;
+      nm.contentEditable = "false";
+      const v = nm.textContent.trim();
+      if (save && v && v !== sp.name) {
+        const api = vivWs();
+        try { api?.setName(sp.id, v); sp.name = v; } catch (e) { LOG("workspaces: rename failed", e); nm.textContent = sp.name; }
+        if (!api) nm.textContent = sp.name;
+      } else nm.textContent = sp.name;
+    };
+    nm.addEventListener("keydown", ev => {
+      if (ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); done(true); nm.blur(); }
+      else if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); done(false); nm.blur(); }
+      else ev.stopPropagation();
+    });
+    nm.addEventListener("blur", () => done(true));
+  }
   function closeWsStrip() {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
@@ -2421,21 +2447,31 @@
       card.appendChild(mini);
       const label = document.createElement("div");
       label.className = "vos-ws-label";
-      if (sp.icon && /^<svg/i.test(sp.icon)) { const ic = document.createElement("span"); ic.className = "vos-ws-icon"; ic.innerHTML = sp.icon; label.appendChild(ic); }
-      else if (sp.emoji) { const ic = document.createElement("span"); ic.className = "vos-ws-icon"; ic.textContent = sp.emoji; label.appendChild(ic); }
-      const nm = document.createElement("span"); nm.textContent = sp.name; label.appendChild(nm);
+      const nm = document.createElement("span"); nm.className = "vos-ws-name"; nm.textContent = sp.name; label.appendChild(nm);
+      if (sp.id != null) editableName(nm, sp);                      // click the name to rename it (Default is Vivaldi's own)
       const n = (tabs || []).filter(t => same(wsOfTab.has(String(t.id)) ? wsOfTab.get(String(t.id)) : null, sp.id)).length;
       const cnt = document.createElement("span"); cnt.className = "vos-ws-count"; cnt.textContent = n ? String(n) : ""; label.appendChild(cnt);
       card.appendChild(label);
-      card.addEventListener("click", ev => { ev.stopPropagation(); closeWsStrip(); if (!same(sp.id, cur)) switchWs(sp); });
+      card.addEventListener("click", ev => {
+        if (ev.target.closest(".vos-ws-name[contenteditable=true]")) return;   // editing the name
+        ev.stopPropagation(); closeWsStrip(); if (!same(sp.id, cur)) switchWs(sp, list);
+      });
       row.appendChild(card);
     }
-    // Vivaldi's own list: new workspace, rename, icons, order
+    // New: another desktop (a workspace), and you are on it
     const more = document.createElement("button");
     more.type = "button"; more.className = "vos-ws-card vos-ws-more";
-    more.innerHTML = '<div class="vos-ws-mini"><span class="vos-ws-plus">+</span></div><div class="vos-ws-label"><span>Manage…</span></div>';
+    more.innerHTML = '<div class="vos-ws-mini"><span class="vos-ws-plus">+</span></div><div class="vos-ws-label"><span>New</span></div>';
     more.querySelector(".vos-ws-mini").style.aspectRatio = `${Math.max(1, ss.width)} / ${Math.max(1, ss.height)}`;
-    more.addEventListener("click", ev => { ev.stopPropagation(); closeWsStrip(); openVivaldiWs(false); });
+    more.addEventListener("click", ev => {
+      ev.stopPropagation(); closeWsStrip();
+      const api = vivWs();
+      const names = new Set(list.map(w => w.name));
+      let n = list.length + 2, name;
+      do { name = "Desktop " + n++; } while (names.has(name));
+      if (api) { try { api.addWorkspace(name, list[0]?.icon, undefined, undefined, false); return; } catch (e) { LOG("workspaces: new failed", e); } }
+      openVivaldiWs(false);                                          // fallback: Vivaldi's own list (its New button)
+    });
     row.appendChild(more);
 
     strip.addEventListener("pointerdown", ev => ev.stopPropagation());
@@ -2453,6 +2489,29 @@
     setTimeout(() => addEventListener("pointerdown", wsOut, true));
     row.querySelector("[data-current]")?.scrollIntoView({ inline: "center", block: "nearest" });
   }
+  /* Vivaldi's own workspace actions - the ones its menu calls - found by their names
+     (setName, addWorkspace, activateWorkspaceByIndex) in its module registry */
+  let wsApi = null;
+  function vivWs() {
+    if (wsApi) return wsApi;
+    try {
+      const ch = self.webpackChunkgapp_browser_react;
+      if (!ch?.push) return null;
+      let req = null;
+      ch.push([["vos-ws-" + Date.now()], {}, r => { req = r; }]);
+      for (const id in req?.c || {}) {
+        const ex = req.c[id]?.exports;
+        if (!ex || typeof ex !== "object") continue;
+        for (const k of Object.keys(ex)) {
+          let v; try { v = ex[k]; } catch (e) { continue; }
+          if (v && typeof v.setName === "function" && typeof v.addWorkspace === "function" && typeof v.activateWorkspaceByIndex === "function") return (wsApi = v);
+        }
+      }
+    } catch (e) { LOG("workspaces: Vivaldi's actions not found", e); }
+    return null;
+  }
+  const winId = () => new Promise(r => chrome.windows.getCurrent(w => r(w?.id)));
+
   /* open Vivaldi's own workspace list (silent: only to press one of its items) */
   function openVivaldiWs(silent) {
     const w = document.querySelector(WS_BTN);
@@ -2465,7 +2524,14 @@
     setTimeout(() => { wsPass = false; }, 50);
     return true;
   }
-  function switchWs(sp) {
+  async function switchWs(sp, list) {
+    const api = vivWs();
+    if (api) {                                                      // Vivaldi's own switch
+      try {
+        const i = sp.id == null ? undefined : (list || []).findIndex(w => String(w.id) === String(sp.id));
+        if (sp.id == null || i >= 0) { api.activateWorkspaceByIndex(await winId(), i); return; }
+      } catch (e) { LOG("workspaces: switch failed", e); }
+    }
     if (!openVivaldiWs(true)) return wsByTab(sp);
     const t0 = Date.now();
     const look = () => {
