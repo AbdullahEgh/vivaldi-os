@@ -102,7 +102,7 @@
   const stack = () => $("#webpage-stack");
   /* MISSION CONTROL: while the desktops panel is open, the windows shrink into the space
      below it (none under it), so one is easy to drag onto another desktop */
-  let mission = null, missionDrag = null;            // { k, ox, oy } / { id, r } the window held
+  let mission = null, missionDrag = null, missionSkip = null;   // { k, ox, oy } / { id, r } picked up there / held from the top edge (full size)
   const mr = r => mission ? { x: mission.ox + r.x * mission.k, y: mission.oy + r.y * mission.k, w: r.w * mission.k, h: r.h * mission.k } : r;
   const browserEl = () => $("#browser");
   const pageOf = id => (id == null ? null : $(`#webpage-stack .webpageview[data-id="${CSS.escape(String(id))}"]`));
@@ -1008,12 +1008,14 @@
     bentoSync(s);
     for (const { id, el } of windows) {
       addChrome(el, id);
-      const r = missionDrag?.id === id ? missionDrag.r : mr(pxRect(id, s)), o = origins.get(el.parentElement);
+      const held = missionDrag?.id === id;
+      const r = held ? missionDrag.r : pxRect(id, s), o = origins.get(el.parentElement);
       place(el, r, s, o);
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       placeFrame(id, el, r, s, o);
+      missionLook(id, el, held ? r : mission && missionSkip !== id ? mr(r) : null, r);   // Mission Control: scaled, not resized
       frames.get(id)?.toggleAttribute("data-ft-focused", focusSet.has(id));
       frames.get(id)?.toggleAttribute("data-ft-away", awayWs(id));
     }
@@ -2208,6 +2210,7 @@
        let go on a desktop and the window moves there */
     let deskTimer = 0, deskDrop = !!mission && how === "move", deskOver = null;
     const inMission = deskDrop;                                       // the panel was open already: Mission Control
+    if (!inMission && how === "move") missionSkip = id;               // held from the top edge: it keeps its size
     let gOff = inMission ? (() => { const d = mr(s0); return { x: sx - ss.left - d.x, y: sy - ss.top - d.y }; })() : null;
     let moved = false;
     const openDeskDrop = () => {
@@ -2246,12 +2249,11 @@
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
         frame = 0;
-        if (mission && how === "move") {                             // Mission Control: the small window follows the pointer
-          const k = mission.k, cur = pxRect(id, ss);
-          if (!gOff) gOff = { x: (last.clientX - ss.left - cur.x) * k, y: (last.clientY - ss.top - cur.y) * k };
-          const d = { x: last.clientX - ss.left - gOff.x, y: last.clientY - ss.top - gOff.y, w: cur.w * k, h: cur.h * k };
+        if (mission && inMission && how === "move") {                // Mission Control: the small window follows the pointer
+          const cur = pxRect(id, ss);
+          const d = { x: last.clientX - ss.left - gOff.x, y: last.clientY - ss.top - gOff.y, w: cur.w, h: cur.h };
           missionDrag = { id, r: d };
-          place(el, d, ss); placeFrame(id, el, d, ss);
+          place(el, d, ss); placeFrame(id, el, d, ss); missionLook(id, el, d, d);
           return;
         }
         const dx = last.clientX - sx, dy = last.clientY - sy;
@@ -2301,6 +2303,7 @@
       removeEventListener("pointercancel", onUp, true);
       clearTimeout(zoneTimer); clearTimeout(deskTimer);
       const wasHeld = missionDrag?.id === id; missionDrag = null;
+      if (missionSkip === id) missionSkip = null;
       if (deskDrop) {                                               // the desktops panel is open
         const card = deskOver; deskOver?.removeAttribute("data-drop");
         const strip = wsStrip, list = strip?.__list || [];
@@ -2844,6 +2847,18 @@
     const p = newDesk(list, true);
     if (!p) return;
     p.then(ws => { if (ws !== undefined) toDesk(id, ws); else wsErr("new + move", "no new desktop"); });
+  }
+  /* Mission Control shows a window smaller by scaling it (the page keeps its size): its
+     top-left goes to disp; null: back to normal */
+  function missionLook(id, el, disp, r) {
+    const f = frames.get(id);
+    if (!disp || !mission) {
+      for (const n of [el, f]) if (n?.__mt) { n.__mt = false; n.style.removeProperty("transform"); n.style.removeProperty("transform-origin"); }
+      return;
+    }
+    const t = `translate(${Math.round(disp.x - r.x)}px, ${Math.round(disp.y - r.y)}px) scale(${mission.k})`;
+    el.__mt = true; setStyle(el, "transform-origin", "0 0"); setStyle(el, "transform", t);
+    if (f) { const g = f.hasAttribute("data-ft-grab") ? GRAB : 0; f.__mt = true; setStyle(f, "transform-origin", `${RING}px ${RING + g}px`); setStyle(f, "transform", t); }
   }
   function missionMode(m) {
     if (!m && !mission) return;

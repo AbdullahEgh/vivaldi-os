@@ -1237,5 +1237,5 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* Mission Control: the windows shrink below the desktops panel */
 #browser[data-vos-mission] .bento-divider, #browser[data-vos-mission] .bento-grip, #browser[data-vos-mission] .ft-max-grab { display: none !important; }
 #browser[data-vos-mission-anim] [data-ft-float], #browser[data-vos-mission-anim] .ft-frame {
-  transition: left 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), width 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), height 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+  transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 #browser[data-vos-mission] .vos-ws-back { cursor: default !important; }
