@@ -1101,7 +1101,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (!origins.has(w.el.parentElement)) origins.set(w.el.parentElement, fixedOrigin(w.el.parentElement));
     }
     bentoSync(s);
-    const slots = mission ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))), s) : null;
+    const slots = mission && b.hasAttribute("data-ft-desktop") ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))), s) : null;
     if (mission) mission.slots = slots;
     missionIcons(slots, s);
     for (const { id, el } of windows) {
@@ -2496,7 +2496,7 @@ window.vosBeat = window.vosBeat || (() => {
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
       clearTimeout(zoneTimer); clearTimeout(deskTimer);
-      const wasHeld = missionDrag?.id === id; missionDrag = null;
+      const heldMD = missionDrag?.id === id ? missionDrag : null, wasHeld = !!heldMD; missionDrag = null;
       if (missionSkip === id) missionSkip = null;
       if (deskDrop) {                                               // the desktops panel is open
         const card = deskOver; deskOver?.removeAttribute("data-drop");
@@ -2507,14 +2507,16 @@ window.vosBeat = window.vosBeat || (() => {
           persist(id);
           if (backToBento.delete(id)) bento.skip.delete(id);
           if (card.classList.contains("vos-ws-more")) return toNewDesk(id, list);
+          const ws = card.dataset.ws ? (list.find(w => String(w.id) === card.dataset.ws)?.id ?? null) : null;
           if (keep) {                                                 // its mini window goes to that desktop
             const mini = strip.querySelector(`.vos-ws-win[data-tab="${CSS.escape(String(id))}"]`);
             card.querySelector(".vos-ws-empty")?.remove();
             if (mini) card.querySelector(".vos-ws-mini")?.appendChild(mini);
+            return flyInto(id, el, card, heldMD, () => toDesk(id, ws));
           }
-          return toDesk(id, card.dataset.ws ? (list.find(w => String(w.id) === card.dataset.ws)?.id ?? null) : null);
+          return toDesk(id, ws);
         }
-        if (inMission) { if (wasHeld) queueRender(); return; }      // let go elsewhere: back to its place
+        if (inMission) { if (wasHeld) { missionGlide(); queueRender(); } return; }   // let go elsewhere: it glides back
       }
       if (leaving) {                                                // let go outside: to the Vivaldi window under it
         const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
@@ -2861,6 +2863,7 @@ window.vosBeat = window.vosBeat || (() => {
         () => void chrome.runtime.lastError);
       if (r?.catch) r.catch(err => wsErr("move window", err));
     } catch (err) { wsErr("move window", err); }
+    if (mission) missionGlide();                                     // the windows left close up, gliding
     queueRender();
   }
   /* drag a mini window onto another desktop: its tab goes there (Vivaldi's own move) */
@@ -3183,13 +3186,35 @@ window.vosBeat = window.vosBeat || (() => {
     }
     for (const ic of [...mcIcons.children]) if (!seen.has(ic.dataset.id)) ic.remove();
   }
+  /* Mission Control: a window let go on a desktop shrinks into its thumbnail, then moves there */
+  function flyInto(id, el, card, held, then) {
+    const box = card.querySelector(".vos-ws-mini") || card, f = frames.get(id);
+    const er = el.getBoundingClientRect(), cr = box.getBoundingClientRect();
+    if (!er.width || !cr.width) return then();
+    if (held) missionDrag = held;                                   // it stays where it was let go meanwhile
+    const sc = Math.max(0.04, Math.min(1, cr.width * 0.4 / er.width));
+    const dx = cr.left + cr.width / 2 - (er.left + er.width * sc / 2), dy = cr.top + cr.height / 2 - (er.top + er.height * sc / 2);
+    const opts = { duration: 260, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" };
+    f?.animate([{ filter: "opacity(1)" }, { filter: "opacity(0)" }], { duration: 120, fill: "forwards" });
+    el.animate([{ translate: "0px 0px", scale: "1", filter: "opacity(1)" },
+                { translate: `${Math.round(dx)}px ${Math.round(dy)}px`, scale: String(sc), filter: "opacity(0)" }], opts)
+      .finished.catch(() => {}).then(() => {
+        if (missionDrag?.id === id) missionDrag = null;
+        then();
+        setTimeout(() => { el.getAnimations().forEach(a => a.cancel()); f?.getAnimations().forEach(a => a.cancel()); }, 700);   // gone from this desktop by then
+      });
+  }
+  function missionGlide() {                           // the windows glide to their new places (not jump)
+    const b = browserEl();
+    b?.setAttribute("data-vos-mission-anim", "");
+    clearTimeout(missionMode.t); missionMode.t = setTimeout(() => b?.removeAttribute("data-vos-mission-anim"), 340);
+  }
   function missionMode(m, instant) {
     if (!m && !mission) return;
     mission = m;
     const b = browserEl();
     b?.toggleAttribute("data-vos-mission", !!m);
-    if (!instant) b?.setAttribute("data-vos-mission-anim", "");     // a short glide in and out
-    clearTimeout(missionMode.t); missionMode.t = setTimeout(() => b?.removeAttribute("data-vos-mission-anim"), 320);
+    if (!instant) missionGlide();                                    // a short glide in and out
     render();
   }
   function closeWsStrip(instant, keepMission) {
@@ -3215,8 +3240,15 @@ window.vosBeat = window.vosBeat || (() => {
     ev.preventDefault(); ev.stopPropagation();
     if (wsMenuEl) closeWsMenu(); else closeWsStrip();             // the menu first, then the strip
   };
+  let wsOpening = false;                              // a second click while it opens: not a second panel
   async function openWsStrip() {
     if (wsStrip) return closeWsStrip();
+    if (wsOpening) return;
+    wsOpening = true;
+    try { await openWsStripNow(); } finally { wsOpening = false; }
+  }
+  async function openWsStripNow() {
+    if (wsStrip) return;
     const list = (await prefGet("vivaldi.workspaces.list")) || [];
     defaultIcons(list);
     const tabs = await tabsQuery({ currentWindow: true });
@@ -3280,7 +3312,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (same(sp.id, cur)) return closeWsStrip();
         const order = [...row.querySelectorAll(".vos-ws-card[data-ws]")];
         const dir = order.indexOf(card) - order.findIndex(c => c.hasAttribute("data-current"));
-        closeWsStrip(true, true);
+        closeWsStrip(false, true);                                   // the panel slides up as the windows swipe
         swipeTo(sp, list, dir >= 0 ? 1 : -1);
       });
       row.appendChild(card);
