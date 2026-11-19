@@ -2280,10 +2280,24 @@
     }
     tagEl.textContent = "New Update";
     tagEl.title = `Install Vivaldi OS ${tag} (you have ${window.vosVersion})`;
+    lookLikeField();
     const after = bento && bento.parentElement === bar ? bento : null;
     if (after ? after.nextSibling !== tagEl : bar.firstChild !== tagEl) bar.insertBefore(tagEl, after ? after.nextSibling : bar.firstChild);
   }
+  /* the button looks exactly like the address field beside it: its own colours, border,
+     roundness, height and type, read from it (so it follows every theme) */
+  function lookLikeField() {
+    const f = document.querySelector("#browser .UrlBar-AddressField");
+    if (!f || !tagEl) return;
+    const cs = getComputedStyle(f);
+    for (const k of ["background-color", "color", "border-top-width", "border-top-style", "border-top-color", "border-radius", "height", "font-size", "font-weight"]) {
+      const v = k.startsWith("border-top-") ? cs.getPropertyValue(k) : cs.getPropertyValue(k);
+      const prop = k.startsWith("border-top-") ? "border-" + k.slice(11) : k;
+      if (tagEl.style.getPropertyValue(prop) !== v) tagEl.style.setProperty(prop, v, "important");
+    }
+  }
   setInterval(() => {                                // a re-drawn tab bar (or a late Bento button) gets it back in place
+    if (tagEl?.isConnected) lookLikeField();
     if (!tagFor) return;
     const b = document.querySelector("#browser .bento-toggle");
     if (!tagEl?.isConnected || (b && b.nextSibling !== tagEl)) updTag(tagFor);
