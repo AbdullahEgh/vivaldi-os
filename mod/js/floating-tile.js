@@ -115,6 +115,27 @@ window.vosBeat = window.vosBeat || (() => {
   const stack = () => $("#webpage-stack");
   /* MISSION CONTROL: while the desktops panel is open, the windows shrink into the space
      below it (none under it), so one is easy to drag onto another desktop */
+  /* FAILSAFE: nothing the mod lays over Vivaldi can ever be left behind. A drag puts a
+     cover over everything until you let go; if that release never arrives (touch, pen,
+     switching apps mid-drag, an error), the next press, losing focus or the heartbeat
+     ends the drag and takes the cover away (not focus changes: a page taking focus is normal) - Vivaldi can never look frozen. The desktops
+     panel's backdrop goes too if the panel itself is gone. */
+  function unstick(why) {
+    for (const sh of document.querySelectorAll(".ft-shield")) { try { sh.__end?.(); } catch (e) {} sh.remove(); }
+    for (const bk of document.querySelectorAll(".vos-ws-back")) if (!wsStrip || wsStrip.__back !== bk) bk.remove();
+  }
+  addEventListener("pointerdown", ev => { if (document.querySelector(".ft-shield")) unstick("press"); }, true);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) unstick("hidden"); });
+  setInterval(() => {                                   // a cover with no button held for 3s is stale
+    for (const sh of document.querySelectorAll(".ft-shield")) {
+      sh.__seen = (sh.__seen || 0) + 1;
+      if (sh.__seen > 3 && !unstick.down) unstick("idle");
+    }
+    for (const bk of document.querySelectorAll(".vos-ws-back")) if (!wsStrip || wsStrip.__back !== bk) bk.remove();
+  }, 1000);
+  addEventListener("pointerdown", () => { unstick.down = true; }, true);
+  addEventListener("pointerup", () => { unstick.down = false; }, true);
+  addEventListener("pointercancel", () => { unstick.down = false; }, true);
   let underId = null;                                 // the full-screen page under the floating windows
   let liveMove = null;                                // { id, base } a window being moved (by a translate)
   function endLiveMove() {                            // the move is over: its real place, the translate gone
@@ -2054,6 +2075,7 @@ window.vosBeat = window.vosBeat || (() => {
     const shield = document.createElement("div");
     shield.className = "ft-shield"; shield.style.cursor = "grabbing";
     document.body.appendChild(shield);
+    shield.__end = () => { try { onUp({ pointerId: pid, type: "pointercancel", clientX: 0, clientY: 0, screenX: 0, screenY: 0 }); } catch (e) {} };   // a stale drag can always be ended
     const preview = document.createElement("div");
     preview.className = "bento-preview";
     host?.appendChild(preview);
@@ -2161,6 +2183,7 @@ window.vosBeat = window.vosBeat || (() => {
     const shield = document.createElement("div");
     shield.className = "ft-shield"; shield.style.cursor = cursor;
     document.body.appendChild(shield);
+    shield.__end = () => { try { onUp({ pointerId: pid, type: "pointercancel", clientX: 0, clientY: 0, screenX: 0, screenY: 0 }); } catch (e) {} };   // a stale drag can always be ended
     bento.gesture = { ids: new Set(dividers.map(d => d.id)) };
     bento.root = base;                                             // the equivalent tree, held for the whole drag
     let frame = 0, last = null, moved = false;
@@ -2364,6 +2387,7 @@ window.vosBeat = window.vosBeat || (() => {
     shield.className = "ft-shield";
     shield.style.cursor = CURSOR[how];
     document.body.appendChild(shield);
+    shield.__end = () => { try { onUp({ pointerId: pid, type: "pointercancel", clientX: 0, clientY: 0, screenX: 0, screenY: 0 }); } catch (e) {} };   // a stale drag can always be ended
     let frame = 0, last = null;
     let scaling = false, holdTimer = 0, tb = 0, label = null;
     let z0 = zoomOf[id] || 1;

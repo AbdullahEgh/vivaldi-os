@@ -1,3 +1,3 @@
 /* Vivaldi OS version (written by Build Release): js/launchpad.js checks GitHub for a newer one */
-window.vosVersion = "1.0.78";
+window.vosVersion = "1.0.79";
 window.vosRepo = "AbdullahEgh/vivaldi-os";
