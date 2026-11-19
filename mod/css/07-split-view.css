@@ -1143,7 +1143,7 @@
   font-family: -apple-system, "Segoe UI", system-ui, sans-serif !important;
   color: #1d1d1f !important;
 }
-#browser .vos-ws-row { display: flex !important; gap: 18px !important; justify-content: center !important; overflow-x: auto !important; padding: 4px 4px 2px !important; scrollbar-width: none !important; }
+#browser .vos-ws-row { display: flex !important; gap: 18px !important; justify-content: center !important; overflow-x: auto !important; padding: 10px 10px 4px !important; margin: -6px -6px 0 !important; scrollbar-width: none !important; }
 #browser .vos-ws-row::-webkit-scrollbar { display: none !important; }
 #browser .vos-ws-card {
   flex: 0 0 220px !important; display: flex !important; flex-direction: column !important; gap: 8px !important;

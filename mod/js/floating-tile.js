@@ -2197,15 +2197,30 @@
        (full screen) or at the left / right edge (Bento, that half): a preview shows
        where it goes, and letting go puts it there. Leave the edge: no snap. */
     let zone = null, shown = null, zoneTimer = 0, leaving = false;
+    /* TO ANOTHER DESKTOP: keep holding at the top edge - the desktops panel comes down;
+       let go on a desktop and the window moves there */
+    let deskTimer = 0, deskDrop = false, deskOver = null;
+    const openDeskDrop = () => {
+      deskDrop = true;
+      clearTimeout(zoneTimer);
+      if (shown) { snapPreview(null); shown = null; }
+      if (!wsStrip) openWsStrip();
+    };
     const shake = shaker();
     const snapCheck = (x, y) => {
-      if (how !== "move") return;
+      if (how !== "move" || deskDrop) return;
       const z = snapZone(x, y);
       if (z === zone) return;
       zone = z;
-      clearTimeout(zoneTimer);
+      clearTimeout(zoneTimer); clearTimeout(deskTimer);
       if (shown) { snapPreview(null); shown = null; }
       if (z) zoneTimer = setTimeout(() => { shown = z; snapPreview(z, el); }, SNAP_HOLD);
+      if (z === "full") deskTimer = setTimeout(openDeskDrop, SNAP_HOLD + 700);
+    };
+    const deskCheck = (x, y) => {
+      if (!deskDrop) return;
+      const card = document.elementsFromPoint(x, y).find(n => n.classList?.contains("vos-ws-card") && !n.classList.contains("vos-ws-more") && !n.hasAttribute("data-current")) || null;
+      if (card !== deskOver) { deskOver?.removeAttribute("data-drop"); deskOver = card; deskOver?.setAttribute("data-drop", ""); }
     };
 
     const onMove = ev => {
@@ -2215,6 +2230,7 @@
       if (out !== leaving) { leaving = out; out ? dragOutStart(id, el, ev) : dragOutCancel(); }
       if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
       snapCheck(px, py);
+      deskCheck(px, py);
       if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
@@ -2264,7 +2280,17 @@
       removeEventListener("pointermove", onMove, true);
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
-      clearTimeout(zoneTimer);
+      clearTimeout(zoneTimer); clearTimeout(deskTimer);
+      if (deskDrop) {                                               // the desktops panel is open
+        const card = deskOver; deskOver?.removeAttribute("data-drop");
+        const list = wsStrip?.__list || [];
+        closeWsStrip();
+        if (card && ev.type === "pointerup") {
+          persist(id);
+          if (backToBento.delete(id)) bento.skip.delete(id);
+          return toDesk(id, card.dataset.ws ? (list.find(w => String(w.id) === card.dataset.ws)?.id ?? null) : null);
+        }
+      }
       if (leaving) {                                                // let go outside: to the Vivaldi window under it
         const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
         if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY, target); }
@@ -2589,6 +2615,16 @@
     nm.addEventListener("pointerdown", ev => ev.stopPropagation());
     return start;
   }
+  /* a window to another desktop (workspace): Vivaldi's own move; it leaves this one */
+  function toDesk(id, ws) {
+    wsOfTab.set(String(id), ws); wsNowAt = 0;
+    try {
+      const r = vivaldi.tabsPrivate.move({ tabIds: [Number(id)], target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
+        () => void chrome.runtime.lastError);
+      if (r?.catch) r.catch(err => wsErr("move window", err));
+    } catch (err) { wsErr("move window", err); }
+    queueRender();
+  }
   /* drag a mini window onto another desktop: its tab goes there (Vivaldi's own move) */
   function wsWindowDrag(row, list) {
     row.addEventListener("pointerdown", ev => {
@@ -2623,12 +2659,7 @@
         if (!over || e.type !== "pointerup") return;
         const ws = over.dataset.ws ? (list.find(w => String(w.id) === over.dataset.ws)?.id ?? null) : null;   // Default: the window's own
         over.querySelector(".vos-ws-mini")?.appendChild(win);          // show it there right away
-        try {
-          const r = vivaldi.tabsPrivate.move({ tabIds: [Number(win.dataset.tab)], target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
-            () => void chrome.runtime.lastError);
-          if (r?.catch) r.catch(err => wsErr("move window", err));
-          wsOfTab.set(win.dataset.tab, ws);
-        } catch (err) { wsErr("move window", err); }
+        toDesk(win.dataset.tab, ws);
       };
       addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     });
@@ -2757,8 +2788,6 @@
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
     const spaces = [{ id: null, name: "Default", icon: null }, ...list.map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
     const cardW = Math.round(Math.min(220, 128 * (ss.width / Math.max(1, ss.height))));   // at most 128px high
-    // Vivaldi's default workspace icon (the stacked layers), as the Workspaces button shows it
-    const wsIcon = document.querySelector(WS_BTN)?.querySelector("svg")?.outerHTML || "";
 
     const strip = document.createElement("div");
     strip.className = "vos-ws-strip";                               // a clip starting at the tab bar's lower edge
@@ -2796,7 +2825,6 @@
       card.appendChild(mini);
       const label = document.createElement("div");
       label.className = "vos-ws-label";
-      if (wsIcon) { const ic = document.createElement("span"); ic.className = "vos-ws-icon"; ic.innerHTML = wsIcon; label.appendChild(ic); }
       const nm = document.createElement("span"); nm.className = "vos-ws-name"; nm.textContent = sp.name; label.appendChild(nm);
       if (sp.id != null) nm.__edit = editableName(nm, sp);          // click the name to rename it (Default is Vivaldi's own)
       card.appendChild(label);
@@ -2848,7 +2876,7 @@
     const top = ss.top;
     strip.style.top = top + "px";
     panel.animate([{ transform: "translateY(-100%)" }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
-    wsStrip = strip;
+    wsStrip = strip; strip.__list = list;
     addEventListener("keydown", wsKey, true);
     setTimeout(() => addEventListener("pointerdown", wsOut, true));
     { const cur = row.querySelector("[data-current]");               // the current desktop in view (the row only scrolls itself)
