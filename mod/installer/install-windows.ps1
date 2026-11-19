@@ -163,6 +163,11 @@ Write-Json $mapPath $map
 $prefPath = Join-Path $prof 'Preferences'
 Backup-Once $prefPath
 $prefs = Read-Json $prefPath
+# your open windows and websites come back after the restart: continue where you left
+# off, and closing Vivaldi for this install (even a forced close) counts as a clean exit
+Set-JsonPath $prefs 'session.restore_on_startup' 1
+Set-JsonPath $prefs 'profile.exit_type' 'Normal'
+Set-JsonPath $prefs 'profile.exited_cleanly' $true
 if (-not $prefs.ContainsKey('vivaldi')) { $prefs['vivaldi'] = New-Dict }
 if (-not $prefs['vivaldi'].ContainsKey('themes')) { $prefs['vivaldi']['themes'] = New-Dict }
 $themes = $prefs['vivaldi']['themes']

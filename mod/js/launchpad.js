@@ -1836,7 +1836,11 @@
     if (!want && tick) { clearInterval(tick); tick = 0; }
   }
   function onTick() {
-    if (tmState() === "over" && !tm.rang) { tm = { ...tm, rang: true }; saveTm(); chime(); }
+    if (tmState() === "over" && !tm.rang) {
+      tm = { ...tm, rang: true }; saveTm(); chime();
+      paintMini();                                                 // time's up: the timer widget pops up from its ring
+      if (tmMini && !tmPop) openTmPop();
+    }
     if (document.hidden) return;
     const now = new Date();
     if (now.getSeconds() === lastSec) return;
@@ -2102,6 +2106,49 @@
               { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" });
     updEl = n;
   }
+  /* the desktop's right-click menu also with floating windows on it: a right-click on
+     the wallpaper between them (not on a window) shows it; Launchpad items open it first */
+  let deskEl = null;
+  const closeDesk = () => { deskEl?.remove(); deskEl = null; removeEventListener("pointerdown", deskOut, true); removeEventListener("keydown", deskKey, true); };
+  const deskOut = ev => { if (!deskEl?.contains(ev.target)) closeDesk(); };
+  const deskKey = ev => { if (ev.key === "Escape" && deskEl) { ev.stopPropagation(); closeDesk(); } };
+  function deskMenu(x, y) {
+    closeDesk();
+    const m = document.createElement("div");
+    m.className = "lp-menu vos-vars vos-desk-menu";
+    const add = (label, fn) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "lp-menu-item"; b.textContent = label;
+      b.addEventListener("click", ev => { ev.stopPropagation(); closeDesk(); fn(); });
+      m.appendChild(b);
+    };
+    const sep = () => { const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d); };
+    const inLp = fn => () => { if (!lp) open(); if (lp) { enterEdit(); fn(); } };
+    add("Open Launchpad", () => { if (!lp) open(); });
+    add("Add Website…", inLp(siteGallery));
+    add("Add Widget…", inLp(widgetGallery));
+    add("Bookmarks…", inLp(folderPicker));
+    sep();
+    add("Change Wallpaper…", changeWallpaper);
+    add("Theme & Wallpaper Settings…", wallpaperSettings);
+    sep();
+    add("Vivaldi OS Updates…" + (window.vosVersion ? "  (" + window.vosVersion + ")" : ""), () => checkUpdate(true));
+    m.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); });
+    (document.getElementById("browser") || document.body).appendChild(m);
+    m.style.position = "fixed";
+    m.style.left = Math.min(x, innerWidth - m.offsetWidth - 8) + "px";
+    m.style.top = Math.min(y, innerHeight - m.offsetHeight - 8) + "px";
+    deskEl = m;
+    setTimeout(() => { addEventListener("pointerdown", deskOut, true); addEventListener("keydown", deskKey, true); });
+  }
+  addEventListener("contextmenu", ev => {
+    const b = document.getElementById("browser"), t = ev.target;
+    if (lp || !b?.hasAttribute("data-ft-desktop") || !t?.closest) return;     // the Launchpad has its own
+    if (!t.closest("#webpage-stack") || t.closest("[data-ft-float], .ft-frame, .ft-lights, .ft-right, .lp-menu, .vos-tm-pop, input, textarea")) return;
+    ev.preventDefault(); ev.stopPropagation();
+    deskMenu(ev.clientX, ev.clientY);
+  }, true);
+
   /* "New Update": a tag at the left end of the tab bar while a newer release exists */
   let tagFor = null, tagEl = null;
   function updTag(tag) {

@@ -1111,7 +1111,7 @@
   translate: -50% 0 !important;
   border-radius: 2px !important;
   background: rgba(127, 127, 127, 0.55) !important;
-  opacity: 0.35 !important;                               /* always faintly there: it can be found */
+  opacity: 0 !important;                                  /* hidden; the handle still works, the pill shows on hover */
   transition: opacity 0.15s ease, width 0.15s ease !important;
 }
 #browser #webpage-stack > .ft-max-grab:hover::after { opacity: 1 !important; width: 64px !important; }

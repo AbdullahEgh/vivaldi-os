@@ -45,6 +45,12 @@ function run(argv) {
   const prefPath = profile + "/Preferences";
   backupOnce(prefPath);
   const prefs = readJson(prefPath);
+  // your open windows and websites come back after the restart: continue where you
+  // left off, and the close for this install counts as a clean exit (a "crashed"
+  // exit makes Vivaldi start with a new window instead of your session)
+  setPath(prefs, "session.restore_on_startup", 1);
+  setPath(prefs, "profile.exit_type", "Normal");
+  setPath(prefs, "profile.exited_cleanly", true);
   prefs.vivaldi = prefs.vivaldi || {};
   prefs.vivaldi.themes = prefs.vivaldi.themes || {};
   const sys = prefs.vivaldi.themes.system;
