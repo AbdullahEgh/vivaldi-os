@@ -312,9 +312,16 @@
     card.addEventListener("click", ev => ev.stopPropagation());
     lp.layer.appendChild(card);
     lp.layer.setAttribute("data-folder", "");
-    if (!trail.length && !quiet)
-      card.animate([{ transform: "scale(0.7)", opacity: 0 }, { transform: "none", opacity: 1 }],
-                   { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.06)" });
+    if (!trail.length && !quiet) {                  // it grows out of its own icon (iOS)
+      const from = folderMorph(card, n);
+      if (from) {
+        card.animate([{ transform: from, opacity: 0.35 }, { transform: "none", opacity: 1 }],
+                     { duration: 380, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+        grid.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration: 380, easing: "ease-out" });
+        head.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration: 380, easing: "ease-out" });
+      } else card.animate([{ transform: "scale(0.7)", opacity: 0 }, { transform: "none", opacity: 1 }],
+                          { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.06)" });
+    }
     lp.card = card;
     if (rename) setTimeout(() => title.click(), 320);
   }
@@ -324,9 +331,20 @@
     lp.card = null;
     lp.layer.removeAttribute("data-folder");
     if (instant) { c.remove(); return true; }
-    c.animate([{ transform: "none", opacity: 1 }, { transform: "scale(0.8)", opacity: 0 }],
-              { duration: 170, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove());
+    const to = !c.__trail?.length && folderMorph(c, c.__folder);   // back into its icon
+    c.animate(to ? [{ transform: "none", opacity: 1 }, { transform: to, opacity: 0 }] : [{ transform: "none", opacity: 1 }, { transform: "scale(0.8)", opacity: 0 }],
+              to ? { duration: 280, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" } : { duration: 170, easing: "ease-in", fill: "forwards" })
+      .finished.catch(() => {}).then(() => c.remove());
     return true;
+  }
+  /* the transform that puts an open folder exactly over its icon (the card is centred on screen) */
+  function folderMorph(card, n) {
+    const icon = [...(lp?.grid?.querySelectorAll(":scope > .lp-app") || [])].find(a => a.__node?.id === n?.id)?.querySelector(".lp-tile");
+    if (!icon) return null;
+    const ir = icon.getBoundingClientRect(), cr = card.getBoundingClientRect();
+    if (!ir.width || !cr.width) return null;
+    const dx = ir.left + ir.width / 2 - (cr.left + cr.width / 2), dy = ir.top + ir.height / 2 - (cr.top + cr.height / 2);
+    return `translate(${Math.round(dx)}px, ${Math.round(dy)}px) scale(${(ir.width / cr.width).toFixed(3)}, ${(ir.height / cr.height).toFixed(3)})`;
   }
 
   /* ---------------- drag: rearrange, make folders, move in / out ---------------- */
