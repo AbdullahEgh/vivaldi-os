@@ -2354,10 +2354,7 @@
   let tagFor = null, tagEl = null;
   function updTag(tag) {
     tagFor = tag;
-    // right after the Bento button (else at the start of the tab bar's left part)
-    const bento = document.querySelector("#browser .bento-toggle");
-    const bar = bento?.parentElement || document.querySelector("#browser #tabs-container > .toolbar-tabbar-before") ||
-                document.querySelector("#browser .toolbar-tabbar-before");
+    const { bar, after: spot } = tagSpot();
     if (!bar) return;
     if (!tagEl) {
       tagEl = document.createElement("button");
@@ -2379,8 +2376,19 @@
     tagEl.textContent = "New Update";
     tagEl.title = `Install Vivaldi OS ${tag} (you have ${window.vosVersion})`;
     lookLikeField();
-    const after = bento && bento.parentElement === bar ? bento : null;
+    const after = spot;
     if (after ? after.nextSibling !== tagEl : bar.firstChild !== tagEl) bar.insertBefore(tagEl, after ? after.nextSibling : bar.firstChild);
+  }
+  /* where the New Update button goes: after the icons on the left of the tab bar (Workspaces,
+     Bento, ... whatever order the toolbar editor gave them), before the space that follows */
+  function tagSpot() {
+    const bento = document.querySelector("#browser .bento-toggle");
+    const bar = bento?.closest(".toolbar-tabbar-before") || document.querySelector("#browser .toolbar-tabbar-before");
+    if (!bar) return { bar: null, after: null };
+    const kids = [...bar.children].filter(c => c !== tagEl);
+    const gap = kids.findIndex(c => /spacer/i.test(c.className) || c.matches?.(".UrlBar-AddressField, .toolbar-spacer, .toolbar-spacer-flexible"));
+    const icons = (gap >= 0 ? kids.slice(0, gap) : kids).filter(c => c.matches?.(".button-toolbar, .bento-toggle, .toolbar-group"));
+    return { bar, after: icons[icons.length - 1] || null };
   }
   /* the button looks exactly like the address field beside it: its own colours, border,
      roundness, height and type, read from it (so it follows every theme) */
@@ -2397,8 +2405,8 @@
   (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(() => {                                // a re-drawn tab bar (or a late Bento button) gets it back in place
     if (tagEl?.isConnected) lookLikeField();
     if (!tagFor) return;
-    const b = document.querySelector("#browser .bento-toggle");
-    if (!tagEl?.isConnected || (b && b.nextSibling !== tagEl)) updTag(tagFor);
+    const { after } = tagSpot();
+    if (!tagEl?.isConnected || (after ? after.nextSibling !== tagEl : tagEl.previousSibling)) updTag(tagFor);
   });
   setTimeout(() => checkUpdate(false), 20000);
   // every 30 minutes, only while Vivaldi is in use; coming back after longer checks once
