@@ -2092,11 +2092,19 @@
   async function checkUpdate(manual) {
     if (!window.vosRepo || !window.vosVersion) return;
     try {
-      // a few bytes: the VERSION file of the published mod (GitHub's cache, no API limits)
+      // tiny and always current: where GitHub's "latest release" link points (…/tag/v1.2.3);
+      // GitHub's release API is the fallback
       lastCheck = Date.now();
-      const r = await fetch(`https://raw.githubusercontent.com/${window.vosRepo}/main/mod/VERSION?t=${Math.floor(Date.now() / 6e5)}`, { cache: "no-store" });
-      if (!r.ok) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); return; }
-      const tag = (await r.text()).trim().replace(/^v/, "");
+      let tag = "";
+      try {
+        const r = await fetch(`https://github.com/${window.vosRepo}/releases/latest`, { method: "HEAD", cache: "no-store" });
+        tag = (/\/tag\/v?([\d.]+)/.exec(r.url) || [])[1] || "";
+      } catch (e) {}
+      if (!tag) {
+        const r = await fetch(`https://api.github.com/repos/${window.vosRepo}/releases/latest`, { cache: "no-store" });
+        if (!r.ok) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); return; }
+        tag = String((await r.json()).tag_name || "").replace(/^v/, "");
+      }
       if (tag && newer(tag, window.vosVersion)) {
         updTag(tag);                                                  // the tag at the left of the tab bar stays
         if (!manual && (await vstore.get(UPD_KEY)) === tag) return;   // "Later" for this version
