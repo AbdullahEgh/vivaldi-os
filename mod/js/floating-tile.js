@@ -2574,6 +2574,21 @@
     });
     nm.addEventListener("blur", () => done(true));
   }
+  /* a picture of a window's web page, through Vivaldi's own tab thumbnails (any loaded
+     tab, not only the visible one); kept, so the strip opens with the last ones at once */
+  const pagePics = new Map();                         // tab id -> data URL
+  function pagePicture(box, tabId, r) {
+    const show = url => { if (!url) return; box.style.setProperty("background-image", `url("${url}")`, "important"); box.setAttribute("data-pic", ""); };
+    show(pagePics.get(tabId));
+    const cap = vivaldi?.thumbnails?.captureTab;
+    if (!cap || !tabId) return;
+    const W = 420, H = Math.max(120, Math.round(W * (r.h / Math.max(1, r.w))));
+    const done = d => { void chrome.runtime.lastError; const url = typeof d === "string" ? d : d?.image || d?.dataUrl || ""; if (url) { pagePics.set(tabId, url); show(url); } };
+    try {
+      const p = cap.call(vivaldi.thumbnails, tabId, { encodeFormat: "jpg", encodeQuality: 70, fullPage: false, width: W, height: H }, done);
+      if (p && typeof p.then === "function") p.then(done, () => {});
+    } catch (e) {}
+  }
   function closeWsStrip() {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
@@ -2624,6 +2639,7 @@
         Object.assign(w.style, { left: (r.x / ss.width * 100) + "%", top: (r.y / ss.height * 100) + "%", width: (r.w / ss.width * 100) + "%", height: (r.h / ss.height * 100) + "%" });
         const t = info.get(String(id));
         if (t?.url) { const im = document.createElement("img"); im.src = favicon(t.url); im.alt = ""; w.appendChild(im); }
+        pagePicture(w, Number(id), r);                               // the web page itself (Vivaldi's tab thumbnail)
         mini.appendChild(w);
       }
       if (!wins.length) { const e = document.createElement("span"); e.className = "vos-ws-empty"; e.textContent = "No windows"; mini.appendChild(e); }

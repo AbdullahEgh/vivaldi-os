@@ -1204,3 +1204,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   display: grid; place-items: center !important; opacity: 0.96 !important;
 }
 #browser .vos-drag-ghost img { width: 48px !important; height: 48px !important; }
+
+/* a mini window with its page picture: the page fills it, its icon steps aside */
+#browser .vos-ws-win[data-pic] { background-size: cover !important; background-position: top center !important; }
+#browser .vos-ws-win[data-pic] img { display: none !important; }
