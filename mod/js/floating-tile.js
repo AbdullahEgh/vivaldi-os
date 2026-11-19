@@ -2823,7 +2823,7 @@
   function wsReorder(row, list) {
     row.addEventListener("pointerdown", ev => {
       const card = ev.target.closest(".vos-ws-card[data-ws]");
-      if (!card || ev.button !== 0 || ev.target.closest(".vos-ws-name, .vos-ws-input, .vos-ws-win")) return;
+      if (!card || ev.button !== 0 || ev.target.closest(".vos-ws-name, .vos-ws-input")) return;
       const cards = [...row.querySelectorAll(".vos-ws-card[data-ws]")];
       if (cards.length < 2) return;
       const rects = cards.map(c => c.getBoundingClientRect()), from = cards.indexOf(card);
@@ -3093,7 +3093,6 @@
       row.appendChild(card);
     }
     wsReorder(row, list);
-    wsWindowDrag(row, list);
     // New: another desktop (a workspace), and you are on it
     const more = document.createElement("div");
     more.className = "vos-ws-card vos-ws-more"; more.tabIndex = 0; more.setAttribute("role", "button");

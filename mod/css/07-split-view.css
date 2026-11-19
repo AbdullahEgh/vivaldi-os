@@ -1229,7 +1229,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   background: rgba(255, 255, 255, 0.95) !important; color: #1d1d1f !important;
   box-shadow: 0 0 0 2px var(--colorHighlightBg, #0a84ff) !important;
 }
-#browser .vos-ws-win { cursor: grab !important; }
+#browser .vos-ws-win { pointer-events: none !important; }   /* a preview only: the desktop takes the click */
 #browser .vos-ws-winghost { z-index: 2147483001 !important; pointer-events: none !important; opacity: 0.95 !important;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4) !important; transform: scale(1.08) !important; }
 #browser .vos-ws-more[data-drop] { opacity: 1 !important; }                                      /* a window over New: it lights up */
