@@ -2263,7 +2263,8 @@
       });
     }, 1500);
   }
-  for (const ev of ["onCreated", "onRemoved", "onUpdated", "onMoved", "onAttached"]) chrome.tabs?.[ev]?.addListener(saveTabs);
+  for (const ev of ["onCreated", "onRemoved", "onMoved", "onAttached"]) chrome.tabs?.[ev]?.addListener(saveTabs);
+  chrome.tabs?.onUpdated?.addListener((id, info) => { if (info.url || info.pinned != null) saveTabs(); });   // only a new address, not every title / icon
   setTimeout(async () => {
     try {
       const ran = await vstore.get(RAN_KEY), saved = await vstore.get(TABS_KEY);

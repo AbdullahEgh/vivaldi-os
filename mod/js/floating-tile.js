@@ -2364,38 +2364,48 @@
     const page = pageOf(id);
     const ids = (groupFloat.has(id) && page ? membersOf(page) : [id]).map(tabIdOf).filter(Boolean);
     if (!ids.length) return;
+    const tabs = (await Promise.all(ids.map(t => new Promise(r => chrome.tabs.get(t, x => { void chrome.runtime.lastError; r(x); })))))
+      .filter(t => t && /^https?:/i.test(t.url || t.pendingUrl || ""));
+    if (!tabs.length) return;
+    const urls = tabs.map(t => t.url || t.pendingUrl);
     const me = await new Promise(r => chrome.windows.getCurrent(w => r(w)));
     const all = await new Promise(r => chrome.windows.getAll({ windowTypes: ["normal"] }, w => r(w || [])));
-    const target = (toWin != null && all.find(w => w.id === toWin)) ||
+    const target = (toWin != null && all.find(w => w.id === toWin && w.id !== me?.id)) ||
       all.find(w => w.id !== me?.id && w.state !== "minimized" && !w.incognito === !me?.incognito &&
         sx >= w.left && sx <= w.left + w.width && sy >= w.top && sy <= w.top + w.height);
     const r = pxRect(id), w0 = Math.round(r.w), h0 = Math.round(r.h);
     const held = dragHeld || { ox: w0 / 2, oy: 14 };
-    vstore.set(DROP_KEY, { ids: ids.map(String), sx, sy, w: w0, h: h0, ox: held.ox, oy: held.oy, t: Date.now() });   // it lands where it was seen
+    // the other window opens it where it was seen (it reads this when the new tab appears)
+    vstore.set(DROP_KEY, { urls, sx, sy, w: w0, h: h0, ox: held.ox, oy: held.oy, t: Date.now() });
+    // Vivaldi itself opens it there, as a new tab of the desktop that window shows - the
+    // reliable way (moving a live tab between windows confuses its workspaces); the page reloads
+    const closeOld = () => chrome.tabs.remove(tabs.map(t => t.id), () => void chrome.runtime.lastError);
     if (target) {
-      chrome.tabs.move(ids, { windowId: target.id, index: -1 }, () => {
-        void chrome.runtime.lastError;
-        chrome.tabs.update(ids[0], { active: true }, () => void chrome.runtime.lastError);
-        chrome.windows.update(target.id, { focused: true }, () => void chrome.runtime.lastError);
-      });
+      let n = 0;
+      for (const [i, url] of urls.entries())
+        chrome.tabs.create({ windowId: target.id, url, active: i === 0 }, () => { void chrome.runtime.lastError; if (++n === urls.length) closeOld(); });
+      chrome.windows.update(target.id, { focused: true }, () => void chrome.runtime.lastError);
     } else {                                                        // the empty desktop: a new Vivaldi window there
       const W = Math.max(w0 + 80, 900), H = Math.max(h0 + 120, 640);
-      chrome.windows.create({ tabId: ids[0], left: Math.round(sx - W / 2), top: Math.max(0, Math.round(sy - 40)), width: W, height: H, focused: true }, win => {
-        void chrome.runtime.lastError;
-        if (win && ids.length > 1) chrome.tabs.move(ids.slice(1), { windowId: win.id, index: -1 }, () => void chrome.runtime.lastError);
-      });
+      chrome.windows.create({ url: urls, left: Math.round(sx - W / 2), top: Math.max(0, Math.round(sy - 40)), width: W, height: H, focused: true },
+        () => { void chrome.runtime.lastError; closeOld(); });
     }
   }
-  /* an arriving window joins the desktop (workspace) this Vivaldi window is showing */
-  function intoThisDesktop(id) {
-    const ws = curWs();
-    if (ws === undefined) return;
-    wsOfTab.set(String(id), ws);
-    chrome.tabs.get(tabIdOf(id), tab => {
-      if (chrome.runtime.lastError || !tab) return;
-      let ext; try { ext = JSON.parse(tab.vivExtData || "{}") || {}; } catch (e) { return; }
-      if (ws == null) delete ext.workspaceId; else ext.workspaceId = ws;
-      chrome.tabs.update(tab.id, { vivExtData: JSON.stringify(ext) }, () => void chrome.runtime.lastError);
+  /* a new tab opened here for a window dropped from another Vivaldi window: it floats
+     where it was let go */
+  function droppedHere(tab) {
+    const url = tab.pendingUrl || tab.url || "";
+    if (!/^https?:/i.test(url)) return;
+    vstore.get(DROP_KEY).then(d => {
+      if (!d || Date.now() - d.t > 8000 || !d.urls?.includes(url)) return;
+      chrome.windows.getCurrent(me => {
+        if (!me || tab.windowId !== me.id) return;
+        const ss = stackRect(), id = String(tab.id);
+        const lx = d.sx - window.screenX - ss.left, ly = d.sy - window.screenY - (window.outerHeight - window.innerHeight) - ss.top;
+        setPx(id, clampRect({ x: lx - (d.ox ?? d.w / 2), y: Math.max(0, ly - (d.oy ?? 14)), w: d.w, h: d.h }, ss), ss);
+        if (floating.has(id)) persist(id);
+        queueRender();
+      });
     });
   }
   /* a tab arriving from another Vivaldi window: it floats where it was let go */
@@ -2410,8 +2420,7 @@
           const lx = d.sx - window.screenX - ss.left, ly = d.sy - window.screenY - (window.outerHeight - window.innerHeight) - ss.top;
           setPx(id, clampRect({ x: lx - (d.ox ?? d.w / 2), y: Math.max(0, ly - (d.oy ?? 14)), w: d.w, h: d.h }, ss), ss);
         }
-        intoThisDesktop(id);
-        floatNow(id, pageOf(id) || null); raise(id); activate(id); render();
+        floatNow(id, pageOf(id) || null); raise(id); queueRender();
       });
     });
   }
@@ -3338,6 +3347,7 @@
       const id = String(tab.id);
       floatOnLoad.add(id); floatOnLoadAt.set(id, Date.now());
       if (/^https?:/.test(tab.pendingUrl || tab.url || "")) siteReady.add(id);
+      droppedHere(tab);
       render();                                                     // float before it is ever drawn
     });
     const gone = tabId => {
@@ -3369,7 +3379,7 @@
     chrome.tabs.onAttached.addListener(arrived);                    // came from another window: it floats
     chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
       const id = String(tabId);
-      if (floatOnLoad.has(id) && /^https?:/.test(info.url || tab?.url || "")) { siteReady.add(id); render(); }
+      if (floatOnLoad.has(id) && !siteReady.has(id) && /^https?:/.test(info.url || tab?.url || "")) { siteReady.add(id); queueRender(); }
       if (info.title != null && titles.has(id)) { titles.set(id, info.title); queueRender(); }
       if (info.title != null && !titles.has(id) && [...splitFocus.values()].includes(id)) { titles.set(id, info.title); queueRender(); }
       if ((info.title != null || info.url != null) && (selected ? String(tab?.id) === selected : tab?.active)) updateSiteName();
