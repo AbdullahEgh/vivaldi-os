@@ -3316,26 +3316,27 @@ window.vosBeat = window.vosBeat || (() => {
   /* the desktops of this window, in order, and which one is shown (kept for a moment) */
   let deskInfo = null;
   async function desksNow(fresh) {
-    if (!fresh && deskInfo && Date.now() - deskInfo.at < 1500) return deskInfo;
+    if (!fresh && deskInfo && Date.now() - deskInfo.at < 30000 && sameWs(deskInfo.ws, curWs())) return deskInfo;
     const list = (await prefGet("vivaldi.workspaces.list")) || [];
     const tabs = await tabsQuery({ currentWindow: true });
     const mine = await myDesks(list, tabs, curWs());
     const ds = list.filter(w => mine.has(String(w.id)));
-    return (deskInfo = { list, ds, i: ds.findIndex(w => sameWs(w.id, curWs())), at: Date.now() });
+    return (deskInfo = { list, ds, i: ds.findIndex(w => sameWs(w.id, curWs())), ws: curWs(), at: Date.now() });
   }
   /* SWIPE THAT FOLLOWS THE FINGERS: two fingers sideways over the Mission Control (Workspaces)
      button move the windows with them; let go past a fifth of the screen (or flick) and the
      next desktop comes in, else they spring back. No desktop that way: they only stretch a little. */
-  let sw = null;
+  let sw = null, swQuietUntil = 0;
   const swItems = () => [...document.querySelectorAll(SWIPE_ITEMS)];
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     if (!sw && Math.abs(ev.deltaX) <= Math.abs(ev.deltaY)) return;
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
-    if (swiping) return;
+    const nowMs = performance.now();
+    if (swiping || nowMs < swQuietUntil) { swQuietUntil = nowMs + 180; return; }   // the last swipe's glide-out: not a new swipe
     if (!sw) {
-      sw = { acc: 0, items: swItems(), info: null, speed: 0, at: performance.now() };
-      desksNow().then(d => { if (sw) sw.info = d; });
+      sw = { acc: 0, items: swItems(), info: deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null, speed: 0, at: nowMs };
+      if (!sw.info) desksNow().then(d => { if (sw) sw.info = d; });
       deskDots(true);
     }
     const now = performance.now();
@@ -3346,13 +3347,15 @@ window.vosBeat = window.vosBeat || (() => {
     const shown = has ? sw.acc : sw.acc * 0.2;                       // nothing there: a little rubber band
     for (const el of sw.items) el.style.setProperty("translate", `${Math.round(-shown)}px 0px`);
     clearTimeout(sw.timer);
-    sw.timer = setTimeout(swipeEnd, 140);
+    sw.timer = setTimeout(swipeEnd, 220);                            // a short pause in the gesture is not letting go
   }, { capture: true, passive: false });
-  function swipeEnd() {
+  async function swipeEnd() {
     const s = sw; sw = null;
     if (!s) return;
-    const dir = s.acc > 0 ? 1 : -1, info = s.info, t = info?.ds[info.i + dir];
-    const go = t && (Math.abs(s.acc) > innerWidth * 0.2 || (Math.abs(s.speed) > 0.6 && Math.abs(s.acc) > 40));
+    swQuietUntil = performance.now() + 250;
+    const info = s.info || await desksNow();                         // still looking: wait for it, don't give up
+    const dir = s.acc > 0 ? 1 : -1, t = info?.ds[info.i + dir];
+    const go = t && (Math.abs(s.acc) > Math.min(220, innerWidth * 0.12) || (Math.abs(s.speed) > 0.35 && Math.abs(s.acc) > 30));
     if (go) { swipeTo({ id: t.id, name: t.name }, info.list, dir); return; }   // carries on from where the fingers left it
     for (const el of s.items) {                                       // springs back
       const from = el.style.getPropertyValue("translate") || "0px 0px";
@@ -3384,7 +3387,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (document.querySelector("#browser.toolbar-edit-mode") || wsStrip) return;
     const on = ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission");
     const was = ev.relatedTarget?.closest?.(WS_BTN + ", .vos-chain-vosmission");
-    if (on && on !== was) deskDots(true);
+    if (on && on !== was) { deskDots(true); desksNow(); }
   }, true);
   addEventListener("pointerout", ev => {
     const from = ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission");
