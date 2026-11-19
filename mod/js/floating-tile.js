@@ -203,6 +203,8 @@
           if (splitOfTab.get(k) !== g) { splitOfTab.set(k, g); changed = true; }
           const w = extOf(t)?.workspaceId ?? null;
           if (wsOfTab.get(k) !== w) { wsOfTab.set(k, w); wsChanged = true; wsNowAt = 0; }
+          // a Start Page is the desktop, never a window (one that became a window by mistake)
+          if (floating.has(k) && !groupFloat.has(k) && /^chrome:\/\/vivaldi-webui\/startpage/.test(t.url || t.pendingUrl || "")) { forget(k); wsChanged = true; }
         }
         for (const k of [...wsOfTab.keys()]) if (!live.has(k)) wsOfTab.delete(k);
         for (const k of [...extCache.keys()]) if (!live.has(k)) extCache.delete(k);
@@ -868,8 +870,9 @@
       const page = pageOf(id);
       if (!page) continue;
       if (isStart(page)) { sawStart.add(id); continue; }
-      // ready: its site is known, or the Start Page it showed has just been left
-      if (!siteReady.has(id) && !sawStart.has(id)) continue;
+      // ready: its site is known (it really went somewhere: a Start Page tab that only went
+      // to the background - another desktop's first tab when an app opens - is not a window)
+      if (!siteReady.has(id)) continue;
       floatOnLoad.delete(id); floatOnLoadAt.delete(id); siteReady.delete(id); sawStart.delete(id);
       if (isTiled(page) || floating.has(id)) continue;
       floatNow(id, page);
@@ -3616,7 +3619,8 @@
     chrome.tabs.onAttached.addListener(arrived);                    // came from another window: it floats
     chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
       const id = String(tabId);
-      if (floatOnLoad.has(id) && !siteReady.has(id) && /^https?:/.test(info.url || tab?.url || "")) { siteReady.add(id); queueRender(); }
+      const u = info.url || "";
+      if (floatOnLoad.has(id) && !siteReady.has(id) && u && !/^chrome:\/\/vivaldi-webui\/startpage|^about:blank|^chrome:\/\/newtab/i.test(u)) { siteReady.add(id); queueRender(); }
       if (info.title != null && titles.has(id)) { titles.set(id, info.title); queueRender(); }
       if (info.title != null && !titles.has(id) && [...splitFocus.values()].includes(id)) { titles.set(id, info.title); queueRender(); }
       if ((info.title != null || info.url != null) && (selected ? String(tab?.id) === selected : tab?.active)) updateSiteName();
