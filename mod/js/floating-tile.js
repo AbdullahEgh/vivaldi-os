@@ -2785,31 +2785,32 @@
     const ids = (tabs || []).filter(t => wsOfTab.has(String(t.id)) && String(wsOfTab.get(String(t.id))) === String(sp.id)).map(t => t.id);
     const n = ids.length;
     const BIN = '<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>';
-    const doDelete = async moveTo => {                              // moveTo: a desktop for its windows; undefined: they close
+    // the nearest desktop of this window: the one before it, else the one after
+    const shown = list.filter(w => wsStrip?.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(w.id))}"]`));
+    const at = shown.findIndex(w => String(w.id) === String(sp.id));
+    const near = at > 0 ? shown[at - 1] : shown[at + 1];
+    const doDelete = async keep => {
       closeWsMenu();
       const api = vivWs();
-      if (!api?.removeWorkspace) return;
+      if (!api?.removeWorkspace || !near) return;
+      lastDelete = Date.now();
       try {
-        if (moveTo !== undefined && n) await tpMove(ids, moveTo);
-        await api.removeWorkspace(await winId(), sp.id);
-        closeWsStrip(); setTimeout(openWsStrip, 260);
-      } catch (e) { LOG("workspaces: delete failed", e); }
+        const wid = await winId();
+        if (keep && n) await tpMove(ids, near.id);                  // its windows go to the nearest desktop
+        if (sameWs(curWs(), sp.id)) {                                // on it now: go to that desktop first (not to "no desktop")
+          const i = list.findIndex(w => String(w.id) === String(near.id));
+          api.activateWorkspaceByIndex(wid, i);
+          await new Promise(r => setTimeout(r, 250));
+        }
+        await api.removeWorkspace(wid, sp.id);
+        lastDelete = Date.now();
+        closeWsStrip(); setTimeout(openWsStrip, 300);
+      } catch (e) { wsErr("delete", e); }
     };
-    add("Delete", BIN, () => {                                      // asks: its windows go elsewhere, or close
-      m.textContent = "";
-      const head = document.createElement("div");
-      head.className = "lp-menu-head";
-      head.textContent = n ? `"${sp.name}" has ${n} window${n === 1 ? "" : "s"}` : `Delete "${sp.name}"?`;
-      m.appendChild(head);
-      if (n) {
-        const others = list.filter(w => String(w.id) !== String(sp.id) && wsStrip?.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(w.id))}"]`));
-        for (const w of others)
-          add(`Move to ${w.name || "Desktop"}`, '<path d="M5 12h14M13 6l6 6-6 6"/>', () => doDelete(w.id));
-        add(`Close ${n === 1 ? "it" : "them"} and delete`, BIN, () => doDelete(undefined), "lp-danger");
-      } else add("Delete", BIN, () => doDelete(undefined), "lp-danger");
-      add("Cancel", '<path d="M6 6l12 12M18 6L6 18"/>', () => closeWsMenu());
-      m.style.top = Math.max(8, Math.min(parseFloat(m.style.top) || y, innerHeight - m.offsetHeight - 8)) + "px";
-    }, "lp-danger");
+    if (near) {                                                      // the last desktop of a window stays
+      add(n ? "Delete, keep windows" : "Delete", BIN, () => doDelete(true));
+      if (n) add(`Delete and close ${n} window${n === 1 ? "" : "s"}`, BIN, () => doDelete(false), "lp-danger");
+    }
     m.addEventListener("pointerdown", ev => ev.stopPropagation());
     m.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); });
     (browserEl() || document.body).appendChild(m);
@@ -2936,12 +2937,21 @@
   });
   /* NO DEFAULT DESKTOP: pages of no desktop (Vivaldi's "this window") go to a real one -
      "Desktop 1", first - so every desktop is alike: renamed, reordered, deleted */
-  let unDefaulting = false;
+  let unDefaulting = false, lastDelete = 0;
   async function noDefault(list, tabs) {
-    const loose = (tabs || []).filter(t => wsOfTab.has(String(t.id)) && wsOfTab.get(String(t.id)) == null);
-    if (!loose.length || unDefaulting || !vivWs()) return false;
+    const loose = (tabs || []).filter(t => !t.pinned && wsOfTab.has(String(t.id)) && wsOfTab.get(String(t.id)) == null);
+    if (!loose.length || unDefaulting || !vivWs() || Date.now() - lastDelete < 3000) return false;
     unDefaulting = true;
     try {
+      // this window has desktops already: the pages go to its first one (no new desktop)
+      const own = await myDesks(list, tabs, curWs());
+      const first = list.find(w => own.has(String(w.id)) && (tabs || []).some(t => sameWs(wsOfTab.get(String(t.id)), w.id)));
+      if (first) {
+        await tpMove(loose.map(t => t.id), first.id);
+        loose.forEach(t => wsOfTab.set(String(t.id), first.id)); wsNowAt = 0;
+        return true;
+      }
+      if (list.some(w => own.has(String(w.id)))) return false;       // only empty ones: leave the pages be
       const names = new Set(list.map(w => w.name));
       let n = 1, name;
       do { name = "Desktop " + n++; } while (names.has(name));
@@ -2954,6 +2964,22 @@
       return true;
     } finally { unDefaulting = false; }
   }
+  /* once (1.0.68): the empty "Desktop N" desktops an earlier version kept making go away -
+     only empty ones with that name; named or used desktops stay */
+  setTimeout(async () => {
+    try {
+      if (await vstore.get("vosWsCleanup1")) return;
+      const api = vivWs(), list = (await prefGet("vivaldi.workspaces.list")) || [];
+      if (!api?.removeWorkspace || !list.length) return;
+      const all = await tabsQuery({});
+      const used = new Set(all.map(t => String(extOf(t)?.workspaceId ?? "")));
+      const empty = list.filter(w => /^Desktop \d+$/.test(w.name || "") && !used.has(String(w.id)));
+      const keepOne = empty.length === list.length ? 1 : 0;           // never all of them
+      const wid = await winId();
+      for (const w of empty.slice(keepOne)) { lastDelete = Date.now(); await api.removeWorkspace(wid, w.id); }
+      vstore.set("vosWsCleanup1", true);
+    } catch (e) { wsErr("cleanup", e); }
+  }, 8000);
   /* a window dropped on New: a new desktop, and the window goes there */
   function toNewDesk(id, list) {
     const p = newDesk(list, true);
@@ -2965,7 +2991,10 @@
   function missionLook(id, el, disp, r) {
     const f = frames.get(id);
     if (!disp || !mission) {
-      for (const n of [el, f]) if (n?.__mt) { n.__mt = false; n.style.removeProperty("transform"); n.style.removeProperty("transform-origin"); }
+      for (const n of [el, f]) if (n?.__mt) {
+        n.__mt = false; n.style.removeProperty("transform");         // the origin stays while it glides back
+        setTimeout(() => { if (!n.__mt) n.style.removeProperty("transform-origin"); }, 360);
+      }
       return;
     }
     const t = `translate(${Math.round(disp.x - r.x)}px, ${Math.round(disp.y - r.y)}px) scale(${disp.k ?? mission.k})`;
