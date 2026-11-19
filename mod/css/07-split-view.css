@@ -1245,10 +1245,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* DESKTOP SWIPE: choosing a desktop slides it (floating-tile.js swipeTo) - the translate property only, so it adds to
    any scale already on a window (Mission Control) and never fights it */
 #browser:is([data-vos-swipe], [data-vos-mission-anim]) :is(#webpage-stack [data-ft-float], .ft-frame) { will-change: transform, translate; }   /* never the desktop layer: its wallpaper is fixed to the screen */
-#browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards !important; }
-#browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards !important; }
-#browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]) { animation: vos-swipe-in-right 0.4s cubic-bezier(0.32, 0.72, 0, 1) both !important; }
-#browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]) { animation: vos-swipe-in-left 0.4s cubic-bezier(0.32, 0.72, 0, 1) both !important; }
+#browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) forwards !important; }
+#browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) forwards !important; }
+#browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]) { animation: vos-swipe-in-right 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) both !important; }
+#browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]) { animation: vos-swipe-in-left 0.3s cubic-bezier(0.25, 0.8, 0.3, 1) both !important; }
 @keyframes vos-swipe-out-left { to { translate: -100vw 0; } }
 @keyframes vos-swipe-in-right { from { translate: 100vw 0; } }
 @keyframes vos-swipe-out-right { to { translate: 100vw 0; } }

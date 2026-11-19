@@ -3347,7 +3347,13 @@ window.vosBeat = window.vosBeat || (() => {
     const shown = has ? sw.acc : sw.acc * 0.2;                       // nothing there: a little rubber band
     for (const el of sw.items) el.style.setProperty("translate", `${Math.round(-shown)}px 0px`);
     clearTimeout(sw.timer);
-    sw.timer = setTimeout(swipeEnd, 220);                            // a short pause in the gesture is not letting go
+    const t = info?.ds[info.i + dir];
+    if (t && (Math.abs(sw.acc) > Math.min(220, innerWidth * 0.12) || (Math.abs(sw.speed) > 0.5 && Math.abs(sw.acc) > 30))) {
+      sw = null; swQuietUntil = now + 250;                          // far or fast enough: it goes now, while the fingers still move
+      swipeTo({ id: t.id, name: t.name }, info.list, dir);
+      return;
+    }
+    sw.timer = setTimeout(swipeEnd, 120);                            // stopped short: spring back (or late: go)
   }, { capture: true, passive: false });
   async function swipeEnd() {
     const s = sw; sw = null;
@@ -3387,7 +3393,10 @@ window.vosBeat = window.vosBeat || (() => {
     if (document.querySelector("#browser.toolbar-edit-mode") || wsStrip) return;
     const on = ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission");
     const was = ev.relatedTarget?.closest?.(WS_BTN + ", .vos-chain-vosmission");
-    if (on && on !== was) { deskDots(true); desksNow(); }
+    if (on && on !== was) {
+      for (const n of [on, ...on.querySelectorAll("[title]")]) if (n.hasAttribute("title")) { n.dataset.vosTitle = n.getAttribute("title"); n.removeAttribute("title"); }
+      deskDots(true); desksNow();
+    }
   }, true);
   addEventListener("pointerout", ev => {
     const from = ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission");
@@ -3680,7 +3689,7 @@ window.vosBeat = window.vosBeat || (() => {
     await (sp.go ? sp.go() : switchWs(sp, list));                    // at once: both desktops move together
     while (Date.now() - t1 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
     render();
-    await new Promise(r => setTimeout(r, Math.max(0, 400 - (Date.now() - t1))));
+    await new Promise(r => setTimeout(r, Math.max(0, 300 - (Date.now() - t1))));
     missionMode(null, true);                                          // Mission Control ends with the old desktop out of sight
     leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
     setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true); }, 420);
