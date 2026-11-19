@@ -102,6 +102,7 @@
   const stack = () => $("#webpage-stack");
   /* MISSION CONTROL: while the desktops panel is open, the windows shrink into the space
      below it (none under it), so one is easy to drag onto another desktop */
+  let underId = null;                                 // the full-screen page under the floating windows
   let mission = null, missionDrag = null, missionSkip = null;   // { k, ox, oy } / { id, r } picked up there / held from the top edge (full size)
   const mr = r => mission ? { x: mission.ox + r.x * mission.k, y: mission.oy + r.y * mission.k, w: r.w * mission.k, h: r.h * mission.k } : r;
   /* Mission Control lays the windows out side by side (none over another), in the space
@@ -693,12 +694,12 @@
   /* a workspace switch: the windows of the workspace you leave close (the
      close animation), then this workspace's windows open (the open animation).
      Only the windows themselves move; a quick switch back cancels cleanly. */
-  let wsPrev, wsAwayPrev = new Set(), wsGen = 0;
+  let wsPrev, wsAwayPrev = new Set(), wsGen = 0, swiping = false;
   const wsTimers = new Set();
   function wsAnimate(windows) {
     const ws = curWs();
     const away = new Set(windows.filter(w => awayWs(w.id)).map(w => w.id));
-    if (ws !== undefined && wsPrev !== undefined && ws !== wsPrev && !document.hidden) {
+    if (!swiping && ws !== undefined && wsPrev !== undefined && ws !== wsPrev && !document.hidden) {   // a swipe moves the whole desktop instead
       const gen = ++wsGen;
       wsTimers.forEach(clearTimeout); wsTimers.clear();
       // strictly by workspace: only the windows of the workspace left close, only the
@@ -1052,6 +1053,19 @@
       for (let p = el.parentElement; p && p.id !== "webpage-stack"; p = p.parentElement) mark(p, "data-ft-chain");
       windows.push({ id, el });
     }
+    // a full-screen page stays where it is, under the floating windows, when one of them
+    // is chosen from the tab bar (the desktop / Home / its own desktop gone: not any more)
+    {
+      const a0 = pendingActive ?? activePage()?.dataset.id, ap = pageOf(a0);
+      if (ap && !winOf(a0) && !isStart(ap) && !isTiled(ap)) underId = String(a0);
+      else if (ap && isStart(ap)) underId = null;
+      const up = underId && pageOf(underId);
+      if (!up || winOf(underId) || isTiled(up)) underId = null;
+      else if (String(a0) !== underId && !awayWs(underId)) {
+        mark(up, "data-ft-under");
+        for (let p = up.parentElement; p && p.id !== "webpage-stack"; p = p.parentElement) mark(p, "data-ft-chain");
+      }
+    }
     // measure everything first (one layout), then write
     const origins = new Map();
     for (const w of windows) {
@@ -1235,6 +1249,7 @@
      no windows at all is it the empty desktop (a Start Page tab). */
   window.vosShowDesktop = () => showDesktop();
   async function showDesktop() {
+    underId = null;                                   // Home: the desktop itself
     const w = topWindow(null);
     if (w) {
       const id = groupFloat.has(w) ? (splitFocus.get(w) || w) : w;
@@ -3001,19 +3016,24 @@
     el.__mt = true; setStyle(el, "transform-origin", "0 0"); setStyle(el, "transform", t);
     if (f) { const g = f.hasAttribute("data-ft-grab") ? GRAB : 0; f.__mt = true; setStyle(f, "transform-origin", `${RING}px ${RING + g}px`); setStyle(f, "transform", t); }
   }
-  function missionMode(m) {
+  function missionMode(m, instant) {
     if (!m && !mission) return;
     mission = m;
     const b = browserEl();
     b?.toggleAttribute("data-vos-mission", !!m);
-    b?.setAttribute("data-vos-mission-anim", "");                   // a short glide in and out
+    if (!instant) b?.setAttribute("data-vos-mission-anim", "");     // a short glide in and out
     clearTimeout(missionMode.t); missionMode.t = setTimeout(() => b?.removeAttribute("data-vos-mission-anim"), 320);
     render();
   }
-  function closeWsStrip() {
+  function closeWsStrip(instant) {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
-    missionMode(null);
+    missionMode(null, instant);
+    if (instant) {                                                  // a swipe follows: gone at once
+      st.__back?.remove(); closeWsMenu(); st.remove();
+      removeEventListener("keydown", wsKey, true); removeEventListener("pointerdown", wsOut, true);
+      return;
+    }
     st.__back?.remove(); closeWsMenu();
     removeEventListener("keydown", wsKey, true);
     removeEventListener("pointerdown", wsOut, true);
@@ -3088,7 +3108,12 @@
       card.addEventListener("click", ev => {
         if (card.__dragged) { card.__dragged = false; ev.stopPropagation(); return; }   // it was a drag, not a click
         if (ev.target.closest(".vos-ws-input, .vos-ws-name")) return;   // the name: renaming, not switching
-        ev.stopPropagation(); closeWsStrip(); if (!same(sp.id, cur)) switchWs(sp, list);
+        ev.stopPropagation();
+        if (same(sp.id, cur)) return closeWsStrip();
+        const order = [...row.querySelectorAll(".vos-ws-card[data-ws]")];
+        const dir = order.indexOf(card) - order.findIndex(c => c.hasAttribute("data-current"));
+        closeWsStrip(true);
+        swipeTo(sp, list, dir >= 0 ? 1 : -1);
       });
       row.appendChild(card);
     }
@@ -3187,6 +3212,30 @@
     b.dispatchEvent(new PointerEvent("pointerdown", o));
     setTimeout(() => { wsPass = false; }, 50);
     return true;
+  }
+  /* DESKTOP SWIPE (like macOS Spaces): the whole desktop slides away toward the one you
+     chose and the new one slides in - a picture of each (the browser's view transition),
+     so no window moves on its own */
+  function swipeTo(sp, list, dir) {
+    if (!document.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) return switchWs(sp, list);
+    const html = document.documentElement;
+    html.setAttribute("data-vos-swipe", dir > 0 ? "next" : "prev");
+    swiping = true;
+    let vt;
+    try {
+      vt = document.startViewTransition(async () => {
+        await switchWs(sp, list);
+        const t0 = Date.now();
+        while (Date.now() - t0 < 900) {                              // until the new desktop is the one shown
+          wsNowAt = 0;
+          if (sameWs(curWs(), sp.id)) break;
+          await new Promise(r => setTimeout(r, 30));
+        }
+        render();
+        await new Promise(r => setTimeout(r, 80));                   // its pages drawn
+      });
+    } catch (e) { swiping = false; html.removeAttribute("data-vos-swipe"); return switchWs(sp, list); }
+    vt.finished.catch(() => {}).finally(() => { html.removeAttribute("data-vos-swipe"); swiping = false; });
   }
   async function switchWs(sp, list) {
     const api = vivWs();
@@ -3638,6 +3687,8 @@
 
   function onFocusIn(e) {                            // click inside a window: bring it to the front
     if (lpOn()) return;
+    const under = e.target.closest?.("[data-ft-under]");             // the full-screen page under them: it comes back
+    if (under?.dataset.id) { activate(under.dataset.id); render(); return; }
     const win = e.target.closest?.("[data-ft-float]");
     if (!win) return;
     const id = win.dataset.ftFloat;
