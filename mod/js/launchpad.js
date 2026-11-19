@@ -211,7 +211,8 @@
   }
 
   /* ---------------- the Launchpad ---------------- */
-  let lp = null;                                    // { layer, search, grid, card }
+  let lp = null;
+  let parked = null;                                // the desktop Launchpad while windows are open: hidden, ready                                    // { layer, search, grid, card }
   const items = n => (n?.children || []).filter(c => c.url || c.children);
   function flat(nodes, out = []) {
     for (const n of nodes) { if (n.url) out.push(n); else if (n.children) flat(n.children, out); }
@@ -246,7 +247,7 @@
     return a;
   }
   function render() {
-    if (!lp) return;
+    if (!lp) { if (parked) parked.stale = true; return; }            // kept aside: drawn again when it comes back
     const raw = lp.search.value.trim(), q = raw.toLowerCase();
     lp.grid.textContent = "";
     lp.grid.dataset.parent = root?.id || "";
@@ -2098,8 +2099,19 @@
     const b = document.getElementById("browser"), stack = document.getElementById("webpage-stack");
     const want = !!b && !!stack && (b.hasAttribute("data-ft-home") ||
                  (b.hasAttribute("data-ft-desktop") && !b.hasAttribute("data-ft-wins")));   // windows open: only the wallpaper
-    if (want && !lp) open({ desktop: true });
-    else if (!want && lp?.desktop && !drag) close(true, true);
+    if (want && !lp && parked?.layer.parentElement === stack) {   // back at once: nothing to build, no icon to load
+      lp = parked; parked = null;
+      lp.layer.style.removeProperty("visibility");
+      if (lp.stale) { lp.stale = false; render(); }
+      ensureTick(); try { onTick(); } catch (e) {}
+    }
+    else if (want && !lp) { parked?.layer.remove(); parked = null; open({ desktop: true }); }
+    else if (!want && lp?.desktop && !drag) {                     // windows open: put aside, as it is
+      close();                                                     // (its plain state: no menu, folder or search)
+      const p = lp; lp = null;
+      p.layer.style.setProperty("visibility", "hidden", "important");
+      parked = p; ensureTick();
+    }
     else if (want && lp?.desktop && lp.layer.parentElement !== stack) { close(true, true); open({ desktop: true }); }   // the page area was rebuilt
   }
   (function watchDesk() {

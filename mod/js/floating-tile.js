@@ -90,7 +90,10 @@ window.vosBeat = window.vosBeat || (() => {
   const noTitle = new Set();        // floating windows with the title bar hidden
   let cover = null;                 // the window held to full view (over the tab bar and Vivaldi's buttons)
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
-  const PIP_K = 0.7, PIP_PEEK = 40; // their size, and how much of each earlier one shows above the next
+  const PIP_K = 0.7, PIP_GAP = 8;   // their size (of what they were), and the space between them
+  const pipCorner = new Map();      // id -> "bl" | "br" | "tl" | "tr"
+  const pipW = new Map();           // corner -> the width of every window there
+  const pipH = new Map();           // id -> its own height
   let btnHeldAt = 0;                // a button was held: the click that follows is not a click
   let coverWas = null, coverTill = 0;
   const focusSet = new Set();       // windows in focus mode (sharp, above the blur); empty = no focus
@@ -277,7 +280,10 @@ window.vosBeat = window.vosBeat || (() => {
     const counts = new Map();
     for (const w of document.querySelectorAll("#tabs-container .tab-strip .tab-wrapper[id^='tab-']")) {
       const k = w.id.slice(4);
-      if (wsOfTab.has(k)) { const v = wsOfTab.get(k); counts.set(v, (counts.get(v) || 0) + 1); }
+      if (!wsOfTab.has(k)) continue;
+      const pd = wsPending.get(k);
+      if (pd && pd.until > Date.now()) continue;                     // on its way to another desktop, still in this tab bar
+      const v = wsOfTab.get(k); counts.set(v, (counts.get(v) || 0) + 1);
     }
     if (counts.size) wsNow = [...counts].sort((x, y) => y[1] - x[1])[0][0];
     else { const a = activePage()?.dataset.id; wsNow = a != null && wsOfTab.has(String(a)) ? wsOfTab.get(String(a)) : undefined; }
@@ -635,19 +641,21 @@ window.vosBeat = window.vosBeat || (() => {
     const f = frac[id];
     return clampRect({ x: f.x * s.width, y: f.y * s.height, w: f.w * s.width, h: f.h * s.height }, s);
   }
-  /* the corner stack: the newest at the bottom-left corner, each earlier one just above it,
-     behind it, its title bar showing */
+  /* the corner stacks: in each corner the newest sits at the corner, the earlier ones pushed
+     away from it (no overlap); one width per corner, a height per window */
   function pipRect(id, s) {
-    let prevTop = null;
+    const c = pipCorner.get(id) || "bl", bottom = c[0] === "b";
+    const W = Math.max(180, Math.min(s.width - 2 * MARGIN, pipW.get(c) || 360));
+    const x = c[1] === "r" ? s.width - MARGIN - W : MARGIN;
+    let edge = bottom ? s.height - MARGIN : MARGIN;
     for (const p of [...pip].reverse()) {
-      const f = frac[p] || { w: 0.5, h: 0.6 };
-      const w = Math.max(180, Math.min(s.width - 2 * MARGIN, f.w * s.width) * PIP_K);
-      const h = Math.max(120, Math.min(s.height - 2 * MARGIN, f.h * s.height) * PIP_K);
-      const top = Math.max(0, Math.min(s.height - MARGIN - h, prevTop == null ? Infinity : prevTop - PIP_PEEK));
-      if (p === id) return { x: MARGIN, y: top, w, h };
-      if (!awayWs(p) && !minimized.has(p)) prevTop = top;           // only the ones on this desktop take room
+      if ((pipCorner.get(p) || "bl") !== c) continue;
+      const h = Math.max(120, Math.min(s.height - 2 * MARGIN, pipH.get(p) || 240));
+      const y = bottom ? edge - h : edge;
+      if (p === id) return { x, y: Math.max(0, Math.min(s.height - h, y)), w: W, h };
+      if (!awayWs(p) && !minimized.has(p)) edge = bottom ? y - PIP_GAP : y + h + PIP_GAP;   // only the ones on this desktop take room
     }
-    return { x: MARGIN, y: s.height - MARGIN - 200, w: 300, h: 200 };
+    return { x, y: MARGIN, w: W, h: 240 };
   }
   function setPx(id, r, s = stackRect()) {
     frac[id] = { x: r.x / s.width, y: r.y / s.height, w: r.w / s.width, h: r.h / s.height };
@@ -1145,7 +1153,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (minimized.has(id)) { mark(el, "data-ft-min", id); continue; }
       mark(el, "data-ft-float", id);
       if (id === front) mark(el, "data-ft-front");
-      if (noTitle.has(id) || cover === id) mark(el, "data-ft-notitle");   // full view: the title bar only on hover
+      if (noTitle.has(id) && cover !== id) mark(el, "data-ft-notitle");   // full view: its title bar moves the Vivaldi window
       if (cover === id) mark(el, "data-ft-cover");
       if (pip.includes(id)) mark(el, "data-ft-pip");
       if (awayWs(id)) mark(el, "data-ft-away");                     // another workspace: not on this desktop
@@ -1190,7 +1198,7 @@ window.vosBeat = window.vosBeat || (() => {
       missionLook(id, el, held ? { x: r.x, y: r.y, k: missionDrag.k } : slots?.get(id) || null, r);   // Mission Control: scaled, not resized
       frames.get(id)?.toggleAttribute("data-ft-focused", focusSet.has(id));
       frames.get(id)?.toggleAttribute("data-ft-away", awayWs(id));
-      frames.get(id)?.toggleAttribute("data-ft-hide", cover === id || pip.includes(id));   // not resized there
+      frames.get(id)?.toggleAttribute("data-ft-hide", cover === id);   // full view: not resized there
     }
     if (focusSet.size) focusLift = new Set(focusSet);
     wsAnimate(windows);
@@ -1454,7 +1462,8 @@ window.vosBeat = window.vosBeat || (() => {
     }
 
     { const w = winOf(id);                                           // minimized or closed: no longer full view / in the corner
-      if (w && (action === "minimize" || action === "close")) { if (cover === w) cover = null; pipOff(w); } }
+      if (w && action === "minimize" && pip.includes(w)) return holdAct("minimize", w);   // in the corner: back to normal
+      if (w && (action === "minimize" || action === "close")) { if (cover === w) cover = null; const ps = pip.filter(p => p !== w).map(p => targetOf(pageOf(p))); if (pipOff(w)) flip(ps, () => render()); } }
     busy.add(id);
     let fade = null;
     try {
@@ -1530,6 +1539,52 @@ window.vosBeat = window.vosBeat || (() => {
      window: the newest at the bottom, the earlier ones moving up behind it.
      Held again, its green button, or a double-click on its title bar: back as it was. */
   const BTN_HOLD = 450;
+  function pipGesture(e, el, id, how) {
+    e.preventDefault(); e.stopPropagation();
+    raise(id); activate(splitFocus.get(id) || id); render();
+    const c = pipCorner.get(id) || "bl", s0 = stackRect(), r0 = pxRect(id, s0);
+    const w0 = r0.w, h0 = r0.h, sx = e.clientX, sy = e.clientY, pid = e.pointerId;
+    const shield = document.createElement("div");
+    shield.className = "ft-shield"; shield.style.cursor = CURSOR[how] || "grabbing";
+    document.body.appendChild(shield);
+    let frame = 0, last = null, moved = false;
+    const apply = () => {
+      frame = 0;
+      if (!last) return;
+      const dx = last.clientX - sx, dy = last.clientY - sy;
+      if (how === "move") {                                          // it follows the pointer, to whichever corner
+        moved = moved || Math.hypot(dx, dy) > 4;
+        const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
+        el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
+        return;
+      }
+      if (/[lr]/.test(how)) pipW.set(c, Math.max(180, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx))));   // every window in this corner
+      if (/[tb]/.test(how)) pipH.set(id, Math.max(120, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));   // only this one
+      render();
+    };
+    const onMove = ev => { if (ev.pointerId !== pid) return; last = ev; if (!frame) frame = requestAnimationFrame(apply); };
+    const onUp = ev => {
+      if (ev.pointerId !== pid) return;
+      cancelAnimationFrame(frame); frame = 0;
+      shield.remove();
+      removeEventListener("pointermove", onMove, true); removeEventListener("pointerup", onUp, true); removeEventListener("pointercancel", onUp, true);
+      if (how !== "move") return render();
+      const f = frames.get(id), clear = () => { el.style.removeProperty("translate"); f?.style.removeProperty("translate"); };
+      if (!moved || ev.type !== "pointerup") return clear();
+      const sr = stackRect();
+      const to = (ev.clientY < sr.top + sr.height / 2 ? "t" : "b") + (ev.clientX < sr.left + sr.width / 2 ? "l" : "r");
+      const els = pip.map(p => targetOf(pageOf(p)));
+      flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
+        clear();
+        if (!pipW.has(to)) pipW.set(to, pipW.get(c) || w0);
+        pipCorner.set(id, to);
+        pip.splice(pip.indexOf(id), 1); pip.push(id);
+        render();
+      });
+    };
+    shield.__end = () => { try { onUp({ pointerId: pid, type: "pointercancel", clientX: 0, clientY: 0 }); } catch (err) {} };
+    addEventListener("pointermove", onMove, true); addEventListener("pointerup", onUp, true); addEventListener("pointercancel", onUp, true);
+  }
   let btnHold = null;
   function pipZoom(id, on) {
     webviewsOf(id).forEach(wv => {
@@ -1540,19 +1595,28 @@ window.vosBeat = window.vosBeat || (() => {
   function pipOff(id) {
     const i = pip.indexOf(id);
     if (i < 0) return false;
-    pip.splice(i, 1); pipZoom(id, false);
+    pip.splice(i, 1); pipZoom(id, false); pipH.delete(id); pipCorner.delete(id);
     return true;
   }
   function holdAct(what, win) {
     const el = targetOf(pageOf(win));
     if (!el || !floating.has(win)) return;
     raise(win); activate(splitFocus.get(win) || win);
-    const others = pip.filter(p => p !== win).map(p => targetOf(pageOf(p)));   // the stack moves up / down with it
-    if (what === "zoom") flip([el], () => { if (cover === win) cover = null; else { pipOff(win); cover = win; } render(); });
-    else flip([el, ...others], () => {
-      if (!pipOff(win)) { if (cover === win) cover = null; pip.push(win); pipZoom(win, true); }
-      render();
-    });
+    const others = [...floating].filter(p => p !== win && !minimized.has(p) && !awayWs(p)).map(p => targetOf(pageOf(p)));   // the stack, and Bento closing / opening the gap, glide too
+    if (what === "zoom") flip([el, ...others], () => { if (cover === win) cover = null; else { pipOff(win); cover = win; } render(); });
+    else {
+      const r = el.getBoundingClientRect();                          // 70% of the size it has on the screen now
+      flip([el, ...others], () => {
+        if (!pipOff(win)) {
+          if (cover === win) cover = null;
+          const c = "bl";
+          if (!pipW.has(c)) pipW.set(c, Math.max(180, r.width * PIP_K));   // a corner already in use keeps its width
+          pipH.set(win, Math.max(120, r.height * PIP_K));
+          pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
+        }
+        render();
+      });
+    }
   }
   addEventListener("pointerdown", ev => {
     btnHeldAt = 0;                                                   // a new press: the last hold's click is long gone
@@ -2024,7 +2088,7 @@ window.vosBeat = window.vosBeat || (() => {
   const bArea = (s = stackRect()) => ({ x: MARGIN, y: MARGIN, w: Math.round(s.width - 2 * MARGIN), h: Math.round(s.height - 2 * MARGIN) });
   // front first; only windows that are really there: a tab Vivaldi has not loaded yet (after a
   // restart or an update) has no page to show, and would leave an empty slot until it loads
-  const bMembers = () => [...zOrder].reverse().filter(id => floating.has(id) && !minimized.has(id) && !awayWs(id) && !!targetOf(pageOf(id)));
+  const bMembers = () => [...zOrder].reverse().filter(id => floating.has(id) && !minimized.has(id) && !pip.includes(id) && !awayWs(id) && !!targetOf(pageOf(id)));   // the corner stack is not Bento's
 
   /* keep the tree in step with the windows (render calls this first) */
   function bentoSync(s) {
@@ -2559,7 +2623,8 @@ window.vosBeat = window.vosBeat || (() => {
 
   function startGesture(e, el, how) {
     { const g = el.dataset.ftFloat;                                  // full view / the corner stack: a press only picks it
-      if (!mission && (cover === g || pip.includes(g))) { e.preventDefault(); e.stopPropagation(); raise(g); activate(splitFocus.get(g) || g); render(); return; } }
+      if (!mission && pip.includes(g)) return pipGesture(e, el, g, how);
+      if (!mission && cover === g) { e.preventDefault(); e.stopPropagation(); raise(g); activate(splitFocus.get(g) || g); render(); return; } }
     if (!mission && bento.on && bento.rects.has(el.dataset.ftFloat)) return bentoGesture(e, el, how);   // a tiled window
     e.preventDefault();
     e.stopPropagation();
@@ -3594,7 +3659,6 @@ window.vosBeat = window.vosBeat || (() => {
     springs.clear();
     sw = { acc, items: swItems(), info: deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null, v: 0, at: now, hist: [] };
     if (!sw.info) { const s = sw; desksNow().then(d => { if (sw === s && !s.info) { s.info = d; swDraw(s); } }); }
-    dotsEl?.setAttribute("data-live", "");                           // the dot follows the fingers
     deskDots(true);
     if (acc) { swDraw(sw); sw.timer = setTimeout(swipeEnd, 110); }
   }
@@ -3620,7 +3684,6 @@ window.vosBeat = window.vosBeat || (() => {
     if (s.inc && s.incDir !== dir) clearIncoming(s);
     if (t && !s.inc) { s.inc = incomingFor(t.id); s.incDir = dir; }
     for (const el of s.inc || []) el.style.setProperty("translate", `${Math.round(dir * innerWidth - shown)}px 0px`);
-    if (info) dotsRow()?.style.setProperty("--i", String(Math.max(0, Math.min(info.ds.length - 1, info.i + shown / innerWidth))));
   }
   function incomingFor(ws) {                                         // another desktop's windows (and frames), shown for the swipe
     const els = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), ws))
@@ -3640,13 +3703,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (!s) return;
     clearTimeout(s.timer);
     swTail = { last: s.hist[s.hist.length - 1] || 0, at: s.at, dir: Math.sign(s.acc) || 1, rise: 0 };   // what still comes is the flick's momentum
-    dotsEl?.removeAttribute("data-live");
     const info = s.info || await desksNow();                         // still looking: wait for it, don't give up
     const dir = s.acc > 0 ? 1 : -1, t = info?.ds[info.i + dir];
     const v = Math.sign(s.v) === dir ? Math.abs(s.v) : 0;            // the fingers' speed toward that desktop (px per ms)
     const go = t && (Math.abs(s.acc) + v * 120 > swFar() || (v > 0.35 && Math.abs(s.acc) > 24));   // a paged scroll: where it would coast to
     if (go) {                                                        // carries on from where the fingers left it, as fast as they went
-      dotsRow()?.style.setProperty("--i", String(info.i + dir));
+      dotsMark(info.i + dir);
       if (wsStrip) closeWsStrip(false, !!mission);
       const left = Math.max(40, innerWidth - Math.abs(s.acc));
       const ms = Math.round(Math.max(160, Math.min(320, v > 0.05 ? left / v * 1.7 : 320)));
@@ -3654,7 +3716,6 @@ window.vosBeat = window.vosBeat || (() => {
       swipeTo({ id: t.id, name: t.name, incoming: s.incDir === dir ? s.inc : null, ms, ease: `cubic-bezier(0.25, ${y1.toFixed(2)}, 0.3, 1)` }, info.list, dir);
       return;
     }
-    if (info) dotsRow()?.style.setProperty("--i", String(Math.max(0, info.i)));
     const ease = { duration: 260, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" };
     for (const el of s.items) {                                       // springs back
       const from = el.style.getPropertyValue("translate") || "0px 0px";
@@ -3687,27 +3748,32 @@ window.vosBeat = window.vosBeat || (() => {
     if (!clear) { set("background-color", cs.backgroundColor); set("background-image", cs.backgroundImage); }
     set("border", `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`);
     set("border-radius", cs.borderTopLeftRadius);
-    set("box-shadow", cs.boxShadow !== "none" ? cs.boxShadow : "");
     if (cs.backdropFilter && cs.backdropFilter !== "none") set("backdrop-filter", cs.backdropFilter);
     set("height", af.offsetHeight + "px");
     set("color", cs.color);
   }
-  async function deskDots(show) {
-    const btn = document.querySelector(".vos-chain-vosmission") || document.querySelector(WS_BTN);
-    if (!show || !btn) { clearTimeout(dotsTimer); dotsTimer = setTimeout(() => { dotsEl?.setAttribute("data-out", ""); }, 600); return; }
-    clearTimeout(dotsTimer);
-    const info = await desksNow(true);
+  function dotsMark(i) {                                             // light that desktop's dot now
+    const row = dotsRow();
+    if (row && i >= 0) [...row.children].forEach((d, j) => d.toggleAttribute("data-on", j === i));
+  }
+  function dotsDraw(info, btn) {
     if (!dotsEl) { dotsEl = document.createElement("div"); dotsEl.className = "vos-ws-dots"; dotsEl.setAttribute("data-out", ""); (browserEl() || document.body).appendChild(dotsEl); }
     const row = document.createElement("div"); row.className = "vos-ws-dots-row";
-    info.ds.forEach(() => row.appendChild(document.createElement("i")));
-    const cur = document.createElement("b"); cur.className = "vos-ws-dots-cur"; row.appendChild(cur);
-    row.style.setProperty("--i", String(Math.max(0, info.i)));
+    info.ds.forEach((w, j) => { const d = document.createElement("i"); if (j === info.i) d.setAttribute("data-on", ""); row.appendChild(d); });
     dotsEl.replaceChildren(row);
     dotsSkin(dotsEl);
     const r = btn.getBoundingClientRect(), w = dotsEl.offsetWidth;   // to the right of the button (or left, at the screen's edge)
     const x = r.right + 6 + w > innerWidth - 4 ? r.left - 6 - w : r.right + 6;
     dotsEl.style.left = Math.round(x) + "px";
     dotsEl.style.top = Math.round(r.top + r.height / 2) + "px";
+  }
+  async function deskDots(show) {
+    const btn = document.querySelector(".vos-chain-vosmission") || document.querySelector(WS_BTN);
+    if (!show || !btn) { clearTimeout(dotsTimer); dotsTimer = setTimeout(() => { dotsEl?.setAttribute("data-out", ""); }, 600); return; }
+    clearTimeout(dotsTimer);
+    if (deskInfo && sameWs(deskInfo.ws, curWs())) { dotsDraw(deskInfo, btn); dotsEl.removeAttribute("data-out"); }   // at once from what is known
+    const info = await desksNow(true);
+    dotsDraw(info, btn);
     dotsEl.removeAttribute("data-out");
     if (!sw && !btn.matches(":hover")) deskDots(false);
   }
@@ -4030,6 +4096,7 @@ window.vosBeat = window.vosBeat || (() => {
       }
       return;
     }
+    if (deskInfo) dotsMark(deskInfo.ds.findIndex(w => sameWs(w.id, sp.id)));   // the dot moves on now, not after the slide
     const side = dir > 0 ? "next" : "prev";
     const ms = sp.ms || 300, ease = sp.ease || "cubic-bezier(0.25, 0.8, 0.3, 1)";
     b.style.setProperty("--vos-swipe-ms", ms + "ms"); b.style.setProperty("--vos-swipe-ease", ease);

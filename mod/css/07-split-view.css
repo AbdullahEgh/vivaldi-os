@@ -1293,14 +1293,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-ws-dots { position: fixed !important; z-index: 2147482500 !important; translate: 0 -50% !important; pointer-events: none !important;
   display: flex !important; align-items: center !important; box-sizing: border-box !important; height: 28px !important; padding: 0 12px !important;
   border-radius: 14px !important; background: rgba(30, 30, 34, 0.72) !important; color: #fff !important;
-  backdrop-filter: blur(20px) saturate(1.6) !important; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(20px) saturate(1.6) !important; box-shadow: none !important;
   transition: opacity 0.18s ease, translate 0.18s ease !important; opacity: 1 !important; }
 #browser .vos-ws-dots[data-out] { opacity: 0 !important; translate: -4px -50% !important; }
 #browser .vos-ws-dots-row { position: relative !important; display: flex !important; gap: 6px !important; }
 #browser .vos-ws-dots-row > i { width: 6px !important; height: 6px !important; border-radius: 50% !important; background: currentColor !important; opacity: 0.3 !important; }
-#browser .vos-ws-dots-cur { position: absolute !important; left: 0 !important; top: 0 !important; width: 6px !important; height: 6px !important; border-radius: 50% !important;
-  background: currentColor !important; translate: calc(var(--i, 0) * 12px) 0 !important; transition: translate 0.28s cubic-bezier(0.25, 0.8, 0.3, 1) !important; }
-#browser .vos-ws-dots[data-live] .vos-ws-dots-cur { transition: none !important; }
+#browser .vos-ws-dots-row > i[data-on] { opacity: 1 !important; }   /* the shown desktop: at once, no fade */
 
 /* ---------- a window held to full view (green button held): over the tab bar and Vivaldi's own buttons ---------- */
 #browser[data-ft-cover] #webpage-stack { contain: size style !important; }   /* the page area stops clipping its windows */
@@ -1311,3 +1309,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* a green or yellow button being held swells a little, then acts */
 #browser .ft-titlebar .ft-light[data-ft-holding] { animation: ft-hold 0.45s ease-out forwards !important; }
 @keyframes ft-hold { to { scale: 1.35; filter: brightness(1.15); } }
+/* full view: its title bar is the Vivaldi window's own (drag it to move the window); on macOS it
+   leaves room for the system's window buttons */
+#browser #main [data-ft-float][data-ft-cover] > .ft-titlebar { -webkit-app-region: drag !important; app-region: drag !important; }
+#browser #main [data-ft-float][data-ft-cover] > .ft-titlebar :is(.ft-lights, .ft-right, button) { -webkit-app-region: no-drag !important; app-region: no-drag !important; }
+#browser.mac #main [data-ft-float][data-ft-cover] > .ft-titlebar { padding-left: 76px !important; }
