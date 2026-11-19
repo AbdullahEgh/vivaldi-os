@@ -1988,8 +1988,8 @@
       if (ev.pointerId !== pid) return;
       last = { cx: ev.clientX, cy: ev.clientY, x: ev.clientX - ss.left, y: ev.clientY - ss.top };
       const out = isOutside(ev);                                     // past the edge of this Vivaldi window
-      if (out !== leavingB) { leavingB = out; leaveHint(el, out); if (out) show(null); }
-      if (out) return;
+      if (out !== leavingB) { leavingB = out; if (out) { show(null); dragOutStart(id, el, ev); } else dragOutCancel(); }
+      if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
       if (shake(ev.clientX, ev.timeStamp)) return shakeOff(ev);
       if (!frame) frame = requestAnimationFrame(update);
     };
@@ -2009,7 +2009,7 @@
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer);
       const away = leavingB && ev.type === "pointerup";             // let go outside: to another Vivaldi window
-      if (leavingB) leaveHint(el, false);
+      const awayTo = leavingB ? dragOutEnd(ev.screenX, ev.screenY, away) : null;
       if (away) proposal = null;
       const full = topShown && ev.type === "pointerup" && !away;
       if (topShown) snapPreview(null, null, full);
@@ -2027,7 +2027,7 @@
       });
       // full screen; leaving it (green button, or dragging its top edge down) brings it back into Bento
       if (full) act("zoom", pageOf(id));
-      if (away) toOtherWindow(id, ev.screenX, ev.screenY);
+      if (away) toOtherWindow(id, ev.screenX, ev.screenY, awayTo);
     };
     const onKey = ev => { if (ev.key === "Escape") { ev.preventDefault(); proposal = null; onUp({ pointerId: pid, type: "pointercancel" }); } };
     addEventListener("pointermove", onMove, true);
@@ -2212,8 +2212,8 @@
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
       const out = how === "move" && isOutside(ev);                  // past the edge of this Vivaldi window
-      if (out !== leaving) { leaving = out; leaveHint(el, out); }
-      if (out) return;
+      if (out !== leaving) { leaving = out; out ? dragOutStart(id, el, ev) : dragOutCancel(); }
+      if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
       snapCheck(px, py);
       if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
       if (frame) return;                                            // at most one update per frame
@@ -2265,9 +2265,9 @@
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
       clearTimeout(zoneTimer);
-      if (leaving) {                                                // let go outside: to another Vivaldi window
-        leaveHint(el, false);
-        if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY); }
+      if (leaving) {                                                // let go outside: to the Vivaldi window under it
+        const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
+        if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY, target); }
       }
       const snap = ev.type === "pointerup" ? shown : null;
       if (shown) snapPreview(null, null, !!snap);
@@ -2289,26 +2289,89 @@
      let go over the empty desktop - a new Vivaldi window opens there with it */
   const DROP_KEY = "vosWindowDrop";
   const isOutside = ev => ev.clientX < 0 || ev.clientY < 0 || ev.clientX > innerWidth || ev.clientY > innerHeight;
-  function leaveHint(el, on) {
-    el.toggleAttribute("data-ft-leaving", on);
+  /* while a window is dragged out, the Vivaldi windows talk (they share this channel):
+     this one tells where it is held, with a snapshot of the page; the window under the
+     pointer draws it there, live, and answers "here" - so it is dropped where you see it */
+  const dragCh = typeof BroadcastChannel === "function" ? new BroadcastChannel("vos-window-drag") : null;
+  const myWin = () => window.vivaldiWindowId;
+  let dragOut = null;                                   // { id, ox, oy, over, overAt }
+  let dragHeld = null;                                  // where the last window dragged out was held
+  function hint(text) {
     let h = document.getElementById("vos-leave-hint");
-    if (on && !h) {
-      h = document.createElement("div"); h.id = "vos-leave-hint";
-      h.textContent = "Release to move it to another window";
-      (browserEl() || document.body).appendChild(h);
-      h.animate([{ opacity: 0, transform: "translate(-50%, 8px)" }, { opacity: 1, transform: "translate(-50%, 0)" }], { duration: 180, easing: "ease-out" });
-    } else if (!on && h) h.remove();
+    if (!text) { h?.remove(); return; }
+    if (!h) { h = document.createElement("div"); h.id = "vos-leave-hint"; (browserEl() || document.body).appendChild(h); }
+    h.textContent = text;
   }
-  async function toOtherWindow(id, sx, sy) {
+  async function dragOutStart(id, el, ev) {
+    const r = el.getBoundingClientRect();
+    dragOut = { id, ox: ev.clientX - r.left, oy: ev.clientY - r.top, over: null, overAt: 0 };
+    const tab = await new Promise(res => chrome.tabs.get(tabIdOf(id), t => { void chrome.runtime.lastError; res(t); }));
+    let img = "";
+    try { img = await new Promise(res => chrome.tabs.captureVisibleTab(tab?.windowId, { format: "jpeg", quality: 55 }, d => { void chrome.runtime.lastError; res(d || ""); })); } catch (e) {}
+    if (!dragOut || dragOut.id !== id) return;
+    dragCh?.postMessage({ type: "start", from: myWin(), w: r.width, h: r.height, ox: dragOut.ox, oy: dragOut.oy,
+                          title: tab?.title || "", url: tab?.url || "", img });
+    hint("Release to open it in a new window");
+  }
+  function dragOutMove(sx, sy) {
+    if (!dragOut) return;
+    dragCh?.postMessage({ type: "move", from: myWin(), sx, sy });
+    if (dragOut.over && Date.now() - dragOut.overAt > 400) dragOut.over = null;
+    hint(dragOut.over ? "" : "Release to open it in a new window");
+  }
+  function dragOutCancel() { if (!dragOut) return; dragCh?.postMessage({ type: "end", from: myWin() }); dragOut = null; hint(""); }
+  function dragOutEnd(sx, sy, drop) {                    // -> the window that said it is under the pointer
+    if (!dragOut) return null;
+    const to = dragOut.over && Date.now() - dragOut.overAt < 600 ? dragOut.over : null;
+    dragHeld = { ox: dragOut.ox, oy: dragOut.oy };
+    dragCh?.postMessage({ type: "end", from: myWin(), drop });
+    dragOut = null; hint("");
+    return to;
+  }
+  // the other side: draw the window being dragged in, where the pointer is
+  let ghost = null;
+  if (dragCh) dragCh.onmessage = ({ data: m }) => {
+    if (!m || m.from === myWin()) return;
+    if (m.to != null) {                                   // an answer to my own drag
+      if (m.to === myWin() && dragOut && m.type === "over") { dragOut.over = m.win; dragOut.overAt = Date.now(); }
+      return;
+    }
+    if (m.type === "start") {
+      ghost?.el.remove();
+      const g = document.createElement("div");
+      g.className = "vos-drag-ghost";
+      Object.assign(g.style, { width: m.w + "px", height: m.h + "px", display: "none" });
+      if (m.img) g.style.backgroundImage = `url("${m.img}")`;
+      else g.innerHTML = `<img src="chrome://favicon2/?size=64&scaleFactor=2x&pageUrl=${encodeURIComponent(m.url)}&allowGoogleServerFallback=0">`;
+      (browserEl() || document.body).appendChild(g);
+      ghost = { el: g, ox: m.ox, oy: m.oy, from: m.from };
+    } else if (m.type === "move" && ghost) {
+      const top = window.screenY + (window.outerHeight - window.innerHeight);
+      const lx = m.sx - window.screenX, ly = m.sy - top;
+      const inside = lx >= 0 && ly >= 0 && lx <= innerWidth && ly <= innerHeight;
+      ghost.el.style.display = inside ? "" : "none";
+      if (inside) {
+        ghost.el.style.left = (lx - ghost.ox) + "px"; ghost.el.style.top = (ly - ghost.oy) + "px";
+        dragCh.postMessage({ type: "over", from: myWin(), to: ghost.from, win: myWin() });
+      }
+    } else if (m.type === "end" && ghost) {
+      const g = ghost.el; ghost = null;
+      if (m.drop && g.style.display !== "none") setTimeout(() => g.remove(), 900);   // stays until the window itself arrives
+      else g.remove();
+    }
+  };
+  async function toOtherWindow(id, sx, sy, toWin) {
     const page = pageOf(id);
     const ids = (groupFloat.has(id) && page ? membersOf(page) : [id]).map(tabIdOf).filter(Boolean);
     if (!ids.length) return;
     const me = await new Promise(r => chrome.windows.getCurrent(w => r(w)));
     const all = await new Promise(r => chrome.windows.getAll({ windowTypes: ["normal"] }, w => r(w || [])));
-    const target = all.find(w => w.id !== me?.id && w.state !== "minimized" && !w.incognito === !me?.incognito &&
-      sx >= w.left && sx <= w.left + w.width && sy >= w.top && sy <= w.top + w.height);
+    const target = (toWin != null && all.find(w => w.id === toWin)) ||
+      all.find(w => w.id !== me?.id && w.state !== "minimized" && !w.incognito === !me?.incognito &&
+        sx >= w.left && sx <= w.left + w.width && sy >= w.top && sy <= w.top + w.height);
     const r = pxRect(id), w0 = Math.round(r.w), h0 = Math.round(r.h);
-    vstore.set(DROP_KEY, { ids: ids.map(String), sx, sy, w: w0, h: h0, t: Date.now() });   // the other window places it there
+    const held = dragHeld || { ox: w0 / 2, oy: 14 };
+    vstore.set(DROP_KEY, { ids: ids.map(String), sx, sy, w: w0, h: h0, ox: held.ox, oy: held.oy, t: Date.now() });   // it lands where it was seen
     if (target) {
       chrome.tabs.move(ids, { windowId: target.id, index: -1 }, () => {
         void chrome.runtime.lastError;
@@ -2323,6 +2386,18 @@
       });
     }
   }
+  /* an arriving window joins the desktop (workspace) this Vivaldi window is showing */
+  function intoThisDesktop(id) {
+    const ws = curWs();
+    if (ws === undefined) return;
+    wsOfTab.set(String(id), ws);
+    chrome.tabs.get(tabIdOf(id), tab => {
+      if (chrome.runtime.lastError || !tab) return;
+      let ext; try { ext = JSON.parse(tab.vivExtData || "{}") || {}; } catch (e) { return; }
+      if (ws == null) delete ext.workspaceId; else ext.workspaceId = ws;
+      chrome.tabs.update(tab.id, { vivExtData: JSON.stringify(ext) }, () => void chrome.runtime.lastError);
+    });
+  }
   /* a tab arriving from another Vivaldi window: it floats where it was let go */
   function arrived(tabId, info) {
     chrome.windows.getCurrent(me => {
@@ -2333,9 +2408,10 @@
         if (d && Date.now() - d.t < 8000 && d.ids?.includes(id)) {
           const ss = stackRect();
           const lx = d.sx - window.screenX - ss.left, ly = d.sy - window.screenY - (window.outerHeight - window.innerHeight) - ss.top;
-          setPx(id, clampRect({ x: lx - d.w / 2, y: Math.max(0, ly - 14), w: d.w, h: d.h }, ss), ss);
+          setPx(id, clampRect({ x: lx - (d.ox ?? d.w / 2), y: Math.max(0, ly - (d.oy ?? 14)), w: d.w, h: d.h }, ss), ss);
         }
-        floatNow(id, pageOf(id) || null); raise(id); render();
+        intoThisDesktop(id);
+        floatNow(id, pageOf(id) || null); raise(id); activate(id); render();
       });
     });
   }
