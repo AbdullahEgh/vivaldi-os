@@ -399,3 +399,6 @@
 #browser #tabs-tabbar-container .UrlBar-AddressField input:placeholder-shown {
   text-align: center !important;
 }
+
+/* Vivaldi's address-bar popups (a site's permission, passwords) sit under the address field (floating-tile.js) */
+#browser .addressfield-popup-container[data-vos-pop] { left: var(--vos-pop-x) !important; top: var(--vos-pop-y) !important; right: auto !important; bottom: auto !important; }

@@ -104,6 +104,34 @@
      below it (none under it), so one is easy to drag onto another desktop */
   let mission = null, missionDrag = null, missionSkip = null;   // { k, ox, oy } / { id, r } picked up there / held from the top edge (full size)
   const mr = r => mission ? { x: mission.ox + r.x * mission.k, y: mission.oy + r.y * mission.k, w: r.w * mission.k, h: r.h * mission.k } : r;
+  /* Mission Control lays the windows out side by side (none over another), in the space
+     below the panel, roughly where they are (top-left first); each keeps its own shape */
+  function missionSlots(list, s) {
+    const slots = new Map();
+    if (!mission || !list.length) return slots;
+    const PAD = 24, GAP = 28, top = mission.oy, aw = s.width - 2 * PAD, ah = s.height - top - PAD;
+    const items = list.map(({ id }) => ({ id, r: pxRect(id, s) })).sort((a, b) => (a.r.y + a.r.h / 2) - (b.r.y + b.r.h / 2) || a.r.x - b.r.x);
+    const n = items.length;
+    let best = null;
+    for (let cols = 1; cols <= n; cols++) {                         // the grid that shows them largest
+      const rows = Math.ceil(n / cols), cw = (aw - GAP * (cols - 1)) / cols, ch = (ah - GAP * (rows - 1)) / rows;
+      if (cw <= 0 || ch <= 0) continue;
+      const k = Math.min(...items.map(it => Math.min(cw / it.r.w, ch / it.r.h)));
+      if (!best || k > best.k) best = { cols, rows, cw, ch, k };
+    }
+    if (!best) return slots;
+    const { cols, rows, cw, ch } = best;
+    // rows top to bottom, and in each row left to right
+    for (let row = 0; row < rows; row++) {
+      const part = items.slice(row * cols, row * cols + cols).sort((a, b) => a.r.x - b.r.x);
+      const off = (cols - part.length) * (cw + GAP) / 2;            // a shorter last row is centred
+      part.forEach((it, c) => {
+        const k = Math.min(0.85, cw / it.r.w, ch / it.r.h), w = it.r.w * k, h = it.r.h * k;
+        slots.set(it.id, { k, x: PAD + off + c * (cw + GAP) + (cw - w) / 2, y: top + row * (ch + GAP) + (ch - h) / 2 });
+      });
+    }
+    return slots;
+  }
   const browserEl = () => $("#browser");
   const pageOf = id => (id == null ? null : $(`#webpage-stack .webpageview[data-id="${CSS.escape(String(id))}"]`));
   const isTiled = page => !!page?.classList.contains("tiled");
@@ -234,6 +262,12 @@
     if (!b) return;
     pillWatch = true;
     new MutationObserver(muts => {
+      for (const m of muts)                                          // Vivaldi's address-bar popups (a site's permission, passwords)
+        for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          const pop = n.matches?.(".addressfield-popup-container") ? n : n.querySelector?.(".addressfield-popup-container");
+          if (pop) placePopup(pop);
+        }
       for (const m of muts) {
         if (!m.addedNodes.length) continue;
         const t = m.target;
@@ -246,6 +280,24 @@
     }).observe(b, { childList: true, subtree: true });
     addEventListener("resize", queuePills);
     setInterval(() => { if (!document.hidden) markPills(); }, 3000);  // a backstop (the watcher catches changes)
+  }
+  /* an address-bar popup (a site asks for the clipboard, a password to save...) opens
+     under the address field, where its button is - not in the top-left corner */
+  function placePopup(p) {
+    const af = document.querySelector("#browser .UrlBar-AddressField"), ar = af?.getBoundingClientRect();
+    const w = p.offsetWidth || 320, h = p.offsetHeight || 160;
+    let tx, ty;
+    if (ar && ar.width) {
+      tx = Math.max(8, Math.min(ar.left, innerWidth - w - 8));
+      ty = ar.top > innerHeight / 2 ? ar.top - h - 6 : ar.bottom + 6;  // the tab bar at the bottom: above it
+    } else { tx = (innerWidth - w) / 2; ty = 48; }
+    const set = (x, y) => { p.style.setProperty("--vos-pop-x", Math.round(x) + "px"); p.style.setProperty("--vos-pop-y", Math.round(y) + "px"); };
+    p.setAttribute("data-vos-pop", "");
+    set(tx, ty);
+    requestAnimationFrame(() => {                                    // inside a box that moves it: make up the difference
+      const r = p.getBoundingClientRect(), dx = tx - r.left, dy = ty - r.top;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) set(tx + dx, ty + dy);
+    });
   }
   const tiledSeen = new Map();                                       // tab id -> { on, at }
   let pillRecheck = 0;
@@ -1006,6 +1058,8 @@
       if (!origins.has(w.el.parentElement)) origins.set(w.el.parentElement, fixedOrigin(w.el.parentElement));
     }
     bentoSync(s);
+    const slots = mission ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip), s) : null;
+    if (mission) mission.slots = slots;
     for (const { id, el } of windows) {
       addChrome(el, id);
       const held = missionDrag?.id === id;
@@ -1015,7 +1069,7 @@
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       placeFrame(id, el, r, s, o);
-      missionLook(id, el, held ? r : mission && missionSkip !== id ? mr(r) : null, r);   // Mission Control: scaled, not resized
+      missionLook(id, el, held ? { x: r.x, y: r.y, k: missionDrag.k } : slots?.get(id) || null, r);   // Mission Control: scaled, not resized
       frames.get(id)?.toggleAttribute("data-ft-focused", focusSet.has(id));
       frames.get(id)?.toggleAttribute("data-ft-away", awayWs(id));
     }
@@ -2211,7 +2265,8 @@
     let deskTimer = 0, deskDrop = !!mission && how === "move", deskOver = null;
     const inMission = deskDrop;                                       // the panel was open already: Mission Control
     if (!inMission && how === "move") missionSkip = id;               // held from the top edge: it keeps its size
-    let gOff = inMission ? (() => { const d = mr(s0); return { x: sx - ss.left - d.x, y: sy - ss.top - d.y }; })() : null;
+    const slot0 = inMission ? mission.slots?.get(id) : null, kHeld = slot0?.k ?? mission?.k ?? 1;
+    let gOff = inMission ? (() => { const d = slot0 || mr(s0); return { x: sx - ss.left - d.x, y: sy - ss.top - d.y }; })() : null;
     let moved = false;
     const openDeskDrop = () => {
       deskDrop = true;
@@ -2252,8 +2307,8 @@
         if (mission && inMission && how === "move") {                // Mission Control: the small window follows the pointer
           const cur = pxRect(id, ss);
           const d = { x: last.clientX - ss.left - gOff.x, y: last.clientY - ss.top - gOff.y, w: cur.w, h: cur.h };
-          missionDrag = { id, r: d };
-          place(el, d, ss); placeFrame(id, el, d, ss); missionLook(id, el, d, d);
+          missionDrag = { id, r: d, k: kHeld };
+          place(el, d, ss); placeFrame(id, el, d, ss); missionLook(id, el, { x: d.x, y: d.y, k: kHeld }, d);
           return;
         }
         const dx = last.clientX - sx, dy = last.clientY - sy;
@@ -2647,8 +2702,21 @@
     return start;
   }
   /* a window to another desktop (workspace): Vivaldi's own move; it leaves this one */
-  function toDesk(id, ws) {
-    wsOfTab.set(String(id), ws); wsNowAt = 0;
+  const sameWs = (a, b) => (a == null && b == null) || String(a) === String(b);
+  async function toDesk(id, ws) {
+    const key = String(id), cur = curWs();
+    // Vivaldi goes along with the active tab when it moves: another one of this desktop
+    // becomes active first (or its desktop page), so you stay here
+    try {
+      const tabs = await tabsQuery({ currentWindow: true });
+      if (tabs.find(t => String(t.id) === key)?.active) {
+        const z = [...zOrder].reverse().find(o => o !== key && floating.has(o) && !minimized.has(o) && sameWs(wsOfTab.get(o), cur));
+        const other = tabs.find(t => String(t.id) === z) || tabs.find(t => String(t.id) !== key && sameWs(wsOfTab.get(String(t.id)), cur));
+        await new Promise(r => other ? chrome.tabs.update(other.id, { active: true }, () => { void chrome.runtime.lastError; r(); })
+                                     : chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, () => { void chrome.runtime.lastError; r(); }));
+      }
+    } catch (e) { wsErr("hand over", e); }
+    wsOfTab.set(key, ws); wsNowAt = 0;
     try {
       const r = vivaldi.tabsPrivate.move({ tabIds: [Number(id)], target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
         () => void chrome.runtime.lastError);
@@ -2714,17 +2782,33 @@
     };
     add("Rename", '<path d="M4 20l1.2-4.2L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z"/><path d="M14 7l3 3"/>',
         () => { closeWsMenu(); card.querySelector(".vos-ws-name")?.__edit?.(); });
-    const n = (tabs || []).filter(t => wsOfTab.has(String(t.id)) && String(wsOfTab.get(String(t.id))) === String(sp.id)).length;
-    add("Delete", '<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>', async b => {
-      if (!b.dataset.sure) {                                         // first click: say what it does
-        b.dataset.sure = "1";
-        b.querySelector(".lp-mi-text").textContent = n ? `Delete and close ${n} tab${n === 1 ? "" : "s"}?` : "Delete this desktop?";
-        return;
-      }
+    const ids = (tabs || []).filter(t => wsOfTab.has(String(t.id)) && String(wsOfTab.get(String(t.id))) === String(sp.id)).map(t => t.id);
+    const n = ids.length;
+    const BIN = '<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>';
+    const doDelete = async moveTo => {                              // moveTo: a desktop for its windows; undefined: they close
       closeWsMenu();
       const api = vivWs();
-      try { if (api?.removeWorkspace) { await api.removeWorkspace(await winId(), sp.id); closeWsStrip(); setTimeout(openWsStrip, 260); } }
-      catch (e) { LOG("workspaces: delete failed", e); }
+      if (!api?.removeWorkspace) return;
+      try {
+        if (moveTo !== undefined && n) await tpMove(ids, moveTo);
+        await api.removeWorkspace(await winId(), sp.id);
+        closeWsStrip(); setTimeout(openWsStrip, 260);
+      } catch (e) { LOG("workspaces: delete failed", e); }
+    };
+    add("Delete", BIN, () => {                                      // asks: its windows go elsewhere, or close
+      m.textContent = "";
+      const head = document.createElement("div");
+      head.className = "lp-menu-head";
+      head.textContent = n ? `"${sp.name}" has ${n} window${n === 1 ? "" : "s"}` : `Delete "${sp.name}"?`;
+      m.appendChild(head);
+      if (n) {
+        const others = list.filter(w => String(w.id) !== String(sp.id) && wsStrip?.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(w.id))}"]`));
+        for (const w of others)
+          add(`Move to ${w.name || "Desktop"}`, '<path d="M5 12h14M13 6l6 6-6 6"/>', () => doDelete(w.id));
+        add(`Close ${n === 1 ? "it" : "them"} and delete`, BIN, () => doDelete(undefined), "lp-danger");
+      } else add("Delete", BIN, () => doDelete(undefined), "lp-danger");
+      add("Cancel", '<path d="M6 6l12 12M18 6L6 18"/>', () => closeWsMenu());
+      m.style.top = Math.max(8, Math.min(parseFloat(m.style.top) || y, innerHeight - m.offsetHeight - 8)) + "px";
     }, "lp-danger");
     m.addEventListener("pointerdown", ev => ev.stopPropagation());
     m.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); });
@@ -2734,7 +2818,7 @@
     wsMenuEl = m;
     setTimeout(() => addEventListener("pointerdown", ev => { if (!m.contains(ev.target)) closeWsMenu(); }, { capture: true, once: true }));
   }
-  /* drag a desktop sideways to put it elsewhere (Default stays first, New last) */
+  /* drag a desktop sideways to put it elsewhere (any desktop; New stays last) */
   function wsReorder(row, list) {
     row.addEventListener("pointerdown", ev => {
       const card = ev.target.closest(".vos-ws-card[data-ws]");
@@ -2815,12 +2899,12 @@
   }
   /* a new desktop (Vivaldi's own add), owned by this window; resolves to its id.
      switchTo false: you stay where you are (a window dropped on New goes there) */
-  function newDesk(list, stay) {
+  function newDesk(list, stay, name) {
     const api = vivWs();
     if (!api) return null;
     const names = new Set(list.map(w => w.name));
-    let n = list.length + 2, name;
-    do { name = "Desktop " + n++; } while (names.has(name));
+    let n = list.length + 1;
+    while (!name || names.has(name)) name = "Desktop " + n++;
     const before = new Set(list.map(w => String(w.id)));
     const find = async tries => {
       for (let i = 0; i < tries; i++) {
@@ -2842,6 +2926,34 @@
         .catch(e => wsErr("new", e)).then(() => find(20));
     } catch (e) { wsErr("new", e); return null; }
   }
+  /* Vivaldi's move of tabs to a desktop (null: none), as a promise */
+  const tpMove = (ids, ws) => new Promise(res => {
+    try {
+      const r = vivaldi.tabsPrivate.move({ tabIds: ids.map(Number), target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
+        () => { void chrome.runtime.lastError; res(); });
+      if (r?.then) r.then(res, e => { wsErr("move", e); res(); });
+    } catch (e) { wsErr("move", e); res(); }
+  });
+  /* NO DEFAULT DESKTOP: pages of no desktop (Vivaldi's "this window") go to a real one -
+     "Desktop 1", first - so every desktop is alike: renamed, reordered, deleted */
+  let unDefaulting = false;
+  async function noDefault(list, tabs) {
+    const loose = (tabs || []).filter(t => wsOfTab.has(String(t.id)) && wsOfTab.get(String(t.id)) == null);
+    if (!loose.length || unDefaulting || !vivWs()) return false;
+    unDefaulting = true;
+    try {
+      const names = new Set(list.map(w => w.name));
+      let n = 1, name;
+      do { name = "Desktop " + n++; } while (names.has(name));
+      const id = await newDesk(list, true, name);
+      if (id === undefined) return false;
+      await tpMove(loose.map(t => t.id), id);                        // the active one too: you go along with it
+      loose.forEach(t => wsOfTab.set(String(t.id), id)); wsNowAt = 0;
+      const nl = (await prefGet("vivaldi.workspaces.list")) || [];
+      try { vivWs()?.setOrder([id, ...nl.map(w => w.id).filter(x => String(x) !== String(id))]); } catch (e) { wsErr("order", e); }
+      return true;
+    } finally { unDefaulting = false; }
+  }
   /* a window dropped on New: a new desktop, and the window goes there */
   function toNewDesk(id, list) {
     const p = newDesk(list, true);
@@ -2856,7 +2968,7 @@
       for (const n of [el, f]) if (n?.__mt) { n.__mt = false; n.style.removeProperty("transform"); n.style.removeProperty("transform-origin"); }
       return;
     }
-    const t = `translate(${Math.round(disp.x - r.x)}px, ${Math.round(disp.y - r.y)}px) scale(${mission.k})`;
+    const t = `translate(${Math.round(disp.x - r.x)}px, ${Math.round(disp.y - r.y)}px) scale(${disp.k ?? mission.k})`;
     el.__mt = true; setStyle(el, "transform-origin", "0 0"); setStyle(el, "transform", t);
     if (f) { const g = f.hasAttribute("data-ft-grab") ? GRAB : 0; f.__mt = true; setStyle(f, "transform-origin", `${RING}px ${RING + g}px`); setStyle(f, "transform", t); }
   }
@@ -2892,11 +3004,13 @@
     const list = (await prefGet("vivaldi.workspaces.list")) || [];
     defaultIcons(list);
     const tabs = await tabsQuery({ currentWindow: true });
+    if (await noDefault(list, tabs)) return setTimeout(openWsStrip, 350);   // made "Desktop 1": open with it
     const info = new Map((tabs || []).map(t => [String(t.id), t]));
     const ss = stackRect(), cur = curWs();
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
     const mine = await myDesks(list, tabs, cur);
-    const spaces = [{ id: null, name: "Default", icon: null }, ...list.filter(w => mine.has(String(w.id))).map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
+    const loose = (tabs || []).some(t => wsOfTab.has(String(t.id)) && wsOfTab.get(String(t.id)) == null);
+    const spaces = [...(loose ? [{ id: null, name: "Desktop", icon: null }] : []), ...list.filter(w => mine.has(String(w.id))).map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
     const cardW = Math.round(Math.min(220, 128 * (ss.width / Math.max(1, ss.height))));   // at most 128px high
 
     const strip = document.createElement("div");
