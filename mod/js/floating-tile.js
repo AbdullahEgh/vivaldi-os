@@ -2684,15 +2684,20 @@
   function closeWsStrip() {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
-    st.__back?.remove();
+    st.__back?.remove(); closeWsMenu();
     removeEventListener("keydown", wsKey, true);
     removeEventListener("pointerdown", wsOut, true);
     const pn = st.querySelector(".vos-ws-panel") || st;            // back up, under the tab bar
     pn.animate([{ transform: "none" }, { transform: "translateY(-100%)" }], { duration: 220, easing: "cubic-bezier(0.4, 0, 0.8, 0.4)", fill: "forwards" })
       .finished.catch(() => {}).then(() => st.remove());
   }
-  const wsOut = ev => { if (wsStrip && !wsStrip.contains(ev.target) && !ev.target?.closest?.(WS_BTN)) closeWsStrip(); };
-  const wsKey = ev => { if (ev.key === "Escape" && wsStrip) { ev.preventDefault(); ev.stopPropagation(); closeWsStrip(); } };
+  // a click outside the strip closes it - its own right-click menu and the Workspaces button are not outside
+  const wsOut = ev => { if (wsStrip && !wsStrip.contains(ev.target) && !ev.target?.closest?.(WS_BTN + ", .vos-ws-menu")) closeWsStrip(); };
+  const wsKey = ev => {
+    if (ev.key !== "Escape" || !wsStrip) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if (wsMenuEl) closeWsMenu(); else closeWsStrip();             // the menu first, then the strip
+  };
   async function openWsStrip() {
     if (wsStrip) return closeWsStrip();
     const list = (await prefGet("vivaldi.workspaces.list")) || [];
@@ -2775,7 +2780,11 @@
     panel.addEventListener("pointerdown", ev => ev.stopPropagation());
     const back = document.createElement("div");                    // clicking anywhere else closes it (also over a page)
     back.className = "vos-ws-back";
-    back.addEventListener("pointerdown", ev => { ev.preventDefault(); ev.stopPropagation(); closeWsStrip(); });
+    back.addEventListener("pointerdown", ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (wsMenuEl) return closeWsMenu();                           // a menu open: that closes first, the strip stays
+      closeWsStrip();
+    });
     strip.__back = back;
     (browserEl() || document.body).appendChild(back);
     (browserEl() || document.body).appendChild(strip);
