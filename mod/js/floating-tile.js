@@ -2356,6 +2356,139 @@
     addEventListener("pointercancel", end, true);
   }
 
+  /* ================= WORKSPACES: a slide strip of mini desktops =================
+     The Workspaces button opens a strip under the tab bar (like macOS Mission
+     Control's Spaces): each workspace is a card with a miniature of its desktop -
+     the wallpaper and its windows where they are - and its name. Click one to go
+     there (Vivaldi's own list does the switch, unseen). "Manage" opens Vivaldi's list. */
+  let wsStrip = null, wsPass = false;
+  const WS_BTN = "#tabs-tabbar-container .workspace-popup, #browser .tabbar-workspace-button";
+  const prefGet = path => new Promise(res => {
+    try {
+      const r = vivaldi.prefs.get(path, v => res(v?.value ?? v));
+      if (r && typeof r.then === "function") r.then(v => res(v?.value ?? v), () => res(null));
+    } catch (e) { res(null); }
+  });
+  const favicon = url => `chrome://favicon2/?size=32&scaleFactor=2x&pageUrl=${encodeURIComponent(url)}&allowGoogleServerFallback=0`;
+  function closeWsStrip() {
+    if (!wsStrip) return;
+    const st = wsStrip; wsStrip = null;
+    removeEventListener("keydown", wsKey, true);
+    removeEventListener("pointerdown", wsOut, true);
+    st.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-12px)" }], { duration: 160, easing: "ease-in", fill: "forwards" })
+      .finished.catch(() => {}).then(() => st.remove());
+  }
+  const wsOut = ev => { if (wsStrip && !wsStrip.contains(ev.target) && !ev.target?.closest?.(WS_BTN)) closeWsStrip(); };
+  const wsKey = ev => { if (ev.key === "Escape" && wsStrip) { ev.preventDefault(); ev.stopPropagation(); closeWsStrip(); } };
+  async function openWsStrip() {
+    if (wsStrip) return closeWsStrip();
+    const list = (await prefGet("vivaldi.workspaces.list")) || [];
+    const tabs = await tabsQuery({ currentWindow: true });
+    const info = new Map((tabs || []).map(t => [String(t.id), t]));
+    const ss = stackRect(), cur = curWs();
+    const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
+    const spaces = [{ id: null, name: "Default", icon: null }, ...list.map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
+
+    const strip = document.createElement("div");
+    strip.className = "vos-ws-strip";
+    const row = document.createElement("div");
+    row.className = "vos-ws-row";
+    strip.appendChild(row);
+    for (const sp of spaces) {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "vos-ws-card";
+      const same = (a, b) => (a == null && b == null) || a === b || String(a) === String(b);
+      if (same(sp.id, cur)) card.setAttribute("data-current", "");
+      const mini = document.createElement("div");
+      mini.className = "vos-ws-mini";
+      mini.style.aspectRatio = `${Math.max(1, ss.width)} / ${Math.max(1, ss.height)}`;
+      if (wall && wall !== "none") mini.style.backgroundImage = wall;
+      // its windows, where they are (the front ones on top)
+      const wins = [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
+      for (const id of wins) {
+        const r = same(sp.id, cur) ? pxRect(id, ss) : (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })();
+        if (!r) continue;
+        const w = document.createElement("div");
+        w.className = "vos-ws-win";
+        Object.assign(w.style, { left: (r.x / ss.width * 100) + "%", top: (r.y / ss.height * 100) + "%", width: (r.w / ss.width * 100) + "%", height: (r.h / ss.height * 100) + "%" });
+        const t = info.get(String(id));
+        if (t?.url) { const im = document.createElement("img"); im.src = favicon(t.url); im.alt = ""; w.appendChild(im); }
+        mini.appendChild(w);
+      }
+      if (!wins.length) { const e = document.createElement("span"); e.className = "vos-ws-empty"; e.textContent = "No windows"; mini.appendChild(e); }
+      card.appendChild(mini);
+      const label = document.createElement("div");
+      label.className = "vos-ws-label";
+      if (sp.icon && /^<svg/i.test(sp.icon)) { const ic = document.createElement("span"); ic.className = "vos-ws-icon"; ic.innerHTML = sp.icon; label.appendChild(ic); }
+      else if (sp.emoji) { const ic = document.createElement("span"); ic.className = "vos-ws-icon"; ic.textContent = sp.emoji; label.appendChild(ic); }
+      const nm = document.createElement("span"); nm.textContent = sp.name; label.appendChild(nm);
+      const n = (tabs || []).filter(t => same(wsOfTab.has(String(t.id)) ? wsOfTab.get(String(t.id)) : null, sp.id)).length;
+      const cnt = document.createElement("span"); cnt.className = "vos-ws-count"; cnt.textContent = n ? String(n) : ""; label.appendChild(cnt);
+      card.appendChild(label);
+      card.addEventListener("click", ev => { ev.stopPropagation(); closeWsStrip(); if (!same(sp.id, cur)) switchWs(sp); });
+      row.appendChild(card);
+    }
+    // Vivaldi's own list: new workspace, rename, icons, order
+    const more = document.createElement("button");
+    more.type = "button"; more.className = "vos-ws-card vos-ws-more";
+    more.innerHTML = '<div class="vos-ws-mini"><span class="vos-ws-plus">+</span></div><div class="vos-ws-label"><span>Manage…</span></div>';
+    more.addEventListener("click", ev => { ev.stopPropagation(); closeWsStrip(); openVivaldiWs(false); });
+    row.appendChild(more);
+
+    strip.addEventListener("pointerdown", ev => { if (ev.target === strip) closeWsStrip(); ev.stopPropagation(); });
+    (browserEl() || document.body).appendChild(strip);
+    const top = ss.top;
+    strip.style.top = top + "px";
+    strip.animate([{ opacity: 0, transform: "translateY(-14px)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    wsStrip = strip;
+    addEventListener("keydown", wsKey, true);
+    setTimeout(() => addEventListener("pointerdown", wsOut, true));
+    row.querySelector("[data-current]")?.scrollIntoView({ inline: "center", block: "nearest" });
+  }
+  /* open Vivaldi's own workspace list (silent: only to press one of its items) */
+  function openVivaldiWs(silent) {
+    const b = document.querySelector(WS_BTN);
+    if (!b) return false;
+    document.documentElement.toggleAttribute("data-vos-ws-silent", !!silent);
+    wsPass = true;
+    const o = { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons: 1, pointerId: 1, isPrimary: true, pointerType: "mouse" };
+    b.dispatchEvent(new PointerEvent("pointerdown", o));
+    setTimeout(() => { wsPass = false; }, 50);
+    return true;
+  }
+  function switchWs(sp) {
+    if (!openVivaldiWs(true)) return wsByTab(sp);
+    const t0 = Date.now();
+    const look = () => {
+      const pop = document.querySelector(".WorkspacePopup");
+      const item = !pop ? null : sp.id == null ? pop.querySelector("button.this-window")
+        : [...pop.querySelectorAll("button.workspace-item-wrapper")].find(b => (b.getAttribute("title") || "").trim().startsWith(sp.name));
+      if (item) { item.click(); setTimeout(() => document.documentElement.removeAttribute("data-vos-ws-silent"), 250); return; }
+      if (Date.now() - t0 < 900) return setTimeout(look, 30);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      document.documentElement.removeAttribute("data-vos-ws-silent");
+      wsByTab(sp);                                                  // fallback: show one of its tabs
+    };
+    look();
+  }
+  async function wsByTab(sp) {
+    const tabs = await tabsQuery({ currentWindow: true });
+    const t = (tabs || []).filter(x => { const k = String(x.id); return wsOfTab.has(k) && String(wsOfTab.get(k)) === String(sp.id); })
+      .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+    if (t) chrome.tabs.update(t.id, { active: true }, () => void chrome.runtime.lastError);
+  }
+  // the Workspaces button opens the strip (Vivaldi's own list only through "Manage…")
+  for (const type of ["pointerdown", "mousedown", "click"]) {
+    addEventListener(type, ev => {
+      if (wsPass || ev.button !== 0) return;
+      const b = ev.target?.closest?.(WS_BTN);
+      if (!b) return;
+      ev.preventDefault(); ev.stopPropagation();
+      if (type === "pointerdown") openWsStrip();
+    }, true);
+  }
+
   /* the tab id of a click in the tab bar. Vivaldi puts id="tab-<id>" on an
      element of the tab (not always the one with class .tab), so look for the
      id itself, walking up, or inside the clicked tab's slot. */

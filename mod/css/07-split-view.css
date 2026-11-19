@@ -1115,3 +1115,58 @@
   transition: opacity 0.15s ease, width 0.15s ease !important;
 }
 #browser #webpage-stack > .ft-max-grab:hover::after { opacity: 1 !important; width: 64px !important; }
+
+
+/* ==========================================================================
+   WORKSPACES strip (floating-tile.js): the Workspaces button slides down a
+   row of mini desktops under the tab bar (like macOS Mission Control's Spaces)
+   ========================================================================== */
+#browser .vos-ws-strip {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 2147482000 !important;
+  padding: 14px 18px 16px !important;
+  background: rgba(246, 246, 248, 0.62) !important;
+  backdrop-filter: blur(40px) saturate(1.7) !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22), inset 0 -0.5px 0 rgba(0, 0, 0, 0.12) !important;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif !important;
+  color: #1d1d1f !important;
+}
+#browser .vos-ws-row { display: flex !important; gap: 18px !important; justify-content: center !important; overflow-x: auto !important; padding: 4px 4px 2px !important; scrollbar-width: none !important; }
+#browser .vos-ws-row::-webkit-scrollbar { display: none !important; }
+#browser .vos-ws-card {
+  flex: 0 0 220px !important; display: flex !important; flex-direction: column !important; gap: 8px !important;
+  padding: 0 !important; border: 0 !important; background: none !important; cursor: pointer !important; color: inherit !important;
+}
+#browser .vos-ws-mini {
+  position: relative !important; width: 100% !important; border-radius: 10px !important; overflow: hidden !important;
+  background-color: #6b7a6b !important; background-size: cover !important; background-position: center !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.25) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+#browser .vos-ws-card:hover .vos-ws-mini { transform: translateY(-2px) scale(1.02) !important; }
+#browser .vos-ws-card[data-current] .vos-ws-mini { box-shadow: 0 0 0 3px var(--colorHighlightBg, #0a84ff), 0 6px 18px rgba(0, 0, 0, 0.22) !important; }
+#browser .vos-ws-win {
+  position: absolute !important; box-sizing: border-box !important; border-radius: 4px !important;
+  background: rgba(255, 255, 255, 0.92) !important; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  display: grid !important; place-items: center !important; overflow: hidden !important;
+}
+#browser .vos-ws-win img { width: 34% !important; max-width: 22px !important; aspect-ratio: 1 !important; object-fit: contain !important; }
+#browser .vos-ws-empty { position: absolute !important; inset: 0 !important; display: grid !important; place-items: center !important;
+  font-size: 11px !important; color: rgba(255, 255, 255, 0.92) !important; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6) !important; }
+#browser .vos-ws-label { display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;
+  font: 500 12.5px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .vos-ws-icon { display: inline-grid !important; width: 16px !important; height: 16px !important; place-items: center !important; }
+#browser .vos-ws-icon svg { width: 16px !important; height: 16px !important; }
+#browser .vos-ws-count { opacity: 0.55 !important; font-weight: 400 !important; }
+#browser .vos-ws-more .vos-ws-mini { aspect-ratio: 16 / 10 !important; background: rgba(127, 127, 127, 0.18) !important; display: grid !important; place-items: center !important; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.3) !important; }
+#browser .vos-ws-plus { font: 300 34px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.6 !important; }
+#browser .vos-ws-more { flex-basis: 120px !important; }
+@media (prefers-color-scheme: dark) {
+  #browser .vos-ws-strip { background: rgba(28, 28, 32, 0.62) !important; color: #f2f2f7 !important; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), inset 0 -0.5px 0 rgba(255, 255, 255, 0.1) !important; }
+  #browser .vos-ws-win { background: rgba(44, 44, 48, 0.95) !important; }
+}
+/* switching from the strip: Vivaldi's own list does it, unseen */
+html[data-vos-ws-silent] .WorkspacePopup,
+html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-events: none !important; }
