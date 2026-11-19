@@ -2106,6 +2106,7 @@ window.vosBeat = window.vosBeat || (() => {
     host?.appendChild(preview);
     let key = "", split = false, holdTimer = 0, proposal = null, frame = 0, last = null;
     let top = false, topTimer = 0, topShown = false;                 // held at the top edge: full screen
+    let deskT = 0, desk = false, deskOn = null;                      // held longer: the desktops come down - drop it on one
     let leavingB = false;                                            // past the edge of this Vivaldi window
     const shake = shaker();
     const show = (r, conflict) => {
@@ -2131,11 +2132,23 @@ window.vosBeat = window.vosBeat || (() => {
       bentoDrag = { id, rect: { x: r0.x + dx, y: r0.y + dy, w: r0.w, h: r0.h } };
       setStyle(el, "z-index", "2000");
       place(el, bentoDrag.rect, ss); placeFrame(id, el, bentoDrag.rect, ss);
+      if (desk) {                                                    // the desktops are down: which one is under the pointer
+        const card = document.elementsFromPoint(last.cx, last.cy).find(n => n.classList?.contains("vos-ws-card") && !n.hasAttribute("data-current")) || null;
+        if (card !== deskOn) { deskOn?.removeAttribute("data-drop"); deskOn = card; deskOn?.setAttribute("data-drop", ""); }
+        return;
+      }
       const atTop = snapZone(last.cx, last.cy) === "full";           // the pointer near the top: full screen
       if (atTop !== top) {
-        top = atTop; clearTimeout(topTimer);
+        top = atTop; clearTimeout(topTimer); clearTimeout(deskT);
         if (topShown) { snapPreview(null); topShown = false; }
-        if (atTop) topTimer = setTimeout(() => { topShown = true; show(null); snapPreview("full", el); }, SNAP_HOLD);
+        if (atTop) {
+          topTimer = setTimeout(() => { topShown = true; show(null); snapPreview("full", el); }, SNAP_HOLD);
+          deskT = setTimeout(() => {                                 // still holding: the desktops (like without Bento)
+            desk = true; show(null);
+            if (topShown) { snapPreview(null); topShown = false; }
+            if (!wsStrip) openWsStrip();
+          }, SNAP_HOLD + 700);
+        }
       }
       if (top) return;
       const target = bento.layout?.regions.find(r => r.leaf.win !== id &&
@@ -2171,7 +2184,14 @@ window.vosBeat = window.vosBeat || (() => {
     };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
-      cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer);
+      cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer); clearTimeout(deskT);
+      let toCard = null, deskList = [];
+      if (desk) {                                                    // let go over the desktops
+        toCard = ev.type === "pointerup" ? deskOn : null; deskOn?.removeAttribute("data-drop");
+        deskList = wsStrip?.__list || [];
+        ntrace("bento drop", { card: toCard ? (toCard.classList.contains("vos-ws-more") ? "new" : toCard.dataset.ws) : null });
+        closeWsStrip(); proposal = null;
+      }
       const away = leavingB && ev.type === "pointerup";             // let go outside: to another Vivaldi window
       const awayTo = leavingB ? dragOutEnd(ev.screenX, ev.screenY, away) : null;
       if (away) proposal = null;
@@ -2192,6 +2212,11 @@ window.vosBeat = window.vosBeat || (() => {
       // full screen; leaving it (green button, or dragging its top edge down) brings it back into Bento
       if (full) act("zoom", pageOf(id));
       if (away) toOtherWindow(id, ev.screenX, ev.screenY, awayTo);
+      if (toCard) {                                                  // to that desktop (Bento closes the gap here)
+        persist(id);
+        if (toCard.classList.contains("vos-ws-more")) toNewDesk(id, deskList);
+        else toDesk(id, toCard.dataset.ws ? (deskList.find(w => String(w.id) === toCard.dataset.ws)?.id ?? null) : null);
+      }
     };
     const onKey = ev => { if (ev.key === "Escape") { ev.preventDefault(); proposal = null; onUp({ pointerId: pid, type: "pointercancel" }); } };
     addEventListener("pointermove", onMove, true);
@@ -2593,6 +2618,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (missionSkip === id) missionSkip = null;
       if (deskDrop) {                                               // the desktops panel is open
         const card = deskOver; deskOver?.removeAttribute("data-drop");
+        ntrace("drop", { card: card ? (card.classList.contains("vos-ws-more") ? "new" : card.dataset.ws) : null, type: ev.type, inMission });
         const strip = wsStrip, list = strip?.__list || [];
         const keep = inMission && card && !card.classList.contains("vos-ws-more");   // Mission Control stays open
         if (!keep && (!inMission || card || !moved)) closeWsStrip();
@@ -3255,9 +3281,9 @@ window.vosBeat = window.vosBeat || (() => {
   /* a window dropped on New: a new desktop, and the window goes there */
   /* a trace of the last "window to New desktop" (vstore vosNewDiag), to see what Vivaldi did */
   let ntr = [];
-  const ntrace = (step, v) => { ntr.push([step, v, Date.now() % 1000000]); vstore.set("vosNewDiag", JSON.stringify(ntr)); };
+  const ntrace = (step, v) => { ntr.push([step, v, Date.now() % 1000000]); ntr = ntr.slice(-40); vstore.set("vosNewDiag", JSON.stringify(ntr)); };
   function toNewDesk(id, list) {
-    ntr = []; ntrace("start", { id: String(id), api: !!vivWs(), pages: !!vivPages() });
+    ntrace("start", { id: String(id), api: !!vivWs(), pages: !!vivPages() });
     const p = newDesk(list, true);
     if (!p) { ntrace("no api", null); return; }
     p.then(async ws => {
@@ -3732,8 +3758,8 @@ window.vosBeat = window.vosBeat || (() => {
       el.animate([{ translate: from }, { translate: "0px 0px" }], { duration: 300, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)", fill: "forwards" })
         .finished.catch(() => {}).then(() => {
           el.style.removeProperty("translate"); el.getAnimations().forEach(a => a.cancel());
-          el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave");
-        });
+          el.removeAttribute("data-ft-ws-leave");                     // its "incoming" mark stays until the swipe is over:
+        });                                                          // without it, the slide-in would play a second time
     }
     const t1 = Date.now();
     await (sp.go ? sp.go() : switchWs(sp, list));                    // at once: both desktops move together
@@ -3742,7 +3768,10 @@ window.vosBeat = window.vosBeat || (() => {
     await new Promise(r => setTimeout(r, Math.max(0, 300 - (Date.now() - t1))));
     missionMode(null, true);                                          // Mission Control ends with the old desktop out of sight
     leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
-    setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true); }, 420);
+    setTimeout(() => {
+      b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true);
+      for (const el of sp.incoming || []) el.removeAttribute("data-vos-incoming");
+    }, 420);
   }
   async function switchWs(sp, list) {
     const api = vivWs();
