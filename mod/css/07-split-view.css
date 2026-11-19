@@ -1242,16 +1242,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* a full-screen page stays under the floating windows chosen from the tab bar */
 #browser[data-ft-desktop] #webpage-stack .webpageview[data-ft-under] { visibility: visible !important; opacity: 1 !important; }
-/* DESKTOP SWIPE: choosing a desktop slides the whole desktop (view transition) */
-html[data-vos-swipe] #webpage-stack { view-transition-name: vos-desk; }
-html[data-vos-swipe]::view-transition-old(root), html[data-vos-swipe]::view-transition-new(root) { animation: none; }
-html[data-vos-swipe]::view-transition-group(vos-desk) { animation-duration: 0s; }
-html[data-vos-swipe]::view-transition-image-pair(vos-desk) { overflow: hidden; }
-html[data-vos-swipe="next"]::view-transition-old(vos-desk) { animation: vos-swipe-out-left 0.46s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
-html[data-vos-swipe="next"]::view-transition-new(vos-desk) { animation: vos-swipe-in-right 0.46s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
-html[data-vos-swipe="prev"]::view-transition-old(vos-desk) { animation: vos-swipe-out-right 0.46s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
-html[data-vos-swipe="prev"]::view-transition-new(vos-desk) { animation: vos-swipe-in-left 0.46s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
-@keyframes vos-swipe-out-left { to { transform: translateX(-100%); } }
-@keyframes vos-swipe-in-right { from { transform: translateX(100%); } }
-@keyframes vos-swipe-out-right { to { transform: translateX(100%); } }
-@keyframes vos-swipe-in-left { from { transform: translateX(-100%); } }
+/* DESKTOP SWIPE: choosing a desktop slides it (floating-tile.js swipeTo) - transforms only */
+#browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left 0.19s cubic-bezier(0.5, 0, 0.9, 0.5) forwards !important; }
+#browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right 0.19s cubic-bezier(0.5, 0, 0.9, 0.5) forwards !important; }
+#browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-desktop):not([data-ft-swipe-out]) { animation: vos-swipe-in-right 0.36s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-desktop):not([data-ft-swipe-out]) { animation: vos-swipe-in-left 0.36s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+@keyframes vos-swipe-out-left { to { transform: translateX(-100vw); } }
+@keyframes vos-swipe-in-right { from { transform: translateX(100vw); } }
+@keyframes vos-swipe-out-right { to { transform: translateX(100vw); } }
+@keyframes vos-swipe-in-left { from { transform: translateX(-100vw); } }

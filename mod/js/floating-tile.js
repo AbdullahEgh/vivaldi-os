@@ -3213,29 +3213,26 @@
     setTimeout(() => { wsPass = false; }, 50);
     return true;
   }
-  /* DESKTOP SWIPE (like macOS Spaces): the whole desktop slides away toward the one you
-     chose and the new one slides in - a picture of each (the browser's view transition),
-     so no window moves on its own */
-  function swipeTo(sp, list, dir) {
-    if (!document.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) return switchWs(sp, list);
-    const html = document.documentElement;
-    html.setAttribute("data-vos-swipe", dir > 0 ? "next" : "prev");
+  /* DESKTOP SWIPE (like macOS Spaces): what is on this desktop slides away toward the one
+     you chose, and the new desktop's windows slide in from that side - one transform on
+     elements already on the graphics card (no pictures taken, nothing re-laid out) */
+  const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-desktop";
+  async function swipeTo(sp, list, dir) {
+    const b = browserEl();
+    if (!b || matchMedia("(prefers-reduced-motion: reduce)").matches) return switchWs(sp, list);
+    const side = dir > 0 ? "next" : "prev";
     swiping = true;
-    let vt;
-    try {
-      vt = document.startViewTransition(async () => {
-        await switchWs(sp, list);
-        const t0 = Date.now();
-        while (Date.now() - t0 < 900) {                              // until the new desktop is the one shown
-          wsNowAt = 0;
-          if (sameWs(curWs(), sp.id)) break;
-          await new Promise(r => setTimeout(r, 30));
-        }
-        render();
-        await new Promise(r => setTimeout(r, 80));                   // its pages drawn
-      });
-    } catch (e) { swiping = false; html.removeAttribute("data-vos-swipe"); return switchWs(sp, list); }
-    vt.finished.catch(() => {}).finally(() => { html.removeAttribute("data-vos-swipe"); swiping = false; });
+    const leaving = [...document.querySelectorAll(SWIPE_ITEMS)];
+    b.setAttribute("data-vos-swipe", side);
+    leaving.forEach(el => el.setAttribute("data-ft-swipe-out", ""));
+    await new Promise(r => setTimeout(r, 190));                       // the old desktop is on its way out
+    await switchWs(sp, list);
+    const t0 = Date.now();
+    while (Date.now() - t0 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 25)); }
+    render();
+    b.setAttribute("data-vos-swipe-in", side);                        // the new one comes in
+    leaving.forEach(el => el.removeAttribute("data-ft-swipe-out"));
+    setTimeout(() => { b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; }, 380);
   }
   async function switchWs(sp, list) {
     const api = vivWs();
