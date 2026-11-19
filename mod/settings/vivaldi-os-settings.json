@@ -990,12 +990,7 @@
       "never_close_last": true,
       "stacking": {
         "mode": 1,
-        "open_accordions": [
-          "56f793f4-f51c-47a5-9c54-6e6d01a7d87a",
-          "563bec26-763b-4205-8c43-e533dbb83d8f",
-          "ed0f4499-5df4-4e00-887d-821137f942da",
-          "8d0c2dba-7efb-4f25-a8c1-b56089f6c2fc"
-        ]
+        "open_accordions": []
       },
       "visible": true
     },

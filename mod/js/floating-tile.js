@@ -92,6 +92,7 @@ window.vosBeat = window.vosBeat || (() => {
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
   const PIP_K = 0.7, PIP_PEEK = 40; // their size, and how much of each earlier one shows above the next
   let btnHeldAt = 0;                // a button was held: the click that follows is not a click
+  let coverWas = null, coverTill = 0;
   const focusSet = new Set();       // windows in focus mode (sharp, above the blur); empty = no focus
   let focusLift = new Set();        // windows that were in focus: kept above the blur while it fades out
   let focusIgnore = null;
@@ -953,6 +954,7 @@ window.vosBeat = window.vosBeat || (() => {
       const z = steps[(i + 1) % steps.length] ?? 1;
       pageZoom[id] = z;
       $$("webview", page).forEach(wv => setWebZoom(wv, z));
+      if (w && pip.includes(w)) syncZooms();                         // in the corner: 70% of that
       scaleLabel(page, z);
       return;
     }
@@ -1124,7 +1126,9 @@ window.vosBeat = window.vosBeat || (() => {
     const front = topWindow(null);
     if (cover && (!floating.has(cover) || minimized.has(cover) || front !== cover)) cover = null;   // another window came up: full view ends
     for (const p of [...pip]) if (!floating.has(p) || !pageOf(p)) pipOff(p);
-    b.toggleAttribute("data-ft-cover", !!cover);                     // (before anything is measured: the page area stops clipping)
+    if (cover) coverWas = cover;
+    else if (coverWas) { coverWas = null; coverTill = Date.now() + 450; setTimeout(queueRender, 470); }   // it glides back first
+    b.toggleAttribute("data-ft-cover", !!cover || Date.now() < coverTill);   // (before anything is measured: the page area stops clipping)
     { // the keyboard focus never stays in a window behind the front one: a click in it is
       // then always heard (it focuses the page) and brings that window to the front
       const aw = document.activeElement?.closest?.("[data-ft-float]");
@@ -1179,7 +1183,7 @@ window.vosBeat = window.vosBeat || (() => {
       place(el, r, s, o);
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
-        : cover === id ? "2147480000"                                // full view: over everything of Vivaldi's
+        : cover === id ? "90000"                                     // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts)
         : pip.includes(id) ? String(1900 + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       placeFrame(id, el, r, s, o);
@@ -1433,6 +1437,7 @@ window.vosBeat = window.vosBeat || (() => {
       for (const m of membersOf(pageOf(id))) delete pageZoom[m];   // a split: every page follows the window
       delete pageZoom[id];
       webviewsOf(id).forEach(wv => setWebZoom(wv, z));
+      if (pip.includes(id)) syncZooms();                             // in the corner: 70% of that
       const w = targetOf(pageOf(id));
       if (w) {                                                       // the new scale, briefly in the middle
         w.querySelector(":scope > .ft-res-label")?.remove();
@@ -1550,6 +1555,7 @@ window.vosBeat = window.vosBeat || (() => {
     });
   }
   addEventListener("pointerdown", ev => {
+    btnHeldAt = 0;                                                   // a new press: the last hold's click is long gone
     if (btnHold) { clearTimeout(btnHold.t); btnHold.btn.removeAttribute("data-ft-holding"); btnHold = null; }
     if (ev.button !== 0) return;
     const btn = ev.target?.closest?.('.ft-titlebar .ft-light[data-act="zoom"], .ft-titlebar .ft-light[data-act="minimize"]');
@@ -2553,7 +2559,7 @@ window.vosBeat = window.vosBeat || (() => {
 
   function startGesture(e, el, how) {
     { const g = el.dataset.ftFloat;                                  // full view / the corner stack: a press only picks it
-      if (cover === g || pip.includes(g)) { e.preventDefault(); e.stopPropagation(); raise(g); activate(splitFocus.get(g) || g); render(); return; } }
+      if (!mission && (cover === g || pip.includes(g))) { e.preventDefault(); e.stopPropagation(); raise(g); activate(splitFocus.get(g) || g); render(); return; } }
     if (!mission && bento.on && bento.rects.has(el.dataset.ftFloat)) return bentoGesture(e, el, how);   // a tiled window
     e.preventDefault();
     e.stopPropagation();
@@ -3077,6 +3083,7 @@ window.vosBeat = window.vosBeat || (() => {
     return false;
   }
   async function toDesk(id, ws) {
+    { const w = winOf(String(id)) || String(id); if (cover === w) cover = null; pipOff(w); }   // to another desktop: as it normally is
     const key = String(id), cur = curWs();
     const pg = pageOf(key);                                          // every page of the window (a split has several)
     const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
@@ -3554,6 +3561,7 @@ window.vosBeat = window.vosBeat || (() => {
      button move the windows with them; let go past a fifth of the screen (or flick) and the
      next desktop comes in, else they spring back. No desktop that way: they only stretch a little. */
   let sw = null, swTail = null, swQueue = null;
+  const springs = new Set();                                         // spring-back animations still running
   const swItems = () => [...document.querySelectorAll(SWIPE_ITEMS)];
   const swFar = () => Math.min(220, innerWidth * 0.12);               // let go past this: the next desktop
   const dotsRow = () => dotsEl?.querySelector(".vos-ws-dots-row");
@@ -3562,7 +3570,7 @@ window.vosBeat = window.vosBeat || (() => {
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, d = ev.deltaX * k;
     if (!sw && !swTail && Math.abs(d) <= Math.abs(ev.deltaY * k)) return;
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
-    const now = performance.now(), a = Math.abs(d);
+    const now = ev.timeStamp || performance.now(), a = Math.abs(d);
     if (swTail) {                                                    // after a page turn: the flick's momentum is swallowed -
       const t = swTail;                                              // until new fingers start (a pause, growing again, the other way)
       t.rise = a > t.last * 1.3 + 1 ? t.rise + 1 : 0;
@@ -3570,6 +3578,7 @@ window.vosBeat = window.vosBeat || (() => {
       t.last = a; t.at = now;
       if (!fresh) return;
       swTail = null;
+      if (!sw && a <= Math.abs(ev.deltaY * k)) return;               // new fingers going up / down: not a swipe
     }
     if (!a) return;
     if (swiping) {                                                   // the last desktop still sliding in: this swipe goes on right after
@@ -3581,6 +3590,8 @@ window.vosBeat = window.vosBeat || (() => {
     swFeed(d, now);
   }, { capture: true, passive: false });
   function swBegin(acc, now) {
+    for (const a of springs) a.cancel();                             // a spring-back still running: the fingers take over
+    springs.clear();
     sw = { acc, items: swItems(), info: deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null, v: 0, at: now, hist: [] };
     if (!sw.info) { const s = sw; desksNow().then(d => { if (sw === s && !s.info) { s.info = d; swDraw(s); } }); }
     dotsEl?.setAttribute("data-live", "");                           // the dot follows the fingers
@@ -3618,7 +3629,10 @@ window.vosBeat = window.vosBeat || (() => {
     return els;
   }
   function clearIncoming(s) {
-    for (const el of s.inc || []) { el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-incoming"); el.style.removeProperty("translate"); }
+    for (const el of s.inc || []) {
+      el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-incoming"); el.style.removeProperty("translate");
+      el.getAnimations().forEach(a => { if (!(a instanceof CSSAnimation)) a.cancel(); });   // never left shifted off the screen
+    }
     s.inc = null;
   }
   async function swipeEnd() {
@@ -3632,6 +3646,7 @@ window.vosBeat = window.vosBeat || (() => {
     const v = Math.sign(s.v) === dir ? Math.abs(s.v) : 0;            // the fingers' speed toward that desktop (px per ms)
     const go = t && (Math.abs(s.acc) + v * 120 > swFar() || (v > 0.35 && Math.abs(s.acc) > 24));   // a paged scroll: where it would coast to
     if (go) {                                                        // carries on from where the fingers left it, as fast as they went
+      dotsRow()?.style.setProperty("--i", String(info.i + dir));
       if (wsStrip) closeWsStrip(false, !!mission);
       const left = Math.max(40, innerWidth - Math.abs(s.acc));
       const ms = Math.round(Math.max(160, Math.min(320, v > 0.05 ? left / v * 1.7 : 320)));
@@ -3644,14 +3659,17 @@ window.vosBeat = window.vosBeat || (() => {
     for (const el of s.items) {                                       // springs back
       const from = el.style.getPropertyValue("translate") || "0px 0px";
       el.style.removeProperty("translate");
-      el.animate([{ translate: from }, { translate: "0px 0px" }], ease);
+      const a = el.animate([{ translate: from }, { translate: "0px 0px" }], ease);
+      springs.add(a); a.finished.catch(() => {}).then(() => springs.delete(a));
     }
     const inc = s.inc, d = s.incDir;                                  // the other desktop's windows slide back out
     for (const el of inc || []) {
       const from = el.style.getPropertyValue("translate") || "0px 0px";
       el.style.removeProperty("translate");
-      el.animate([{ translate: from }, { translate: `${d * innerWidth}px 0px` }], { ...ease, fill: "forwards" })
-        .finished.catch(() => {}).then(() => {
+      const a = el.animate([{ translate: from }, { translate: `${d * innerWidth}px 0px` }], { ...ease, fill: "forwards" });
+      springs.add(a);
+      a.finished.catch(() => {}).then(() => {
+          springs.delete(a);
           if (sw?.inc?.includes(el)) return;                         // a new swipe has it again: leave it be
           el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-incoming");   // hidden again first, then the animation goes
           el.getAnimations().forEach(a => a.cancel());
@@ -3895,7 +3913,9 @@ window.vosBeat = window.vosBeat || (() => {
         if (((await prefGet("vivaldi.workspaces.list")) || []).some(w => sameWs(w.id, id))) break;
         await new Promise(r => setTimeout(r, 50));
       }
-      if (wsStrip === strip) await openWsStripNow({ refresh: true, born: id });
+      if (wsStrip !== strip || wsOpening) { more.__busy = false; return; }
+      wsOpening = true;
+      try { await openWsStripNow({ refresh: true, born: id }); } finally { wsOpening = false; }
     });
     row.appendChild(more);
 
