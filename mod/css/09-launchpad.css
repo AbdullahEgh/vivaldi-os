@@ -1305,3 +1305,9 @@
 
 /* the desktop menu with floating windows open: above the windows */
 #browser .vos-desk-menu { position: fixed !important; z-index: 2147483000 !important; }
+
+/* menu items: an icon on the left (macOS / iOS) */
+#browser .lp-menu-item { display: flex !important; align-items: center !important; gap: 9px !important; }
+#browser .lp-menu-item .lp-mi-ic { width: 16px !important; height: 16px !important; flex: none !important; opacity: 0.85 !important; }
+#browser .lp-menu-item .lp-mi-text { flex: 1 !important; min-width: 0 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+#browser .lp-menu-item.lp-menu-on::after { margin-left: 10px !important; }

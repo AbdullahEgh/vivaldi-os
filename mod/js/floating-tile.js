@@ -32,9 +32,9 @@
        window and it becomes its own floating window
      Places are relative to the Vivaldi window and survive a restart.
 
-   SNAP (like macOS / Windows): while moving a window, hold the pointer at
-     the top edge -> full screen; at the left or right edge -> Bento with the
-     window on that half. A frosted preview shows where it goes; leave the
+   SNAP (like macOS / Windows): move a window until ITS edge meets the edge of
+     the desktop and hold: its top at the top -> full screen; its left or right
+     side at that side -> Bento with the window on that half. A frosted preview shows where it goes; leave the
      edge before letting go and nothing snaps. A full-screen page has a handle
      in the middle of its top edge: drag it down and the page floats again.
 
@@ -1919,7 +1919,7 @@
       bentoDrag = { id, rect: { x: r0.x + dx, y: r0.y + dy, w: r0.w, h: r0.h } };
       setStyle(el, "z-index", "2000");
       place(el, bentoDrag.rect, ss); placeFrame(id, el, bentoDrag.rect, ss);
-      const atTop = last.cy <= ss.top + SNAP_EDGE;
+      const atTop = r0.y + (last.cy - sy) <= 0;                   // the window's top at the top of the desktop
       if (atTop !== top) {
         top = atTop; clearTimeout(topTimer);
         if (topShown) { snapPreview(null); topShown = false; }
@@ -2143,17 +2143,12 @@
        where it goes, and letting go puts it there. Leave the edge: no snap. */
     let zone = null, shown = null, zoneTimer = 0;
     const shake = shaker();
-    const zoneAt = (x, y) => {
-      const r = stack()?.getBoundingClientRect();
-      if (!r) return null;
-      if (y <= r.top + SNAP_EDGE) return "full";
-      if (x <= r.left + SNAP_EDGE) return "left";
-      if (x >= r.right - SNAP_EDGE) return "right";
-      return null;
-    };
-    const snapCheck = (x, y) => {
+    // the WINDOW's edge decides (not the pointer): its top at the top of the desktop,
+    // its left or right side at that side (where it would go past, unclamped)
+    const zoneOf = (L, T, R) => T <= 0 ? "full" : L <= 0 ? "left" : R >= ss.width ? "right" : null;
+    const snapCheck = (L, T, R) => {
       if (how !== "move") return;
-      const z = zoneAt(x, y);
+      const z = zoneOf(L, T, R);
       if (z === zone) return;
       zone = z;
       clearTimeout(zoneTimer);
@@ -2164,14 +2159,13 @@
     const onMove = ev => {
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
-      snapCheck(px, py);
       if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
         frame = 0;
         const dx = last.clientX - sx, dy = last.clientY - sy;
         let L = s0.x, T = s0.y, R = s0.x + s0.w, B = s0.y + s0.h;
-        if (how === "move") { L += dx; R += dx; T += dy; B += dy; }
+        if (how === "move") { L += dx; R += dx; T += dy; B += dy; snapCheck(L, T, R); }
         else {
           if (how.includes("l")) L = Math.max(MARGIN, Math.min(L + dx, R - MIN_W));
           if (how.includes("r")) R = Math.min(ss.width - MARGIN, Math.max(R + dx, L + MIN_W));

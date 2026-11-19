@@ -466,7 +466,7 @@
     m.className = "lp-menu";
     const add = (label, fn, cls) => {
       const b = document.createElement("button");
-      b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : ""); b.textContent = label;
+      b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : ""); menuLabel(b, label);
       b.addEventListener("click", ev => { ev.stopPropagation(); fn(b); });
       m.appendChild(b);
       return b;
@@ -488,7 +488,7 @@
     add(isFolder(n) ? "Delete Folder" : "Delete", b => {   // asks once: a second click deletes
       if (!b.hasAttribute("data-sure")) {
         b.setAttribute("data-sure", "");
-        b.textContent = isFolder(n) ? `Delete folder and ${count} bookmark${count === 1 ? "" : "s"}?` : "Delete this bookmark?";
+        menuLabel(b, isFolder(n) ? `Delete folder and ${count} bookmark${count === 1 ? "" : "s"}?` : "Delete this bookmark?");
         return;
       }
       closeMenu();
@@ -510,7 +510,7 @@
     m.className = "lp-menu";
     const add = (label, fn) => {
       const b = document.createElement("button");
-      b.type = "button"; b.className = "lp-menu-item"; b.textContent = label;
+      b.type = "button"; b.className = "lp-menu-item"; menuLabel(b, label);
       b.addEventListener("click", ev => { ev.stopPropagation(); closeMenu(); fn(); });
       m.appendChild(b);
     };
@@ -518,10 +518,12 @@
     add("Add Website…", () => { enterEdit(); siteGallery(); });
     add("Add Widget…", () => { enterEdit(); widgetGallery(); });
     add("Bookmarks…", () => { enterEdit(); folderPicker(); });
-    const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d);
-    add("Vivaldi OS Updates…" + (window.vosVersion ? "  (" + window.vosVersion + ")" : ""), () => checkUpdate(true));
+    const sep = () => { const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d); };
+    sep();
     add("Change Wallpaper…", changeWallpaper);
-    add("Theme & Wallpaper Settings…", wallpaperSettings);
+    sep();
+    add("Vivaldi OS Updates…" + (window.vosVersion ? "  (" + window.vosVersion + ")" : ""), () => checkUpdate(true));
+    add("Settings…", openSettings);
     m.addEventListener("click", ev => ev.stopPropagation());
     m.addEventListener("pointerdown", ev => ev.stopPropagation());
     lp.layer.appendChild(m);
@@ -845,6 +847,32 @@
     lp.layer.removeAttribute("data-editing");
     return true;
   }
+  /* right-click menus: an icon on the left of every item (like macOS / iOS menus) */
+  const MI = (d, fill) => `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const MENU_ICONS = [
+    [/^open in new|new tab|new window/i, MI('<rect x="3.5" y="5" width="13" height="12" rx="2.5"/><path d="M19.5 9v9a2.5 2.5 0 0 1-2.5 2.5H8"/><path d="M10 9v4M8 11h4"/>')],
+    [/^open launchpad/i, MI('<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/>')],
+    [/^open/i, MI('<path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>')],
+    [/^(edit home|done editing)/i, MI('<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><path d="M14.5 19.5l1-3 4-4 2 2-4 4z"/>')],
+    [/rename|edit/i, MI('<path d="M4 20l1.2-4.2L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z"/><path d="M14 7l3 3"/>')],
+    [/^copy/i, MI('<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')],
+    [/delete|remove/i, MI('<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>')],
+    [/folder|show in launchpad|show "/i, MI('<path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.5l2 2H18a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5z"/>')],
+    [/bookmark/i, MI('<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/>')],
+    [/add website|add to launchpad/i, MI('<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/>')],
+    [/widget/i, MI('<rect x="4" y="4" width="7" height="7" rx="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.8"/><path d="M16.5 14v5M14 16.5h5"/>')],
+    [/wallpaper/i, MI('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M6 16.5l4.3-4.6 3.2 3.2 2-2 3 3.4"/><circle cx="15.5" cy="9.5" r="1.4"/>')],
+    [/update/i, MI('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.6 4.6v4.2h-4.2"/>')],
+    [/settings/i, MI('<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6"/>')],
+    [/\bmin$/i, MI('<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 2M9.5 3.5h5"/>')],
+  ];
+  const BLANK_IC = '<svg class="lp-mi-ic" viewBox="0 0 24 24"></svg>';
+  function menuLabel(b, label) {                    // an icon on the left, then the words
+    const ic = (MENU_ICONS.find(([re]) => re.test(label)) || [null, BLANK_IC])[1];
+    b.innerHTML = ic;
+    const t = document.createElement("span"); t.className = "lp-mi-text"; t.textContent = label;
+    b.appendChild(t);
+  }
   const ICON = {
     update: '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M19.6 4.6v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     globe: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M3.6 12h16.8M12 3.4c2.4 2.6 2.4 14.6 0 17.2M12 3.4c-2.4 2.6-2.4 14.6 0 17.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
@@ -1162,7 +1190,7 @@
       m.className = "lp-menu";
       const add = (label, fn, cls) => {
         const b = document.createElement("button");
-        b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : ""); b.textContent = label;
+        b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : ""); menuLabel(b, label);
         b.addEventListener("click", ev => { ev.stopPropagation(); closeMenuP(); fn(); });
         m.appendChild(b);
       };
@@ -1800,7 +1828,7 @@
     m.className = "lp-menu vos-vars vos-tm-menu";
     const add = (label, fn, cls) => {
       const b = document.createElement("button");
-      b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : ""); b.textContent = label;
+      b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : ""); menuLabel(b, label);
       b.addEventListener("click", ev => { ev.stopPropagation(); closeTmMenu(); fn(); });
       m.appendChild(b);
     };
@@ -2026,6 +2054,10 @@
       wallpaperSettings();
     }
   }
+  function openSettings() {                        // Vivaldi's Settings
+    if (lp && !lp.desktop) close(true, true); else if (lp) close();
+    chrome.tabs.create({ url: "vivaldi://settings/" }, () => void chrome.runtime.lastError);
+  }
   function wallpaperSettings() {                   // Vivaldi's Themes settings (the theme's Background is in its Editor)
     if (lp && !lp.desktop) close(true, true); else close();
     chrome.tabs.create({ url: "vivaldi://settings/themes/" }, () => void chrome.runtime.lastError);
@@ -2118,7 +2150,7 @@
     m.className = "lp-menu vos-vars vos-desk-menu";
     const add = (label, fn) => {
       const b = document.createElement("button");
-      b.type = "button"; b.className = "lp-menu-item"; b.textContent = label;
+      b.type = "button"; b.className = "lp-menu-item"; menuLabel(b, label);
       b.addEventListener("click", ev => { ev.stopPropagation(); closeDesk(); fn(); });
       m.appendChild(b);
     };
@@ -2130,9 +2162,9 @@
     add("Bookmarks…", inLp(folderPicker));
     sep();
     add("Change Wallpaper…", changeWallpaper);
-    add("Theme & Wallpaper Settings…", wallpaperSettings);
     sep();
     add("Vivaldi OS Updates…" + (window.vosVersion ? "  (" + window.vosVersion + ")" : ""), () => checkUpdate(true));
+    add("Settings…", openSettings);
     m.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); });
     (document.getElementById("browser") || document.body).appendChild(m);
     m.style.position = "fixed";
