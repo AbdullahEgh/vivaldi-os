@@ -1233,3 +1233,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-ws-winghost { z-index: 2147483001 !important; pointer-events: none !important; opacity: 0.95 !important;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4) !important; transform: scale(1.08) !important; }
 #browser .vos-ws-more[data-drop] { opacity: 1 !important; }                                      /* a window over New: it lights up */
+
+/* Mission Control: the windows shrink below the desktops panel */
+#browser[data-vos-mission] .bento-divider, #browser[data-vos-mission] .bento-grip, #browser[data-vos-mission] .ft-max-grab { display: none !important; }
+#browser[data-vos-mission-anim] [data-ft-float], #browser[data-vos-mission-anim] .ft-frame {
+  transition: left 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), width 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), height 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser[data-vos-mission] .vos-ws-back { cursor: default !important; }

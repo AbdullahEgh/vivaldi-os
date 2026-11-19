@@ -100,6 +100,10 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const stack = () => $("#webpage-stack");
+  /* MISSION CONTROL: while the desktops panel is open, the windows shrink into the space
+     below it (none under it), so one is easy to drag onto another desktop */
+  let mission = null, missionDrag = null;            // { k, ox, oy } / { id, r } the window held
+  const mr = r => mission ? { x: mission.ox + r.x * mission.k, y: mission.oy + r.y * mission.k, w: r.w * mission.k, h: r.h * mission.k } : r;
   const browserEl = () => $("#browser");
   const pageOf = id => (id == null ? null : $(`#webpage-stack .webpageview[data-id="${CSS.escape(String(id))}"]`));
   const isTiled = page => !!page?.classList.contains("tiled");
@@ -1004,7 +1008,7 @@
     bentoSync(s);
     for (const { id, el } of windows) {
       addChrome(el, id);
-      const r = pxRect(id, s), o = origins.get(el.parentElement);
+      const r = missionDrag?.id === id ? missionDrag.r : mr(pxRect(id, s)), o = origins.get(el.parentElement);
       place(el, r, s, o);
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
@@ -2152,7 +2156,7 @@
   }
 
   function startGesture(e, el, how) {
-    if (bento.on && bento.rects.has(el.dataset.ftFloat)) return bentoGesture(e, el, how);   // a tiled window
+    if (!mission && bento.on && bento.rects.has(el.dataset.ftFloat)) return bentoGesture(e, el, how);   // a tiled window
     e.preventDefault();
     e.stopPropagation();
     const id = el.dataset.ftFloat;
@@ -2202,7 +2206,10 @@
     let zone = null, shown = null, zoneTimer = 0, leaving = false;
     /* TO ANOTHER DESKTOP: keep holding at the top edge - the desktops panel comes down;
        let go on a desktop and the window moves there */
-    let deskTimer = 0, deskDrop = false, deskOver = null;
+    let deskTimer = 0, deskDrop = !!mission && how === "move", deskOver = null;
+    const inMission = deskDrop;                                       // the panel was open already: Mission Control
+    let gOff = inMission ? (() => { const d = mr(s0); return { x: sx - ss.left - d.x, y: sy - ss.top - d.y }; })() : null;
+    let moved = false;
     const openDeskDrop = () => {
       deskDrop = true;
       clearTimeout(zoneTimer);
@@ -2235,9 +2242,18 @@
       snapCheck(px, py);
       deskCheck(px, py);
       if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
+      if (Math.hypot(px - sx, py - sy) > 4) moved = true;
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
         frame = 0;
+        if (mission && how === "move") {                             // Mission Control: the small window follows the pointer
+          const k = mission.k, cur = pxRect(id, ss);
+          if (!gOff) gOff = { x: (last.clientX - ss.left - cur.x) * k, y: (last.clientY - ss.top - cur.y) * k };
+          const d = { x: last.clientX - ss.left - gOff.x, y: last.clientY - ss.top - gOff.y, w: cur.w * k, h: cur.h * k };
+          missionDrag = { id, r: d };
+          place(el, d, ss); placeFrame(id, el, d, ss);
+          return;
+        }
         const dx = last.clientX - sx, dy = last.clientY - sy;
         let L = s0.x, T = s0.y, R = s0.x + s0.w, B = s0.y + s0.h;
         if (how === "move") { L += dx; R += dx; T += dy; B += dy; }
@@ -2284,16 +2300,24 @@
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
       clearTimeout(zoneTimer); clearTimeout(deskTimer);
+      const wasHeld = missionDrag?.id === id; missionDrag = null;
       if (deskDrop) {                                               // the desktops panel is open
         const card = deskOver; deskOver?.removeAttribute("data-drop");
-        const list = wsStrip?.__list || [];
-        closeWsStrip();
+        const strip = wsStrip, list = strip?.__list || [];
+        const keep = inMission && card && !card.classList.contains("vos-ws-more");   // Mission Control stays open
+        if (!keep && (!inMission || card || !moved)) closeWsStrip();
         if (card && ev.type === "pointerup") {
           persist(id);
           if (backToBento.delete(id)) bento.skip.delete(id);
           if (card.classList.contains("vos-ws-more")) return toNewDesk(id, list);
+          if (keep) {                                                 // its mini window goes to that desktop
+            const mini = strip.querySelector(`.vos-ws-win[data-tab="${CSS.escape(String(id))}"]`);
+            card.querySelector(".vos-ws-empty")?.remove();
+            if (mini) card.querySelector(".vos-ws-mini")?.appendChild(mini);
+          }
           return toDesk(id, card.dataset.ws ? (list.find(w => String(w.id) === card.dataset.ws)?.id ?? null) : null);
         }
+        if (inMission) { if (wasHeld) queueRender(); return; }      // let go elsewhere: back to its place
       }
       if (leaving) {                                                // let go outside: to the Vivaldi window under it
         const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
@@ -2821,9 +2845,19 @@
     if (!p) return;
     p.then(ws => { if (ws !== undefined) toDesk(id, ws); else wsErr("new + move", "no new desktop"); });
   }
+  function missionMode(m) {
+    if (!m && !mission) return;
+    mission = m;
+    const b = browserEl();
+    b?.toggleAttribute("data-vos-mission", !!m);
+    b?.setAttribute("data-vos-mission-anim", "");                   // a short glide in and out
+    clearTimeout(missionMode.t); missionMode.t = setTimeout(() => b?.removeAttribute("data-vos-mission-anim"), 320);
+    render();
+  }
   function closeWsStrip() {
     if (!wsStrip) return;
     const st = wsStrip; wsStrip = null;
+    missionMode(null);
     st.__back?.remove(); closeWsMenu();
     removeEventListener("keydown", wsKey, true);
     removeEventListener("pointerdown", wsOut, true);
@@ -2832,7 +2866,7 @@
       .finished.catch(() => {}).then(() => st.remove());
   }
   // a click outside the strip closes it - its own right-click menu and the Workspaces button are not outside
-  const wsOut = ev => { if (wsStrip && !wsStrip.contains(ev.target) && !ev.target?.closest?.(WS_BTN + ", .vos-ws-menu")) closeWsStrip(); };
+  const wsOut = ev => { if (wsStrip && ev.target !== wsStrip.__back && !wsStrip.contains(ev.target) && !ev.target?.closest?.(WS_BTN + ", .vos-ws-menu")) closeWsStrip(); };
   const wsKey = ev => {
     if (ev.key !== "Escape" || !wsStrip) return;
     ev.preventDefault(); ev.stopPropagation();
@@ -2921,6 +2955,12 @@
     back.addEventListener("pointerdown", ev => {
       ev.preventDefault(); ev.stopPropagation();
       if (wsMenuEl) return closeWsMenu();                           // a menu open: that closes first, the strip stays
+      if (mission) {                                                // Mission Control: a window under it - pick it up
+        const under = document.elementsFromPoint(ev.clientX, ev.clientY).find(n => n !== back && !n.closest?.(".vos-ws-strip"));
+        const fr = under?.closest?.(".ft-frame");
+        const w = under?.closest?.("[data-ft-float]") || (fr ? targetOf(pageOf(fr.dataset.ftFor)) : null);
+        if (w?.hasAttribute("data-ft-float") && !w.hasAttribute("data-ft-away")) return startGesture(ev, w, "move");
+      }
       closeWsStrip();
     });
     strip.__back = back;
@@ -2930,6 +2970,9 @@
     strip.style.top = top + "px";
     panel.animate([{ transform: "translateY(-100%)" }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
     wsStrip = strip; strip.__list = list;
+    { const pb = strip.offsetTop + panel.offsetTop + panel.offsetHeight;   // Mission Control: the windows below the panel
+      const oy = Math.max(0, pb - ss.top) + 16, k = Math.max(0.3, Math.min(0.8, (ss.height - oy - 16) / Math.max(1, ss.height)));
+      missionMode({ k, ox: (ss.width - ss.width * k) / 2, oy }); }
     addEventListener("keydown", wsKey, true);
     setTimeout(() => addEventListener("pointerdown", wsOut, true));
     { const cur = row.querySelector("[data-current]");               // the current desktop in view (the row only scrolls itself)
