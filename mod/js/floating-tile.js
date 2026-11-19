@@ -33,8 +33,8 @@
      Places are relative to the Vivaldi window and survive a restart.
 
    SNAP (like Windows Aero Snap / macOS tiling): drag a window and bring the
-     POINTER within 10% of an edge of the desktop: top -> full screen; left or
-     right -> Bento with the window on that half. Windows can be dragged partly
+     POINTER to the top 2% of the desktop or onto the tab bar -> full screen;
+     within 10% of the left or right side -> Bento with the window on that half. Windows can be dragged partly
      off the desktop (100px stays on it, the top never goes above it). A frosted preview shows where it goes; leave the
      edge before letting go and nothing snaps. A full-screen page has a handle
      in the middle of its top edge: drag it down and the page floats again.
@@ -2239,15 +2239,17 @@
   }
 
   /* the snap preview: a frosted rounded area where the window will go */
-  const SNAP_ZONE = 0.1, SNAP_HOLD = 200;
-  /* which snap zone the pointer is in: within 10% of the top (full screen) or of the
-     left / right side (that half); in a corner, the nearer edge */
+  const SNAP_ZONE = 0.1, SNAP_TOP = 0.02, SNAP_HOLD = 200;
+  /* which snap zone the pointer is in: the top 2% of the desktop, or the tab bar above
+     it (full screen); within 10% of the left / right side (that half) */
   function snapZone(x, y) {
     const r = stack()?.getBoundingClientRect();
     if (!r) return null;
-    const t = (y - r.top) / r.height, l = (x - r.left) / r.width, rt = (r.right - x) / r.width;
-    const near = [["full", t], ["left", l], ["right", rt]].filter(([, d]) => d <= SNAP_ZONE).sort((a, b) => a[1] - b[1]);
-    return near[0]?.[0] || null;
+    if (y <= r.top + r.height * SNAP_TOP) return "full";               // includes the tab bar above it
+    const l = (x - r.left) / r.width, rt = (r.right - x) / r.width;
+    if (l <= SNAP_ZONE && l <= rt) return "left";
+    if (rt <= SNAP_ZONE) return "right";
+    return null;
   }
   let snapEl = null;
   function snapPreview(zone, fromEl, taken) {

@@ -2121,7 +2121,7 @@
     });
   }
   let updEl = null;
-  function updateNotice(tag, title, sub) {
+  function updateNotice(tag, title, sub, install) {
     updEl?.remove();
     const n = document.createElement("div");
     n.className = "vos-upd vos-vars";
@@ -2154,6 +2154,8 @@
     } else btn("OK", close, "vos-upd-main");
     n.appendChild(row);
     n.addEventListener("pointerdown", ev => ev.stopPropagation());
+    // from the "New Update" button: go straight on (Windows: download and run; Mac: copy the line)
+    if (install && tag) row.querySelector(".vos-upd-main")?.click();   // still inside your click: the clipboard allows it
     (document.getElementById("browser") || document.body).appendChild(n);
     n.animate([{ opacity: 0, transform: "translate(-50%, -12px) scale(0.97)" }, { opacity: 1, transform: "translate(-50%, 0)" }],
               { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" });
@@ -2213,10 +2215,10 @@
       tagEl = document.createElement("button");
       tagEl.type = "button"; tagEl.className = "vos-upd-tag";
       tagEl.addEventListener("pointerdown", ev => ev.stopPropagation());
-      tagEl.addEventListener("click", ev => { ev.stopPropagation(); updateNotice(tagFor); });
+      tagEl.addEventListener("click", ev => { ev.stopPropagation(); updateNotice(tagFor, null, null, true); });   // installs
     }
     tagEl.textContent = "New Update";
-    tagEl.title = `Vivaldi OS ${tag} is available (you have ${window.vosVersion})`;
+    tagEl.title = `Install Vivaldi OS ${tag} (you have ${window.vosVersion})`;
     if (bar.firstChild !== tagEl) bar.insertBefore(tagEl, bar.firstChild);
   }
   setInterval(() => { if (tagFor && !tagEl?.isConnected) updTag(tagFor); }, 2000);   // a re-drawn tab bar gets it back
