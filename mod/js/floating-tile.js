@@ -444,7 +444,7 @@
         const home = splitHome.get(String(ext(tab).tiling?.id || ""));
         if (home && home !== id) { persist(id); continue; }       // floating.has(id) is false: clears it
         if (f.r) frac[id] = f.r;
-        // title bars are always shown (an old saved "hidden" is ignored)
+        noTitle.add(id);                                          // floating windows never show a title bar
         if (f.g) groupFloat.add(id);
         if (f.z && Math.abs(f.z - 1) > 0.01) zoomOf[id] = f.z;
         floating.add(id); raise(id);
@@ -463,7 +463,7 @@
           splitsDone.add(String(sp));
           groupFloat.add(id);
         }
-        floating.add(id); raise(id);
+        floating.add(id); noTitle.add(id); raise(id);
         persist(id);
         any = true;
       }
@@ -769,7 +769,7 @@
   }
   function floatNow(id, page) {
     origin.set(id, { tiled: isTiled(page), group: isTiled(page) ? groupOf(page) : "" });
-    noTitle.delete(id);                                           // every window has its title bar
+    noTitle.add(id);                                              // floating windows never show a title bar
     floating.add(id); minimized.delete(id); raise(id);
     persist(id);
   }
@@ -1894,6 +1894,8 @@
     preview.className = "bento-preview";
     host?.appendChild(preview);
     let key = "", split = false, holdTimer = 0, proposal = null, frame = 0, last = null;
+    let top = false, topTimer = 0, topShown = false;                 // held at the top edge: full screen
+    const shake = shaker();
     const show = (r, conflict) => {
       if (!r) { preview.removeAttribute("data-show"); return; }
       place(preview, r, ss, fixedOrigin(host));
@@ -1917,6 +1919,13 @@
       bentoDrag = { id, rect: { x: r0.x + dx, y: r0.y + dy, w: r0.w, h: r0.h } };
       setStyle(el, "z-index", "2000");
       place(el, bentoDrag.rect, ss); placeFrame(id, el, bentoDrag.rect, ss);
+      const atTop = last.cy <= ss.top + SNAP_EDGE;
+      if (atTop !== top) {
+        top = atTop; clearTimeout(topTimer);
+        if (topShown) { snapPreview(null); topShown = false; }
+        if (atTop) topTimer = setTimeout(() => { topShown = true; show(null); snapPreview("full", el); }, SNAP_HOLD);
+      }
+      if (top) return;
       const target = bento.layout?.regions.find(r => r.leaf.win !== id &&
         last.x >= r.r.x && last.x < r.r.x + r.r.w && last.y >= r.r.y && last.y < r.r.y + r.r.h);
       const where = target ? bPlacement(target.r, last) : "";
@@ -1930,11 +1939,27 @@
     const onMove = ev => {
       if (ev.pointerId !== pid) return;
       last = { cx: ev.clientX, cy: ev.clientY, x: ev.clientX - ss.left, y: ev.clientY - ss.top };
+      if (shake(ev.clientX, ev.timeStamp)) return shakeOff(ev);
       if (!frame) frame = requestAnimationFrame(update);
+    };
+    /* shaken: Bento ends, every window goes back to its own place, and this one
+       keeps following the pointer as a floating window */
+    const shakeOff = ev => {
+      proposal = null;
+      onUp({ pointerId: pid, type: "pointercancel" });
+      bentoToggle(false);
+      const s2 = stackRect(), r = pxRect(id, s2);
+      setPx(id, clampRect({ x: ev.clientX - s2.left - r.w / 2, y: Math.max(MARGIN, ev.clientY - s2.top - 14), w: r.w, h: r.h }, s2), s2);
+      render();
+      const w = targetOf(pageOf(id));
+      if (w?.hasAttribute("data-ft-float")) startGesture(ev, w, "move");
     };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
-      cancelAnimationFrame(frame); clearTimeout(holdTimer);
+      cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer);
+      const full = topShown && ev.type === "pointerup";
+      if (topShown) snapPreview(null, null, full);
+      if (full) proposal = null;
       shield.remove(); preview.remove();
       removeEventListener("pointermove", onMove, true);
       removeEventListener("pointerup", onUp, true);
@@ -1946,6 +1971,8 @@
         bento.shape = bShape(bento.root);
         render();
       });
+      // full screen; leaving it (green button, or dragging its top edge down) brings it back into Bento
+      if (full) act("zoom", pageOf(id));
     };
     const onKey = ev => { if (ev.key === "Escape") { ev.preventDefault(); proposal = null; onUp({ pointerId: pid, type: "pointercancel" }); } };
     addEventListener("pointermove", onMove, true);
@@ -2115,6 +2142,7 @@
        (full screen) or at the left / right edge (Bento, that half): a preview shows
        where it goes, and letting go puts it there. Leave the edge: no snap. */
     let zone = null, shown = null, zoneTimer = 0;
+    const shake = shaker();
     const zoneAt = (x, y) => {
       const r = stack()?.getBoundingClientRect();
       if (!r) return null;
@@ -2137,6 +2165,7 @@
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
       snapCheck(px, py);
+      if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
         frame = 0;
@@ -2196,6 +2225,21 @@
     addEventListener("pointermove", onMove, true);
     addEventListener("pointerup", onUp, true);
     addEventListener("pointercancel", onUp, true);
+  }
+
+  /* SHAKE: a window shaken left-right while you drag it (4 quick turns) */
+  function shaker() {
+    let dir = 0, turnX = null, turns = [];
+    return (x, t) => {
+      if (turnX == null) { turnX = x; return false; }
+      const d = Math.sign(x - turnX);
+      if (!d || Math.abs(x - turnX) < 28) return false;          // too small to count as a swing
+      if (d !== dir) { if (dir) turns.push(t); dir = d; }
+      turnX = x;
+      turns = turns.filter(u => t - u < 800);
+      if (turns.length >= 4) { turns = []; return true; }
+      return false;
+    };
   }
 
   /* the snap preview: a frosted rounded area where the window will go */
@@ -2274,7 +2318,6 @@
       const px = ev.clientX - ss.left, py = ev.clientY - ss.top;
       setPx(id, clampRect({ x: px - w / 2, y: Math.max(MARGIN, py - 14), w, h }, ss), ss);
       floatNow(id, page);
-      noTitle.delete(id);                                            // its title bar: where you hold it
       render();
       const el = targetOf(pageOf(id));
       if (el?.hasAttribute("data-ft-float")) startGesture(ev, el, "move");
