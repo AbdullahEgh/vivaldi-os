@@ -33,8 +33,8 @@
      Places are relative to the Vivaldi window and survive a restart.
 
    SNAP (like Windows Aero Snap / macOS tiling): drag a window and bring the
-     POINTER to the top 2% of the desktop or onto the tab bar -> full screen;
-     within 2% of the left or right side -> Bento with the window on that half. Windows can be dragged partly
+     POINTER to the top edge of the desktop (or onto the tab bar) -> full screen;
+     to the left or right edge -> Bento with the window on that half. Windows can be dragged partly
      off the desktop (100px stays on it, the top never goes above it). A frosted preview shows where it goes; leave the
      edge before letting go and nothing snaps. A full-screen page has a handle
      in the middle of its top edge: drag it down and the page floats again.
@@ -2253,16 +2253,15 @@
   }
 
   /* the snap preview: a frosted rounded area where the window will go */
-  const SNAP_ZONE = 0.02, SNAP_TOP = 0.02, SNAP_HOLD = 200;
-  /* which snap zone the pointer is in: the top 2% of the desktop, or the tab bar above
-     it (full screen); within 2% of the left / right side (that half) */
+  const SNAP_HOLD = 200;
+  /* which snap zone the pointer is in: AT the top edge of the desktop, or on the tab bar
+     above it (full screen); AT the left / right edge (that half) */
   function snapZone(x, y) {
     const r = stack()?.getBoundingClientRect();
     if (!r) return null;
-    if (y <= r.top + r.height * SNAP_TOP) return "full";               // includes the tab bar above it
-    const l = (x - r.left) / r.width, rt = (r.right - x) / r.width;
-    if (l <= SNAP_ZONE && l <= rt) return "left";
-    if (rt <= SNAP_ZONE) return "right";
+    if (y <= r.top + 1) return "full";                               // at the top edge, or on the tab bar above it
+    if (x <= r.left + 1 || x <= 1) return "left";                    // at the left edge
+    if (x >= r.right - 2 || x >= innerWidth - 2) return "right";     // at the right edge
     return null;
   }
   let snapEl = null;
@@ -2410,6 +2409,7 @@
   async function openWsStrip() {
     if (wsStrip) return closeWsStrip();
     const list = (await prefGet("vivaldi.workspaces.list")) || [];
+    defaultIcons(list);
     const tabs = await tabsQuery({ currentWindow: true });
     const info = new Map((tabs || []).map(t => [String(t.id), t]));
     const ss = stackRect(), cur = curWs();
@@ -2469,7 +2469,7 @@
       const names = new Set(list.map(w => w.name));
       let n = list.length + 2, name;
       do { name = "Desktop " + n++; } while (names.has(name));
-      if (api) { try { api.addWorkspace(name, list[0]?.icon, undefined, undefined, false); return; } catch (e) { LOG("workspaces: new failed", e); } }
+      if (api) { try { api.addWorkspace(name, undefined, undefined, undefined, false); return; } catch (e) { LOG("workspaces: new failed", e); } }
       openVivaldiWs(false);                                          // fallback: Vivaldi's own list (its New button)
     });
     row.appendChild(more);
@@ -2490,27 +2490,45 @@
     row.querySelector("[data-current]")?.scrollIntoView({ inline: "center", block: "nearest" });
   }
   /* Vivaldi's own workspace actions - the ones its menu calls - found by their names
-     (setName, addWorkspace, activateWorkspaceByIndex) in its module registry */
+     (setName, addWorkspace, activateWorkspaceByIndex) in its module registry, which is in
+     Vivaldi's background page (its interface code runs there and draws into the window) */
   let wsApi = null;
   function vivWs() {
     if (wsApi) return wsApi;
     try {
-      const ch = self.webpackChunkgapp_browser_react;
+      let host = null;
+      try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
+      const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
       if (!ch?.push) return null;
       let req = null;
       ch.push([["vos-ws-" + Date.now()], {}, r => { req = r; }]);
-      for (const id in req?.c || {}) {
-        const ex = req.c[id]?.exports;
-        if (!ex || typeof ex !== "object") continue;
-        for (const k of Object.keys(ex)) {
-          let v; try { v = ex[k]; } catch (e) { continue; }
-          if (v && typeof v.setName === "function" && typeof v.addWorkspace === "function" && typeof v.activateWorkspaceByIndex === "function") return (wsApi = v);
-        }
+      // the registry has the module definitions (no cache): the one with the workspace actions
+      const isWs = v => v && typeof v.setName === "function" && typeof v.addWorkspace === "function" && typeof v.activateWorkspaceByIndex === "function";
+      for (const id of Object.keys(req?.m || {})) {
+        let src = "";
+        try { src = Function.prototype.toString.call(req.m[id]); } catch (e) { continue; }
+        if (!src.includes("activateWorkspaceByIndex(") || !src.includes("SET_WORKSPACE_NAME")) continue;
+        let ex; try { ex = req(id); } catch (e) { continue; }
+        if (isWs(ex)) return (wsApi = ex);
+        for (const k of Object.keys(ex || {})) { let v; try { v = ex[k]; } catch (e) { continue; } if (isWs(v)) return (wsApi = v); }
       }
     } catch (e) { LOG("workspaces: Vivaldi's actions not found", e); }
     return null;
   }
-  const winId = () => new Promise(r => chrome.windows.getCurrent(w => r(w?.id)));
+  const winId = () => window.vivaldiWindowId != null ? Promise.resolve(window.vivaldiWindowId) : new Promise(r => chrome.windows.getCurrent(w => r(w?.id)));
+  /* every desktop shows Vivaldi's default workspace icon (the stacked layers): any icon
+     or emoji of its own is cleared, through Vivaldi's own setters */
+  async function defaultIcons(list) {
+    const api = vivWs();
+    if (!api) return;
+    for (const w of list || (await prefGet("vivaldi.workspaces.list")) || []) {
+      try {
+        if (w.icon) api.setIcon(w.id, undefined);
+        if (w.emoji) api.setEmoji?.(w.id, undefined);
+      } catch (e) {}
+    }
+  }
+  setTimeout(() => defaultIcons(), 8000);
 
   /* open Vivaldi's own workspace list (silent: only to press one of its items) */
   function openVivaldiWs(silent) {
