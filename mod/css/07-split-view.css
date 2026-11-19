@@ -1272,3 +1272,19 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-mc-icon[data-held] { opacity: 0 !important; }
 @keyframes vos-mc-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vos-mc-out { to { opacity: 0; } }
+
+/* the OS widgets made from Command Chains (Mission Control, Timer): their drawing, not the chain icon */
+#browser .vos-chain button > :not(.vos-chain-ic) { display: none !important; }
+#browser .vos-chain .vos-chain-ic { display: grid !important; place-items: center !important; }
+#browser .vos-chain-vosmission .vos-chain-ic svg { fill: currentColor !important; }
+/* TOUCH: on a touch screen the window edges are finger-sized (they reach out past the window) */
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-t { top: -12px !important; height: 24px !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-b { bottom: -12px !important; height: 24px !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-l { left: -12px !important; width: 24px !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-r { right: -12px !important; width: 24px !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > :is(.ft-tl, .ft-tr, .ft-bl, .ft-br) { width: 36px !important; height: 36px !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-tl { top: -14px !important; left: -14px !important; clip-path: polygon(0 0, 100% 0, 100% 20px, 20px 20px, 20px 100%, 0 100%) !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-tr { top: -14px !important; right: -14px !important; clip-path: polygon(0 0, 100% 0, 100% 100%, calc(100% - 20px) 100%, calc(100% - 20px) 20px, 0 20px) !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-bl { bottom: -14px !important; left: -14px !important; clip-path: polygon(0 0, 20px 0, 20px calc(100% - 20px), 100% calc(100% - 20px), 100% 100%, 0 100%) !important; }
+#browser:is([data-ft-touch], [data-ft-touch-capable]) .ft-frame > .ft-br { bottom: -14px !important; right: -14px !important; clip-path: polygon(calc(100% - 20px) 0, 100% 0, 100% 100%, 0 100%, 0 calc(100% - 20px), calc(100% - 20px) calc(100% - 20px)) !important; }
+#browser .ft-frame > .ft-grab, #browser .ft-max-grab, #browser .vos-ws-card, #browser .bento-divider, #browser .bento-grip { touch-action: none !important; }

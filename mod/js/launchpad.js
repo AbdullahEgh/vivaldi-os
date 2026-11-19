@@ -2066,6 +2066,12 @@
       else { if (lp && !lp.desktop) close(true, true); window.vosShowDesktop?.(); setTimeout(syncDesk, 50); }
     }, true);
 
+  // the "OS · Timer" toolbar button: its ring shows by the clock, and the timer opens / closes
+  window.vosTimer = { toggle() {
+    if (!tm.mini) { tm = { ...tm, mini: true }; saveTm(); }
+    paintMini(); ensureTick();
+    setTimeout(() => (tmPop ? closeTmPop() : openTmPop()), 0);
+  } };
   window.vosLaunchpad = { open, close, toggle: () => (lp && !lp.desktop ? close() : (lp && close(true, true), open())),
                           get isOpen() { return !!lp && !lp.desktop; } };
 

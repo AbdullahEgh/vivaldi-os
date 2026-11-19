@@ -1317,6 +1317,11 @@ window.vosBeat = window.vosBeat || (() => {
      front window's tab becomes active (that keeps the desktop up). Only with
      no windows at all is it the empty desktop (a Start Page tab). */
   window.vosShowDesktop = () => showDesktop();
+  (function touchScreen() {                           // a touch screen: finger-sized window edges
+    const b = browserEl();
+    if (!b) return setTimeout(touchScreen, 300);
+    if (navigator.maxTouchPoints > 0 || matchMedia("(any-pointer: coarse)").matches) b.setAttribute("data-ft-touch-capable", "");
+  })();
   // the Launchpad opens an app in the Start Page tab it was opened from: that tab floats once it has a site
   window.vosFloatNext = tabId => { const id = String(tabId); floatOnLoad.add(id); floatOnLoadAt.set(id, Date.now()); siteReady.delete(id); };
   async function showDesktop() {
@@ -2308,6 +2313,16 @@ window.vosBeat = window.vosBeat || (() => {
     if (api) { try { res(api.set(path, value) !== false); return; } catch (e) { LOG("prefs set", e); } }
     res(false);                                     // never a plain set: Vivaldi would undo it
   });
+  /* THE OS WIDGETS in Vivaldi's toolbar editor: Bento, Mission Control and Timer are Command
+     Chains named "OS · ..." - they sit together in the editor's Command Chains list, and drag
+     onto any toolbar like Vivaldi's own buttons. Bento starts on the tab bar. */
+  const OS_CHAINS = [
+    { key: "vosbento", label: "OS · Bento", old: ["Bento"] },
+    { key: "vosmission", label: "OS · Mission Control" },
+    { key: "vostimer", label: "OS · Timer" },
+  ];
+  const chainName = c => "COMMAND_" + c.key;
+  const editingToolbar = () => !!document.querySelector("#browser.toolbar-edit-mode");   // Vivaldi's toolbar editor is open
   let chainReady = false;
   setTimeout(async function bentoChainSetup() {      // after start (every helper ready)
     try {
@@ -2317,10 +2332,19 @@ window.vosBeat = window.vosBeat || (() => {
         return;
       }
       // every start: the chain exists (a toolbar naming a missing chain breaks Vivaldi's tab bar)
-      const list = (await prefGet("vivaldi.chained_commands.command_list")) || [];
+      let list = (await prefGet("vivaldi.chained_commands.command_list")) || [];
       if (!Array.isArray(list)) return;
-      if (!list.some(c => c?.name === BENTO_CHAIN))
-        await prefSet("vivaldi.chained_commands.command_list", [...list, { category: "CATEGORY_COMMAND_CHAIN", chain: [], key: "vosbento", label: "Bento", name: BENTO_CHAIN }]);
+      let changed = false;
+      list = list.map(c => {                           // their names (an older "Bento" becomes "OS · Bento")
+        const o = OS_CHAINS.find(x => chainName(x) === c?.name);
+        if (o && c.label !== o.label) { changed = true; return { ...c, label: o.label }; }
+        return c;
+      });
+      for (const o of OS_CHAINS) if (!list.some(c => c?.name === chainName(o))) {
+        list = [...list, { category: "CATEGORY_COMMAND_CHAIN", chain: [], key: o.key, label: o.label, name: chainName(o) }];
+        changed = true;
+      }
+      if (changed) await prefSet("vivaldi.chained_commands.command_list", list);
       // on no toolbar (an installer reset the tab bar, or it was taken off): back after Workspaces
       const bars = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
       const vals = await Promise.all(bars.map(b => prefGet("vivaldi.toolbars." + b)));
@@ -2334,15 +2358,36 @@ window.vosBeat = window.vosBeat || (() => {
       chainReady = true;
     } catch (e) { LOG("bento chain", e); }
   }, 1200);
-  function chainButton() {                          // Vivaldi's button for the "Bento" chain, wherever it is
+  function osChainButtons() {                       // Vivaldi's buttons for the OS chains, wherever they are
+    const out = {};
     for (const b of document.querySelectorAll("#browser .toolbar button")) {
+      if (b.closest(".bento-toggle:not(.vos-bento-chain)")) continue;
       const t = (b.getAttribute("title") || b.getAttribute("aria-label") || "").trim();
-      if (!/^Bento\b/.test(t) || b.closest(".bento-toggle:not(.vos-bento-chain)")) continue;
-      return b;
+      for (const o of OS_CHAINS)
+        if (!out[o.key] && [o.label, ...(o.old || [])].some(l => t === l || t.startsWith(l + " ") || t.startsWith(l + "\n"))) out[o.key] = b;
     }
-    return null;
+    return out;
+  }
+  const chainButton = () => osChainButtons().vosbento || null;
+  const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect x="2" y="3" width="6" height="5" rx="1.3"/><rect x="10" y="3" width="6" height="5" rx="1.3"/><rect x="2" y="10" width="14" height="5" rx="1.3"/></svg>';
+  const TIMER_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><circle cx="9" cy="10.2" r="5.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 10.2V7.2M7 2.6h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  function osWidgets() {                            // Mission Control and Timer: their drawing and click
+    const found = osChainButtons();
+    for (const [key, icon, act] of [["vosmission", MC_ICON, () => openWsStrip()], ["vostimer", TIMER_ICON, b => window.vosTimer?.toggle(b)]]) {
+      const btn = found[key];
+      if (!btn) continue;
+      const wrap = btn.closest(".button-toolbar") || btn;
+      if (!wrap.__vosChain) {
+        wrap.__vosChain = true;
+        wrap.classList.add("vos-chain", "vos-chain-" + key);
+        wrap.addEventListener("pointerdown", ev => { if (!editingToolbar()) ev.stopPropagation(); }, true);
+        wrap.addEventListener("click", ev => { if (editingToolbar()) return; ev.preventDefault(); ev.stopPropagation(); act(wrap); }, true);
+      }
+      if (!btn.querySelector(":scope > .vos-chain-ic")) { const ic = document.createElement("span"); ic.className = "vos-chain-ic"; ic.innerHTML = icon; btn.appendChild(ic); }
+    }
   }
   function bentoButton() {
+    osWidgets();
     const chain = chainButton();
     if (chain) {                                    // Vivaldi's own: the injected one goes
       $$("#browser .bento-toggle:not(.vos-bento-chain)").forEach(x => x.remove());
@@ -2350,9 +2395,8 @@ window.vosBeat = window.vosBeat || (() => {
       if (!wrap.__vosBento) {
         wrap.__vosBento = true;
         wrap.classList.add("bento-toggle", "vos-bento-chain");
-        const stop = ev => { ev.stopPropagation(); };
-        wrap.addEventListener("pointerdown", stop, true);
-        wrap.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); bentoToggle(); }, true);
+        wrap.addEventListener("pointerdown", ev => { if (!editingToolbar()) ev.stopPropagation(); }, true);
+        wrap.addEventListener("click", ev => { if (editingToolbar()) return; ev.preventDefault(); ev.stopPropagation(); bentoToggle(); }, true);
       }
       let ic = chain.querySelector(":scope > .vos-bento-ic");
       if (!ic) { ic = document.createElement("span"); ic.className = "vos-bento-ic"; chain.appendChild(ic); ic.__on = null; }
@@ -3211,8 +3255,66 @@ window.vosBeat = window.vosBeat || (() => {
   function toNewDesk(id, list) {
     const p = newDesk(list, true);
     if (!p) return;
-    p.then(ws => { if (ws !== undefined) toDesk(id, ws); else wsErr("new + move", "no new desktop"); });
+    p.then(async ws => {
+      if (ws === undefined) return wsErr("new + move", "no new desktop");
+      await toDesk(id, ws);
+      const pa = vivPages(), wid = await winId();
+      swipeTo({ id: ws, name: "", go: async () => {                 // and you go with it, swiping
+        if (pa?.setActiveWorkspace) await pa.setActiveWorkspace(wid, ws);
+        else await switchWs({ id: ws }, (await prefGet("vivaldi.workspaces.list")) || list);
+      } }, list, 1);
+    });
   }
+  /* Vivaldi's page actions (move to a desktop, show a desktop), found like the workspace ones */
+  let pagesApi = null;
+  function vivPages() {
+    if (pagesApi) return pagesApi;
+    try {
+      let host = null;
+      try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
+      const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
+      if (!ch?.push) return null;
+      let req = null;
+      ch.push([["vos-pages-" + Date.now()], {}, r => { req = r; }]);
+      const isPA = v => v && typeof v.setActiveWorkspace === "function" && typeof v.moveToWorkspace === "function";
+      for (const id of Object.keys(req?.m || {})) {
+        let src = "";
+        try { src = Function.prototype.toString.call(req.m[id]); } catch (e) { continue; }
+        if (!src.includes("PageActions.moveToWorkspace")) continue;
+        let ex; try { ex = req(id); } catch (e) { continue; }
+        if (isPA(ex)) return (pagesApi = ex);
+        for (const k of Object.keys(ex || {})) { let v; try { v = ex[k]; } catch (e) { continue; } if (isPA(v)) return (pagesApi = v); }
+      }
+    } catch (e) { LOG("pages: Vivaldi's actions not found", e); }
+    return null;
+  }
+  /* SWIPE BETWEEN DESKTOPS: two fingers sideways over the Mission Control (Workspaces) button */
+  async function swipeDesk(dir) {
+    const list = (await prefGet("vivaldi.workspaces.list")) || [];
+    const tabs = await tabsQuery({ currentWindow: true });
+    const mine = await myDesks(list, tabs, curWs());
+    const ds = list.filter(w => mine.has(String(w.id)));
+    const i = ds.findIndex(w => sameWs(w.id, curWs()));
+    const t = ds[i + dir];
+    if (i < 0 || !t) return;
+    if (wsStrip) closeWsStrip(false, !!mission);
+    swipeTo({ id: t.id, name: t.name }, list, dir);
+  }
+  let swAcc = 0, swAt = 0, swLast = 0;
+  addEventListener("wheel", ev => {
+    if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
+    if (Math.abs(ev.deltaX) <= Math.abs(ev.deltaY)) return;
+    ev.preventDefault();                                             // not Vivaldi's back / forward swipe
+    const now = Date.now();
+    if (now - swLast > 250) swAcc = 0;
+    swLast = now;
+    if (now - swAt < 700) return;                                    // one desktop per swipe
+    swAcc += ev.deltaX;
+    if (Math.abs(swAcc) < 40) return;
+    const dir = swAcc > 0 ? 1 : -1;
+    swAcc = 0; swAt = now;
+    swipeDesk(dir);
+  }, { capture: true, passive: false });
   /* Mission Control shows a window smaller by scaling it (the page keeps its size): its
      top-left goes to disp; null: back to normal */
   function missionLook(id, el, disp, r) {
@@ -3496,7 +3598,7 @@ window.vosBeat = window.vosBeat || (() => {
     // the leaving windows stay visible while they slide out, even once they belong to another desktop
     leaving.forEach(el => { el.setAttribute("data-ft-swipe-out", ""); el.setAttribute("data-ft-ws-leave", ""); });
     const t1 = Date.now();
-    await switchWs(sp, list);                                         // at once: both desktops move together
+    await (sp.go ? sp.go() : switchWs(sp, list));                    // at once: both desktops move together
     while (Date.now() - t1 < 900) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
     render();
     await new Promise(r => setTimeout(r, Math.max(0, 400 - (Date.now() - t1))));
@@ -3544,7 +3646,7 @@ window.vosBeat = window.vosBeat || (() => {
   // the Workspaces button opens the strip (Vivaldi's own list only through "Manage…")
   for (const type of ["pointerdown", "mousedown", "click"]) {
     addEventListener(type, ev => {
-      if (wsPass || ev.button !== 0) return;
+      if (wsPass || ev.button !== 0 || document.querySelector("#browser.toolbar-edit-mode")) return;   // the toolbar editor: Vivaldi's, to drag
       const b = ev.target?.closest?.(WS_BTN);
       if (!b) return;
       ev.preventDefault(); ev.stopPropagation();
