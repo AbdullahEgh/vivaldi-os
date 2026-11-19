@@ -2141,21 +2141,34 @@
     const close = () => { n.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -8px)" }], { duration: 180, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => n.remove()); if (updEl === n) updEl = null; };
     if (tag) {
       btn("Later", () => { vstore.set(UPD_KEY, tag); close(); });
-      if (!isMac && chrome.downloads?.download) btn("Update Now", b => winUpdate(b, p), "vos-upd-main");
+      const auto = !isMac && chrome.downloads?.download;
+      if (auto) btn("Update Now", b => winUpdate(b, p), "vos-upd-main");
+      // copying the line: a row of its own, apart from Update Now
+      const copyRow = document.createElement("div"); copyRow.className = "vos-upd-copy";
+      const cap = document.createElement("span"); cap.className = "vos-upd-copy-cap";
+      cap.textContent = auto ? "Or copy the update line for:" : "Copy the update line for:";
+      copyRow.appendChild(cap);
       for (const [where, line] of updateLines()) {
-        const label = updateLines().length > 1 ? `Copy for ${where}` : "Copy Update Line";
-        btn(label, async b => {
+        const label = where;
+        const b = document.createElement("button"); b.type = "button";
+        b.className = "vos-upd-btn vos-upd-copybtn" + (auto ? "" : " vos-upd-main");
+        b.textContent = label;
+        copyRow.appendChild(b);
+        b.addEventListener("click", async ev => {
+          ev.stopPropagation();
           try { await navigator.clipboard.writeText(line); } catch (e) {
             const ta = document.createElement("textarea"); ta.value = line; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
           }
           b.textContent = "Copied ✓"; setTimeout(() => (b.textContent = label), 1800);
-        }, "vos-upd-main");
+        });
       }
+      n.__copy = copyRow;
     } else btn("OK", close, "vos-upd-main");
     n.appendChild(row);
+    if (n.__copy) n.appendChild(n.__copy);                          // copying: the last row, apart from Update Now
     n.addEventListener("pointerdown", ev => ev.stopPropagation());
     // from the "New Update" button: go straight on (Windows: download and run; Mac: copy the line)
-    if (install && tag) row.querySelector(".vos-upd-main")?.click();   // still inside your click: the clipboard allows it
+    if (install && tag) n.querySelector(".vos-upd-main")?.click();     // still inside your click: the clipboard allows it
     (document.getElementById("browser") || document.body).appendChild(n);
     n.animate([{ opacity: 0, transform: "translate(-50%, -12px) scale(0.97)" }, { opacity: 1, transform: "translate(-50%, 0)" }],
               { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" });
@@ -2204,6 +2217,42 @@
     deskMenu(ev.clientX, ev.clientY);
   }, true);
 
+  /* YOUR WEBSITES THROUGH AN UPDATE: a list of the open websites is kept (refreshed as
+     you browse); the first start of a new version reopens any of them that are not
+     open (Vivaldi's own session may be lost when it is closed for the install) */
+  const TABS_KEY = "vosOpenTabs", RAN_KEY = "vosRanVersion";
+  let tabsTimer = 0, restoring = true;                  // no saving until the start check is done
+  const siteTab = t => /^https?:/i.test(t.url || t.pendingUrl || "");
+  function saveTabs() {
+    clearTimeout(tabsTimer);
+    tabsTimer = setTimeout(() => {
+      if (restoring) return;
+      chrome.tabs.query({}, tabs => {
+        if (chrome.runtime.lastError || !tabs) return;
+        const list = tabs.filter(t => siteTab(t) && !t.incognito).sort((a, b) => a.windowId - b.windowId || a.index - b.index)
+          .map(t => ({ u: t.url || t.pendingUrl, p: !!t.pinned, a: !!t.active }));
+        if (list.length) vstore.set(TABS_KEY, { t: Date.now(), list });   // never overwrite with nothing
+      });
+    }, 1500);
+  }
+  for (const ev of ["onCreated", "onRemoved", "onUpdated", "onMoved", "onAttached"]) chrome.tabs?.[ev]?.addListener(saveTabs);
+  setTimeout(async () => {
+    try {
+      const ran = await vstore.get(RAN_KEY), saved = await vstore.get(TABS_KEY);
+      const updated = window.vosVersion && ran && ran !== window.vosVersion;
+      if (updated && saved?.list?.length && Date.now() - saved.t < 3 * 864e5) {
+        const open = await new Promise(r => chrome.tabs.query({}, t => r(t || [])));
+        const have = new Set(open.filter(siteTab).map(t => t.url || t.pendingUrl));
+        const missing = saved.list.filter(x => !have.has(x.u));
+        for (const x of missing) await new Promise(r => chrome.tabs.create({ url: x.u, active: false, pinned: x.p }, () => { void chrome.runtime.lastError; r(); }));
+        if (missing.length) LOG_UPD(`reopened ${missing.length} website(s) after the update to ${window.vosVersion}`);
+      }
+      if (window.vosVersion) vstore.set(RAN_KEY, window.vosVersion);
+    } catch (e) {}
+    restoring = false; saveTabs();
+  }, 6000);
+  const LOG_UPD = (...a) => console.log("%c[vivaldi-os]", "color:#8e8e93", ...a);
+
   /* "New Update": a tag at the left end of the tab bar while a newer release exists */
   let tagFor = null, tagEl = null;
   function updTag(tag) {
@@ -2223,7 +2272,7 @@
   }
   setInterval(() => { if (tagFor && !tagEl?.isConnected) updTag(tagFor); }, 2000);   // a re-drawn tab bar gets it back
   setTimeout(() => checkUpdate(false), 20000);
-  setInterval(() => checkUpdate(false), 12 * 3600 * 1000);
+  setInterval(() => checkUpdate(false), 30 * 60 * 1000);
 
   vstore.get(TM_KEY).then(v => { if (v && typeof v === "object") { tm = { ...tm, ...v }; ensureTick(); } });              // the seed file may load after this one
 })();
