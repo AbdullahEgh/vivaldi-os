@@ -158,10 +158,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (!w) return;                                    // no window here: that page is the desktop
     const sid = a.dataset.id;
     if (Date.now() - (startBorn.get(sid) || 0) > 6000) return;      // only a page Vivaldi just made (your Home stays)
+    if (handStart.has(sid)) return;                                  // made so the window could leave: it stays in front
     raise(w); activate(groupFloat.has(w) ? (splitFocus.get(w) || w) : w); render();
     setTimeout(() => chrome.tabs.remove(Number(sid), () => void chrome.runtime.lastError), 120);
   }
   const wsPending = new Map();                        // tab -> { ws, until }: sent to a desktop, not confirmed yet
+  const handStart = new Set();                        // Start Pages opened on purpose: the desktop a window just left
   const pend = (ids, ws) => { const until = Date.now() + 2500; for (const i of ids) { wsPending.set(String(i), { ws, until }); wsOfTab.set(String(i), ws); } wsNowAt = 0; };
   let underId = null;                                 // the full-screen page under the floating windows
   let liveMove = null;                                // { id, base } a window being moved (by a translate)
@@ -3138,12 +3140,21 @@ window.vosBeat = window.vosBeat || (() => {
      active first (or its desktop page), so you stay here until you choose to go */
   async function handOver(ids, cur) {
     try {
+      const stillActive = async () => (await tabsQuery({ currentWindow: true })).some(t => ids.includes(String(t.id)) && t.active);
+      const settle = async () => { for (let k = 0; k < 10; k++) { if (!(await stillActive())) return true; await new Promise(r => setTimeout(r, 40)); } return false; };
+      if (!(await stillActive())) return;
       const tabs = await tabsQuery({ currentWindow: true });
-      if (!tabs.some(t => ids.includes(String(t.id)) && t.active)) return;
-      const z = [...zOrder].reverse().find(o => !ids.includes(o) && floating.has(o) && !minimized.has(o) && sameWs(wsOfTab.get(o), cur));
-      const other = tabs.find(t => String(t.id) === z) || tabs.find(t => !ids.includes(String(t.id)) && sameWs(wsOfTab.get(String(t.id)), cur));
-      await new Promise(r => other ? chrome.tabs.update(other.id, { active: true }, () => { void chrome.runtime.lastError; r(); })
-                                   : chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, () => { void chrome.runtime.lastError; r(); }));
+      const here = t => !ids.includes(String(t.id)) && sameWs(wsOfTab.get(String(t.id)), cur) && sameWs(extOf(t)?.workspaceId ?? null, cur);   // Vivaldi agrees it is here
+      const zs = [...zOrder].reverse().filter(o => !ids.includes(o) && floating.has(o) && !minimized.has(o));
+      const cands = [...new Set([...zs.map(o => tabs.find(t => String(t.id) === o)).filter(t => t && here(t)), ...tabs.filter(here)])].slice(0, 3);
+      for (const t of cands) {                                       // the next window here comes to the front - checked, not assumed
+        await new Promise(r => chrome.tabs.update(t.id, { active: true }, () => { void chrome.runtime.lastError; r(); }));
+        const ok = await settle();
+        ntrace("handOver", { to: t.id, ok });
+        if (ok) return;
+      }
+      await new Promise(r => chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, t => { void chrome.runtime.lastError; if (t) handStart.add(String(t.id)); r(); }));
+      ntrace("handOver", { to: "start", ok: await settle() });       // nothing else here: its desktop page
     } catch (e) { wsErr("hand over", e); }
   }
   async function arrivedAt(ids, ws, ms) {             // Vivaldi says every one of these tabs is on that desktop
@@ -3162,6 +3173,7 @@ window.vosBeat = window.vosBeat || (() => {
     const pg = pageOf(key);                                          // every page of the window (a split has several)
     const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
     await handOver(ids, cur);
+    ntrace("toDesk", { ids, ws, cur, act: (await tabsQuery({ currentWindow: true })).find(t => t.active)?.id });
     pend(ids, ws);
     queueRender();                                                   // gone from this desktop at once
     await tpMove(ids, ws);
@@ -3182,7 +3194,7 @@ window.vosBeat = window.vosBeat || (() => {
     row.addEventListener("pointerdown", ev => {
       const win = ev.target.closest(".vos-ws-win[data-tab]");
       if (!win || ev.button !== 0) return;
-      ev.stopPropagation();                                          // not a reorder of the desktop
+      ev.stopImmediatePropagation();                                 // not a reorder of the desktop (the row's other listener)
       const from = win.closest(".vos-ws-card"), pid = ev.pointerId, sx = ev.clientX, sy = ev.clientY;
       let ghost = null, over = null;
       const move = e => {
@@ -3412,10 +3424,12 @@ window.vosBeat = window.vosBeat || (() => {
     } catch (e) { wsErr("new", e); return null; }
   }
   /* Vivaldi's move of tabs to a desktop (null: none), as a promise */
-  const tpMove = (ids, ws) => new Promise(res => {
+  /* (Vivaldi 8.3 moves them only when told their window too: without it the call does nothing, with no error) */
+  const tpMove = (ids, ws) => new Promise(async res => {
     try {
       tpMove.lastErr = null;
-      const r = vivaldi.tabsPrivate.move({ tabIds: ids.map(Number), target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window" },
+      const wid = await winId();
+      const r = vivaldi.tabsPrivate.move({ tabIds: ids.map(Number), target: "last", tweaks: ["do-not-reparent"], workspaceId: ws ?? "window", ...(wid != null ? { windowId: wid } : {}) },
         () => { tpMove.lastErr = chrome.runtime.lastError?.message || null; res(); });
       if (r?.then) r.then(res, e => { tpMove.lastErr = String(e); wsErr("move", e); res(); });
     } catch (e) { wsErr("move", e); res(); }
@@ -3988,6 +4002,7 @@ window.vosBeat = window.vosBeat || (() => {
       });
       row.appendChild(card);
     }
+    wsWindowDrag(row, list);                                          // a small window onto another desktop (first: it wins)
     wsReorder(row, list);
     // New: another desktop (a workspace), and you are on it
     const more = document.createElement("div");
