@@ -479,6 +479,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!id || !floating.has(id) || minimized.has(id)) return;
     focusSet.add(id); raise(id); activate(String(pageId));
     focusSeenWin = id;
+    focusQuietUntil = Date.now() + 400;                              // its own activation is landing: not another choice
     render();
   }
   function endFocus() {
@@ -1126,14 +1127,16 @@ window.vosBeat = window.vosBeat || (() => {
   function render() {
     reconcile();
     bentoForDesk();
+    focusForDesk();
     {                                                // the selected tile of a floating split
       const a0 = pendingActive ?? activePage()?.dataset.id, w0 = winOf(a0);
       if (w0 && groupFloat.has(w0) && pageOf(a0)) splitFocus.set(w0, String(a0));
     }
     if (focusSet.size) {                             // windows that left drop out; the chosen tab joins
-      for (const f of [...focusSet]) if (!floating.has(f) || minimized.has(f)) focusSet.delete(f);
+      for (const f of [...focusSet]) if (!floating.has(f) || minimized.has(f) || awayWs(f)) focusSet.delete(f);   // (gone to another desktop: out of this one's focus)
       const aid = activePage()?.dataset.id, aw = winOf(aid);
-      if (focusSet.size && aid && !pendingActive && aw !== focusSeenWin) {   // another tab was chosen (keyboard)
+      if (Date.now() < focusQuietUntil) focusSeenWin = aw;           // just arrived on this desktop: its front window is not a choice
+      else if (focusSet.size && aid && !pendingActive && aw !== focusSeenWin) {   // another tab was chosen (keyboard)
         focusSeenWin = aw;
         if (aw && floating.has(aw) && !minimized.has(aw)) focusSet.add(aw);
         else focusSet.clear();                       // the Start Page or a full-size page: focus ends
@@ -2027,6 +2030,20 @@ window.vosBeat = window.vosBeat || (() => {
     bentoLayouts[bento.ws || deskKey()] = j;
     vstore.set(BENTO_LAYOUT, JSON.stringify(bentoLayouts));
   }
+  /* FOCUS PER DESKTOP: like Bento - each desktop keeps its own focus (the windows in it), and gets it
+     back when you return; a desktop without one shows no blur */
+  const focusWs = new Map();                          // desktop -> the windows in its focus
+  let focusDesk = null, focusQuietUntil = 0;
+  function focusForDesk() {
+    const k = deskKey();
+    if (focusDesk === k) return;
+    if (focusDesk != null) { if (focusSet.size) focusWs.set(focusDesk, new Set(focusSet)); else focusWs.delete(focusDesk); }
+    focusDesk = k;
+    focusSet.clear(); focusLeave.clear();
+    for (const id of focusWs.get(k) || []) if (floating.has(id) && !minimized.has(id) && !awayWs(id)) focusSet.add(id);
+    focusSeenWin = winOf(activePage()?.dataset.id);
+    focusQuietUntil = Date.now() + 800;                              // the arrival's own tab changes are not choices
+  }
   function bentoForDesk() {                            // another desktop: its own Bento comes out
     const k = deskKey();
     if (bento.ws === k) return;
@@ -2757,6 +2774,7 @@ window.vosBeat = window.vosBeat || (() => {
           const cur = pxRect(id, ss);
           const d = { x: last.clientX - ss.left - gOff.x, y: last.clientY - ss.top - gOff.y, w: cur.w, h: cur.h };
           missionDrag = { id, r: d, k: kHeld };
+          mcIcons?.querySelector(`[data-id="${CSS.escape(String(id))}"]`)?.setAttribute("data-held", "");   // held: its app icon goes (back when let go)
           place(el, d, ss); placeFrame(id, el, d, ss); missionLook(id, el, { x: d.x, y: d.y, k: kHeld }, d);
           return;
         }
@@ -4421,7 +4439,7 @@ window.vosBeat = window.vosBeat || (() => {
     Object.defineProperty(window, "__vosQA", { configurable: true, value: {
       curWs, toDesk, newDesk, switchWs, swipeTo, openWsStrip, closeWsStrip, desksNow, wsOfTab, wsPending, floating, minimized,
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
-      vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
+      vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
     } });
   } catch (e) {}
