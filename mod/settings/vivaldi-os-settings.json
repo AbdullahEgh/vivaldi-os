@@ -957,8 +957,8 @@
       }
     ],
     "vivaldi.panels.position": 1,
-    "vivaldi.panels.window_defaults.barVisible": true,
-    "vivaldi.panels.window_defaults.contentVisible": true,
+    "vivaldi.panels.window_defaults.barVisible": false,
+    "vivaldi.panels.window_defaults.contentVisible": false,
     "vivaldi.panels.window_defaults.width": 260,
     "vivaldi.startpage": {
       "navigation": 2,

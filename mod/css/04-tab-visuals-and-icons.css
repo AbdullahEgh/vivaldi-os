@@ -242,3 +242,7 @@
 #tabs-container .tab-position.is-pinned .tab .favicon img,
 #tabs-container .tab-position.is-pinned .tab .favicon svg { width: 16px !important; height: 16px !important; object-fit: contain !important; }
 #tabs-container .tab-position.is-pinned, #tabs-container .tab-position.is-pinned .tab, #tabs-container .tab-position.is-pinned .tab-header { overflow: visible !important; }
+
+/* the app icons in the tab bar: as tall as the address field (30px, no shadow that makes them look bigger) */
+#browser #tabs-container .tab-position .tab-wrapper { align-items: center !important; justify-content: center !important; }
+#browser #tabs-container .tab-position .tab { width: 30px !important; min-width: 30px !important; max-width: 30px !important; height: 30px !important; min-height: 30px !important; flex: 0 0 30px !important; margin: auto !important; box-shadow: none !important; border-radius: 50% !important; }
