@@ -2523,8 +2523,9 @@ window.vosBeat = window.vosBeat || (() => {
   const BENTO_SLOTS = [[1.5, 1.5, 6.6, 15], [9.6, 1.5, 6.9, 6.75], [9.6, 9.75, 6.9, 6.75]];   // Bento's mark: one tall, two stacked
   const rrect = (x, y, w, h, r) => `M${x + r} ${y}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - 2 * r}a${r} ${r} 0 0 1 ${-r} ${r}` +
     `h${-(w - 2 * r)}a${r} ${r} 0 0 1 ${-r} ${-r}v${-(h - 2 * r)}a${r} ${r} 0 0 1 ${r} ${-r}z`;
-  const bentoIcon = on => `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="` +   // solid tiles (Ubuntu style); on: the button is lit
-    BENTO_SLOTS.map(([x, y, w, h]) => rrect(x, y, w, h, 1.9)).join("") + `"/></svg>`;
+  const bentoIcon = on => on                                         // on: solid tiles (and the button lit); off (disabled): thin outlines, dimmed
+    ? `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="` + BENTO_SLOTS.map(([x, y, w, h]) => rrect(x, y, w, h, 1.9)).join("") + `"/></svg>`
+    : `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.6"><path d="` + BENTO_SLOTS.map(([x, y, w, h]) => rrect(x + 0.6, y + 0.6, w - 1.2, h - 1.2, 1.5)).join("") + `"/></svg>`;
   /* THE BENTO BUTTON IN THE TOOLBAR EDITOR: a Command Chain named "Bento" (made once, put
      after the Workspaces button) is Vivaldi's own toolbar button - so View > Customize
      Toolbar moves it, removes it, adds it back. The mod gives it the Bento drawing and click. */
@@ -2615,7 +2616,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   const chainButton = () => osChainButtons().vosbento || null;
   const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="1.5" y="7" width="7" height="4" rx="2"/><circle cx="12" cy="9" r="2"/><circle cx="16" cy="9" r="1.6" opacity="0.55"/></svg>';   // Ubuntu: this desktop a line, the others dots
-  const TIMER_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M12 5a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1.1 3.8v5.1l3.9 2.3 1.1-1.9-2.8-1.6V8.8z"/><rect x="9" y="1.5" width="6" height="2.2" rx="1.1"/></svg>';
+  const TIMER_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12.5" r="7.5"/><path d="M12 12.5V8.6"/></svg>';   // simple: a dial and one hand
   function osWidgets() {                            // Mission Control and Timer: their drawing and click
     const found = osChainButtons();
     for (const [key, icon, act] of [["vosmission", MC_ICON, () => openWsStrip()], ["vostimer", TIMER_ICON, b => window.vosTimer?.toggle(b)]]) {
@@ -3353,16 +3354,16 @@ window.vosBeat = window.vosBeat || (() => {
     const add = (label, svg, fn, cls) => {
       const b = document.createElement("button");
       b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : "");
-      b.innerHTML = `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="currentColor">${svg}</svg><span class="lp-mi-text"></span>`;   // filled (Ubuntu style)
+      b.innerHTML = `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${svg}</svg><span class="lp-mi-text"></span>`;   // one thin line weight
       b.querySelector(".lp-mi-text").textContent = label;
       b.addEventListener("click", ev => { ev.stopPropagation(); fn(b); });
       m.appendChild(b); return b;
     };
-    add("Rename", '<path d="M15.3 3.9a2.2 2.2 0 0 1 3.1 0l1.7 1.7a2.2 2.2 0 0 1 0 3.1L9.2 19.6 3.6 20.4l.8-5.6z"/>',
+    add("Rename", '<path d="M4 20l1.2-4.2L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z"/><path d="M14 7l3 3"/>',
         () => { closeWsMenu(); card.querySelector(".vos-ws-name")?.__edit?.(); });
     const ids = (tabs || []).filter(t => !t.pinned && !isStartUrl(t) && wsOfTab.has(String(t.id)) && sameWs(extOf(t)?.workspaceId ?? null, sp.id)).map(t => t.id);   // its windows, as Vivaldi has them (its Launchpad page is not one)
     const n = ids.length;
-    const BIN = '<path d="M9.2 3h5.6l.9 2H20v2.2H4V5h4.3z"/><path d="M5.6 8.5h12.8l-.9 11.1a2 2 0 0 1-2 1.9H8.5a2 2 0 0 1-2-1.9z"/>';
+    const BIN = '<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>';
     const near = deskNear(sp, list);
     const doDelete = keep => { closeWsMenu(); deskDelete(sp, list, keep); };
     if (near) {                                                      // the last desktop of a window stays
