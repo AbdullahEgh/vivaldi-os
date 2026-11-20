@@ -1292,7 +1292,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* DESKTOP DOTS under the Mission Control (Workspaces) button: the desktops of this window, the shown one bright */
 #browser .vos-ws-dots { position: fixed !important; z-index: 2147482500 !important; translate: 0 -50% !important; pointer-events: none !important;
   display: flex !important; align-items: center !important; box-sizing: border-box !important; height: 28px !important; padding: 0 12px !important;
-  border-radius: 14px !important; background: rgba(30, 30, 34, 0.72) !important; color: #fff !important;
+  border-radius: 14px !important; background: var(--colorAccentBgDark, rgba(30, 30, 34, 0.72)) !important; color: var(--colorFg, #fff) !important;
   backdrop-filter: blur(20px) saturate(1.6) !important; box-shadow: none !important;
   transition: opacity 0.18s ease, translate 0.18s ease !important; opacity: 1 !important; }
 #browser .vos-ws-dots[data-out] { opacity: 0 !important; translate: -4px -50% !important; }
@@ -1334,3 +1334,17 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   background-position: var(--browserBackgroundPosition) !important; background-repeat: var(--browserBackgroundRepeat) !important;
   background-size: var(--browserBackgroundSize) !important; background-attachment: scroll !important; }
 #browser[data-vos-sliding] #webpage-stack > .lp-layer.lp-desktop { background: transparent !important; }   /* its wallpaper is the sliding one */
+
+/* the desktop dots: the address field's colours, from the theme itself (no delay) */
+#browser.color-behind-tabs-on:not(.transparent-tabbar) .vos-ws-dots { color: var(--colorAccentFg, #fff) !important; }
+/* windows held small in a corner stay under a full-screen app (a full page, or a window in full view) */
+#browser#browser[data-ft-maxpage]:not([data-ft-desktop]) :is([data-ft-float][data-ft-pip], .ft-frame[data-ft-pip]),
+#browser#browser[data-ft-cover] :is([data-ft-float][data-ft-pip]:not([data-ft-cover]), .ft-frame[data-ft-pip]) { visibility: hidden !important; pointer-events: none !important; }
+
+/* the desktop follows the fingers (floating-tile.js swMove): one number, --vos-dx, moves this desktop - its
+   windows, their frames, its Launchpad, its wallpaper - and --vos-in places the next one beside it */
+#browser[data-vos-dragdesk] #webpage-stack :is([data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), [data-vos-out]):not([data-vos-incoming]),
+#browser[data-vos-dragdesk] #webpage-stack > .lp-layer.lp-desktop:not(.vos-lp-ghost),
+#browser[data-vos-dragdesk] #webpage-stack > .vos-sw-scene > .vos-sw-wall:first-child { translate: calc(var(--vos-dx, 0) * -1px) 0 !important; animation: none !important; will-change: translate; }
+#browser[data-vos-dragdesk] #webpage-stack :is([data-vos-incoming], .vos-sw-scene > .vos-sw-wall:last-child) { translate: calc((var(--vos-in, 0) - var(--vos-dx, 0)) * 1px) 0 !important; animation: none !important; will-change: translate; }
+#browser[data-vos-dragdesk] #webpage-stack > .lp-layer.vos-lp-ghost { pointer-events: none !important; }
