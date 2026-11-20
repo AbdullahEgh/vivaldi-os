@@ -1,4 +1,4 @@
-# Vivaldi OS - installer for Windows (started by "Install Vivaldi OS (Windows).cmd").
+# Bento OS - installer for Windows (started by "Install Vivaldi OS (Windows).cmd").
 #   - floating windows, traffic lights, desktop clock, tab tint (JS mods)
 #   - the CSS mods (mod\css, copied next to the Vivaldi profile) + "Allow CSS modifications"
 #   - the Vivaldi light/dark themes with the wallpaper, and the tab bar setup
@@ -73,7 +73,7 @@ function Remove-JsonPath($obj, [string]$path) {
 }
 
 $version = if (Test-Path (Join-Path $pkg 'VERSION')) { (Get-Content (Join-Path $pkg 'VERSION') -Raw).Trim() } else { '' }
-Write-Host "== Vivaldi OS $version installer =="
+Write-Host "== Bento OS $version installer =="
 
 # find Vivaldi (newest version folder with the UI files)
 $roots = @(

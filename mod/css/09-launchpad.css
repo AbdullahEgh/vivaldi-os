@@ -1357,3 +1357,13 @@
 #browser .vos-upd .vos-upd-manual svg { width: 18px !important; height: 18px !important; display: block !important; }
 #browser .vos-upd .vos-upd-copy[hidden] { display: none !important; }
 
+/* the Tab Bar section of the widget gallery: a switch per widget (iOS) */
+#browser .lp-tb-group { margin: 0 4px 6px !important; }
+#browser .lp-tb-ic { display: flex !important; align-items: center !important; justify-content: center !important; color: var(--lp-text) !important; }
+#browser .lp-tb-ic svg { width: 20px !important; height: 20px !important; }
+#browser .lp-switch { flex: none !important; position: relative !important; width: 51px !important; height: 31px !important; padding: 0 !important; border: 0 !important; border-radius: 16px !important;
+  background: rgba(120, 120, 128, 0.32) !important; cursor: pointer !important; transition: background 0.2s ease !important; }
+#browser .lp-switch::after { content: "" !important; position: absolute !important; top: 2px !important; left: 2px !important; width: 27px !important; height: 27px !important; border-radius: 50% !important;
+  background: #fff !important; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16) !important; transition: transform 0.22s cubic-bezier(0.3, 0.9, 0.3, 1) !important; }
+#browser .lp-switch[aria-checked="true"] { background: #34c759 !important; }
+#browser .lp-switch[aria-checked="true"]::after { transform: translateX(20px) !important; }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Vivaldi OS — QA check. Is everything in place? If not, puts it back.
+# Bento OS — QA check. Is everything in place? If not, puts it back.
 #   check-mac.sh <package>           check, and run the installer when something is missing
 #   check-mac.sh <package> --auto    the same, quietly (the auto-repair agent after a Vivaldi update)
 #   check-mac.sh <package> --report  only report, change nothing
@@ -12,7 +12,7 @@ fails=0
 ok()  { [[ "$MODE" == "--auto" ]] || echo "  ✓ $1"; }
 bad() { [[ "$MODE" == "--auto" ]] || echo "  ✗ $1"; fails=$((fails + 1)); }
 
-[[ "$MODE" == "--auto" ]] || echo "== Vivaldi OS $(cat "$PKG/VERSION" 2>/dev/null) — QA check =="
+[[ "$MODE" == "--auto" ]] || echo "== Bento OS $(cat "$PKG/VERSION" 2>/dev/null) — QA check =="
 if [[ ! -f "$WIN" ]]; then echo "  ✗ Vivaldi is not in /Applications"; exit 2; fi
 ok "Vivaldi $(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null)"
 
@@ -43,9 +43,9 @@ INST="$(cd "$PKG/.." && pwd)/Install Vivaldi OS (Mac).command"
 if [[ "$MODE" == "--auto" ]]; then
   sleep 20                                         # let an update finish first, then look again
   "$0" "$PKG" --report >/dev/null && exit 0
-  osascript -e 'display notification "Vivaldi was updated. Putting Vivaldi OS back…" with title "Vivaldi OS"' 2>/dev/null
+  osascript -e 'display notification "Vivaldi was updated. Putting Bento OS back…" with title "Bento OS"' 2>/dev/null
   open -a Terminal "$INST"                         # in Terminal: it may change Vivaldi.app
 else
-  echo "$fails problem(s): putting Vivaldi OS back…"
+  echo "$fails problem(s): putting Bento OS back…"
   bash "$INST"
 fi

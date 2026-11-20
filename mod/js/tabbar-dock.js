@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Tab bar dock — Vivaldi JS mod (part of Vivaldi OS)
+   Tab bar dock — Vivaldi JS mod (part of Bento OS)
    Top / bottom tab bar:  [ left area ] — gap — [ dock ] — gap — [ right area ]
 
    The dock (back, address field, tabs, +) always sits exactly in the middle

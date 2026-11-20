@@ -1,4 +1,4 @@
-# Vivaldi OS
+# Bento OS
 
 Vivaldi as an operating system: floating windows with traffic lights, window snapping
 (top = full screen, sides = Bento), Bento tiling, a macOS-style Launchpad with iOS
@@ -21,11 +21,11 @@ irm https://github.com/AbdullahEgh/vivaldi-os/releases/latest/download/VivaldiOS
 
 **Windows without PowerShell** (Command Prompt):
 ```
-curl -L -o "%USERPROFILE%\Downloads\VivaldiOS-Windows-Manual.zip" https://github.com/AbdullahEgh/vivaldi-os/releases/latest/download/VivaldiOS-Windows-Manual.zip & (for /f "delims=" %Z in ('dir /b /o:d "%USERPROFILE%\Downloads\VivaldiOS*Manual*.zip"') do tar -xf "%USERPROFILE%\Downloads\%Z" -C "%USERPROFILE%\Documents") & (for /d %D in ("%LOCALAPPDATA%\Vivaldi\Application\*.*.*.*") do (copy /y "%USERPROFILE%\Documents\VivaldiOS\custom-vivaldi-os*.*" "%D\resources\vivaldi\" >nul & (if not exist "%D\resources\vivaldi\window.html.orig" copy "%D\resources\vivaldi\window.html" "%D\resources\vivaldi\window.html.orig" >nul) & (findstr /v /l /x /c:"</body>" /c:"</html>" "%D\resources\vivaldi\window.html.orig" & echo   ^<script src="custom-vivaldi-os.js"^>^</script^>& echo ^</body^>& echo ^</html^>) > "%D\resources\vivaldi\window.html" & echo Vivaldi OS installed in %D)) & start "" "%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe" --restore-last-session
+curl -L -o "%USERPROFILE%\Downloads\VivaldiOS-Windows-Manual.zip" https://github.com/AbdullahEgh/vivaldi-os/releases/latest/download/VivaldiOS-Windows-Manual.zip & (for /f "delims=" %Z in ('dir /b /o:d "%USERPROFILE%\Downloads\VivaldiOS*Manual*.zip"') do tar -xf "%USERPROFILE%\Downloads\%Z" -C "%USERPROFILE%\Documents") & (for /d %D in ("%LOCALAPPDATA%\Vivaldi\Application\*.*.*.*") do (copy /y "%USERPROFILE%\Documents\VivaldiOS\custom-vivaldi-os*.*" "%D\resources\vivaldi\" >nul & (if not exist "%D\resources\vivaldi\window.html.orig" copy "%D\resources\vivaldi\window.html" "%D\resources\vivaldi\window.html.orig" >nul) & (findstr /v /l /x /c:"</body>" /c:"</html>" "%D\resources\vivaldi\window.html.orig" & echo   ^<script src="custom-vivaldi-os.js"^>^</script^>& echo ^</body^>& echo ^</html^>) > "%D\resources\vivaldi\window.html" & echo Bento OS installed in %D)) & start "" "%LOCALAPPDATA%\Vivaldi\Application\vivaldi.exe" --restore-last-session
 ```
 
 A Vivaldi update replaces Vivaldi's own files and with them the mod's scripts: paste
-the same line again afterwards. Vivaldi OS checks this repository for new releases and
+the same line again afterwards. Bento OS checks this repository for new releases and
 shows a notice with a button that copies the line for you (desktop right-click menu:
 Check for Updates).
 

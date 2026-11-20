@@ -1696,7 +1696,7 @@
       if (st === "run") tm = { ...tm, left: tmLeft(), end: 0 };
       else if (st === "over") tm = { ...tm, end: Date.now() + tm.dur, left: 0, rang: false };   // again
       else tm = { ...tm, end: Date.now() + tmLeft(), left: 0, rang: false, mini: true };
-    } else if (act === "cancel") tm = { ...tm, end: 0, left: 0, rang: false };                 // the ring stays
+    } else if (act === "cancel") { tm = { ...tm, end: 0, left: 0, rang: false }; if (st === "over") closeTmPop(); }   // the ring stays; done: the widget goes too
     else if (act === "remove") { tm = { ...tm, end: 0, left: 0, rang: false, mini: false }; closeTmPop(); }
     else if (act === "set") tm = { ...tm, dur: arg * 60000, end: 0, left: 0, rang: false };
     else if (act === "next" && st === "idle") {
@@ -1843,6 +1843,7 @@
     pop.animate([{ transform: `translateY(${above ? 8 : -8}px) scale(0.96)`, opacity: 0 }, { transform: "none", opacity: 1 }],
                 { duration: 220, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
     tmPop = pop;
+    pageFocused();
     drawTimer(pop.querySelector(".lp-wk-timer"));
     setTimeout(() => {
       addEventListener("pointerdown", outside, true);
@@ -1850,6 +1851,17 @@
     });
   }
   const outside = ev => { if (!tmPop?.contains(ev.target) && !tmMini?.contains(ev.target)) closeTmPop(); };
+  /* a click inside an app (a web page) closes the popups too: the page takes the focus (no
+     pointer event reaches the browser's own document from there); a window only hovered does not */
+  const pageFocused = () => { const a = document.activeElement; if (a?.closest?.("#webpage-stack")) a.blur?.(); };   // so the next click in a page is heard
+  document.addEventListener("focusin", ev => {
+    if (!tmPop && !clkPop && !tmMenu) return;
+    if (!ev.target?.closest?.("#webpage-stack")) return;
+    if (Date.now() - (window.__vosHoverFocusAt || 0) < 600) return;   // the mod's hover focus, not a click
+    if (tmPop && !tmPop.matches(":hover")) closeTmPop();
+    if (clkPop && !clkPop.matches(":hover")) closeClkPop();
+    if (tmMenu) closeTmMenu();
+  }, true);
   const popKey = ev => { if (ev.key === "Escape" && tmPop) { ev.stopPropagation(); closeTmPop(); } };
   function closeTmPop() {
     if (!tmPop) return;
@@ -1878,6 +1890,7 @@
     pop.animate([{ transform: `translateY(${above ? 8 : -8}px) scale(0.96)`, opacity: 0 }, { transform: "none", opacity: 1 }],
                 { duration: 220, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
     clkPop = pop; clkAt = btn;
+    pageFocused();
     ensureTick();
     setTimeout(() => { addEventListener("pointerdown", clkOut, true); addEventListener("keydown", clkKey, true); });
   }
@@ -2035,10 +2048,38 @@
     addEventListener("pointercancel", up, true);
   }
 
+  /* ---- the tab bar's widgets: Desktops, Bento, Timer - each on or off (a switch) ---- */
+  function tabbarSection(body) {
+    const tbw = window.vosTabbarWidgets;
+    if (!tbw) return;
+    const l = document.createElement("div"); l.className = "lp-ios-label"; l.textContent = "Tab Bar";
+    const g = document.createElement("div"); g.className = "lp-ios-group lp-tb-group";
+    body.append(l, g);
+    const items = [["desktops", "Desktops"], ["bento", "Bento"], ["timer", "Timer"]];
+    tbw.get().then(st => {
+      for (const [k, name] of items) {
+        const row = document.createElement("div"); row.className = "lp-ios-row lp-tb-row";
+        const ic = document.createElement("span"); ic.className = "lp-ios-ficon lp-tb-ic"; ic.innerHTML = tbw.icons?.[k] || "";
+        const t = document.createElement("span"); t.className = "lp-ios-rtitle"; t.textContent = name;
+        const sw = document.createElement("button"); sw.type = "button"; sw.className = "lp-switch"; sw.setAttribute("role", "switch");
+        sw.setAttribute("aria-label", name + " in the tab bar");
+        const paint = () => sw.setAttribute("aria-checked", String(!!st[k]));
+        paint();
+        row.addEventListener("click", ev => {
+          ev.stopPropagation();
+          st[k] = !st[k]; paint();
+          Promise.resolve(tbw.set(k, st[k])).catch(() => {});
+        });
+        row.append(ic, t, sw);
+        g.appendChild(row);
+      }
+    }).catch(() => {});
+  }
   /* ---- the widget gallery (Widgets, in editing mode) ---- */
   function widgetGallery() {
     if (!lp) return;
     const body = sheetBox("lp-gallery", "Widgets");
+    tabbarSection(body);
     let section = "";
     for (const k of Object.keys(WG)) {
       if (WG[k].name !== section) {
@@ -2093,7 +2134,7 @@
     }, true);
 
   // the "OS · Timer" toolbar button: its ring shows by the clock, and the timer opens / closes
-  window.vosTimer = { toggle() {
+  window.vosTimer = { hide() { if (tmState() === "idle") { tm = { ...tm, mini: false }; saveTm(); paintMini(); } }, toggle() {
     if (!tm.mini) { tm = { ...tm, mini: true }; saveTm(); }
     paintMini(); ensureTick();
     setTimeout(() => (tmPop ? closeTmPop() : openTmPop()), 0);
@@ -2164,7 +2205,7 @@
         if (i >= 0 && list[i].backgroundSource) { list[i] = { ...list[i], backgroundSource: "" }; vivaldi.prefs.set({ path, value: list }); }
       }
     } catch (e) {                                    // no picker here: Vivaldi's Themes settings instead
-      console.warn("Vivaldi OS: wallpaper", e);
+      console.warn("Bento OS: wallpaper", e);
       wallpaperSettings();
     }
   }
@@ -2182,7 +2223,7 @@
   refresh();
   setTimeout(() => seedOnce(), 1500);
   vstore.get(WG_KEY).then(v => { if (Array.isArray(v)) { widgets = v.filter(w => WG[w?.k]); if (lp) render(); } });
-  /* ---------------- updates: a newer Vivaldi OS on GitHub ----------------
+  /* ---------------- updates: a newer Bento OS on GitHub ----------------
      Vivaldi does not let its interface run downloaded code, so an update is one
      line pasted into Terminal / PowerShell / Command Prompt: it downloads the
      newest release and installs it (the same line also puts the mod back after
@@ -2190,7 +2231,7 @@
   const UPD_KEY = "vosUpdateSkip";
   const isMac = /Mac/.test(navigator.platform || navigator.userAgent);
   const relUrl = () => `https://github.com/${window.vosRepo}/releases/latest/download/`;
-  const MANUAL_LINE = "(for /f \"delims=\" %Z in ('dir /b /o:d \"%USERPROFILE%\\Downloads\\VivaldiOS*Manual*.zip\"') do tar -xf \"%USERPROFILE%\\Downloads\\%Z\" -C \"%USERPROFILE%\\Documents\") & (for /d %D in (\"%LOCALAPPDATA%\\Vivaldi\\Application\\*.*.*.*\") do (copy /y \"%USERPROFILE%\\Documents\\VivaldiOS\\custom-vivaldi-os*.*\" \"%D\\resources\\vivaldi\\\" >nul & (if not exist \"%D\\resources\\vivaldi\\window.html.orig\" copy \"%D\\resources\\vivaldi\\window.html\" \"%D\\resources\\vivaldi\\window.html.orig\" >nul) & (findstr /v /l /x /c:\"</body>\" /c:\"</html>\" \"%D\\resources\\vivaldi\\window.html.orig\" & echo   ^<script src=\"custom-vivaldi-os.js\"^>^</script^>& echo ^</body^>& echo ^</html^>) > \"%D\\resources\\vivaldi\\window.html\" & echo Vivaldi OS installed in %D)) & start \"\" \"%LOCALAPPDATA%\\Vivaldi\\Application\\vivaldi.exe\"";
+  const MANUAL_LINE = "(for /f \"delims=\" %Z in ('dir /b /o:d \"%USERPROFILE%\\Downloads\\VivaldiOS*Manual*.zip\"') do tar -xf \"%USERPROFILE%\\Downloads\\%Z\" -C \"%USERPROFILE%\\Documents\") & (for /d %D in (\"%LOCALAPPDATA%\\Vivaldi\\Application\\*.*.*.*\") do (copy /y \"%USERPROFILE%\\Documents\\VivaldiOS\\custom-vivaldi-os*.*\" \"%D\\resources\\vivaldi\\\" >nul & (if not exist \"%D\\resources\\vivaldi\\window.html.orig\" copy \"%D\\resources\\vivaldi\\window.html\" \"%D\\resources\\vivaldi\\window.html.orig\" >nul) & (findstr /v /l /x /c:\"</body>\" /c:\"</html>\" \"%D\\resources\\vivaldi\\window.html.orig\" & echo   ^<script src=\"custom-vivaldi-os.js\"^>^</script^>& echo ^</body^>& echo ^</html^>) > \"%D\\resources\\vivaldi\\window.html\" & echo Bento OS installed in %D)) & start \"\" \"%LOCALAPPDATA%\\Vivaldi\\Application\\vivaldi.exe\"";
   function updateLines() {
     const R = relUrl();
     return isMac
@@ -2230,7 +2271,7 @@
         updTag(tag);                                                  // the tag at the left of the tab bar stays
         if (!manual && (await vstore.get(UPD_KEY)) === tag) return;   // "Later" for this version
         updateNotice(tag);
-      } else if (manual) updateNotice(null, "Vivaldi OS is up to date", "Version " + window.vosVersion);
+      } else if (manual) updateNotice(null, "Bento OS is up to date", "Version " + window.vosVersion);
     } catch (e) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); }
   }
   /* Mac: the Vivaldi OS Updater app (set up by the installer) takes vivaldios://update:
@@ -2244,7 +2285,7 @@
       msg.textContent = "If Vivaldi asks, choose Open Vivaldi OS Updater (tick Always allow). Then press Update. If nothing opens, use Terminal below.";
     });
   }
-  /* RELEASE SIGNATURE: Update Now installs only a release signed with Vivaldi OS's release key
+  /* RELEASE SIGNATURE: Update Now installs only a release signed with Bento OS's release key
      (an SSH signature, "ssh-keygen -Y sign", made on the publishing Mac) - a file swapped on
      GitHub, or a hijacked account, cannot get an update in */
   const SIGN_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIJJewhzxQTTIQOK45iTV0OoL3VTClELYcOCLU9GvmG3a", SIGN_NS = "vivaldi-os-release";
@@ -2284,7 +2325,7 @@
       if (!r1.ok || !r2.ok) return fail("The download didn't work. Try again later.");
       data = new Uint8Array(await r1.arrayBuffer()); sig = await r2.text();
     } catch (e) { return fail("The download didn't work. Try again later."); }
-    if (!(await signedOk(data, sig))) return fail("Not installed: this update is not signed by Vivaldi OS.");
+    if (!(await signedOk(data, sig))) return fail("Not installed: this update is not signed by Bento OS.");
     const url = URL.createObjectURL(new Blob([data], { type: "application/octet-stream" }));
     chrome.downloads.download({ url, filename: "VivaldiOS-Update.cmd", conflictAction: "overwrite", saveAs: false }, id => {
       if (chrome.runtime.lastError || !id) { URL.revokeObjectURL(url); return fail("The download didn't start. Use Copy for PowerShell instead."); }
@@ -2307,7 +2348,7 @@
     const n = document.createElement("div");
     n.className = "vos-upd vos-vars";
     const head = document.createElement("div"); head.className = "vos-upd-title";
-    head.textContent = title || `Vivaldi OS ${tag} is available`;
+    head.textContent = title || `Bento OS ${tag} is available`;
     const p = document.createElement("div"); p.className = "vos-upd-sub";
     p.textContent = sub || (isMac
       ? `You have ${window.vosVersion}. Update Now asks once more, then runs the update in Terminal. Vivaldi restarts with your tabs.`
@@ -2461,12 +2502,12 @@
         if (t && newer(t, window.vosVersion)) { updTag(t); updateNotice(t, null, null, true); }
         else if (t) {                                                // nothing newer after all: up to date, no button
           tagFor = null; tagEl.remove();
-          updateNotice(null, "Vivaldi OS is up to date", "Version " + window.vosVersion);
+          updateNotice(null, "Bento OS is up to date", "Version " + window.vosVersion);
         } else { updTag(tagFor); updateNotice(null, "Couldn't reach GitHub", "Try again later."); }
       });
     }
     tagEl.textContent = "New Update";
-    tagEl.title = `Install Vivaldi OS ${tag} (you have ${window.vosVersion})`;
+    tagEl.title = `Install Bento OS ${tag} (you have ${window.vosVersion})`;
     lookLikeField();
     const after = spot;
     if (after ? after.nextSibling !== tagEl : bar.firstChild !== tagEl) bar.insertBefore(tagEl, after ? after.nextSibling : bar.firstChild);

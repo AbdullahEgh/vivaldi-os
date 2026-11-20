@@ -1382,7 +1382,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* the tab bar's own buttons, one thin line weight (as Vivaldi's own icons): back, new tab, the panel (its side) */
 #browser #tabs-tabbar-container .button-toolbar[title="Previous Page"] .button-icon > svg { display: none !important; }
 #browser #tabs-tabbar-container .button-toolbar[title="Previous Page"] .button-icon::before { content: "" !important; display: block !important; width: 18px !important; height: 18px !important; margin: auto !important; background: currentColor !important;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5.5M11 6l-6 6 6 6'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5.5M11 6l-6 6 6 6'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; }
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5.5M11 6l-6 6 6 6'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 12H5.5M11 6l-6 6 6 6'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; }
 #browser #tabs-tabbar-container .button-toolbar.newtab .button-icon > svg { display: none !important; }
 #browser #tabs-tabbar-container .button-toolbar.newtab .button-icon::before { content: "" !important; display: block !important; width: 18px !important; height: 18px !important; margin: auto !important; background: currentColor !important;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5.5v13M5.5 12h13'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5.5v13M5.5 12h13'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; }
@@ -1394,3 +1394,22 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* Bento on: its button lit, as a GNOME toggle button */
 #browser .vos-bento-chain[data-vos-on] > .ToolbarButton-Button { background: rgba(255, 255, 255, 0.2) !important; border-radius: 8px !important; }
 #browser.theme-light:not(.color-behind-tabs-on) .vos-bento-chain[data-vos-on] > .ToolbarButton-Button { background: rgba(0, 0, 0, 0.1) !important; }
+/* a full-screen page swiped: it slides as it is, over the black (no wallpaper over it), and stays in sight until the other desktop is there */
+#browser#browser#browser[data-vos-dragdesk] #webpage-stack .webpageview[data-vos-swmax] { translate: calc(var(--vos-dx, 0) * -1px) 0 !important; z-index: 2 !important; visibility: visible !important; opacity: 1 !important; pointer-events: none !important; will-change: translate; }
+#browser#browser#browser[data-vos-dragdesk] #webpage-stack .webpageview[data-vos-swmax] * { visibility: visible !important; }
+/* ... and the next desktop's windows slide in beside it (they are not hidden by the full-screen page) */
+#browser#browser#browser[data-vos-dragdesk]:not([data-ft-desktop]) #webpage-stack [data-ft-float][data-vos-incoming]:not([data-ft-min]),
+#browser#browser#browser[data-vos-dragdesk]:not([data-ft-desktop]) #webpage-stack [data-ft-float][data-vos-incoming]:not([data-ft-min]) *,
+#browser#browser#browser[data-vos-dragdesk]:not([data-ft-desktop]) .ft-frame[data-vos-incoming],
+#browser#browser#browser[data-vos-dragdesk]:not([data-ft-desktop]) .ft-frame[data-vos-incoming] * { visibility: visible !important; }
+#browser#browser#browser[data-vos-dragdesk]:not([data-ft-desktop]) :is(#webpage-stack [data-ft-float][data-vos-incoming], .ft-frame[data-vos-incoming]) { filter: none !important; transform: none !important; transition: none !important; }
+/* Mission Control over a full-screen page: it gets smaller like a window, on the wallpaper */
+#browser[data-vos-mc-maxpage] #webpage-stack {
+  background-color: var(--browserBackgroundColor) !important; background-image: var(--browserBackgroundImage) !important;
+  background-position: var(--browserBackgroundPosition) !important; background-repeat: var(--browserBackgroundRepeat) !important;
+  background-size: var(--browserBackgroundSize) !important; background-attachment: fixed !important; }
+#browser#browser#browser #webpage-stack .webpageview[data-vos-mc-max] { border-radius: 20px !important; overflow: hidden !important; clip-path: inset(0 round 20px) !important; }
+#browser[data-vos-mission-anim] #webpage-stack .webpageview:not([data-ft-float]) { transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+/* a window held over another one: the half it will take shows, and the held window turns see-through */
+#browser #webpage-stack > .ft-snap-preview.vos-split-preview { border-radius: 12px !important; transition: left 0.18s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.25, 1), width 0.18s cubic-bezier(0.2, 0.9, 0.25, 1), height 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser #webpage-stack [data-ft-float][data-vos-split-armed], #browser .ft-frame[data-vos-split-armed] { opacity: 0.55 !important; transition: opacity 0.15s ease !important; }

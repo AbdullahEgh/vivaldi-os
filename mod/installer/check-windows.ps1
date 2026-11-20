@@ -1,4 +1,4 @@
-# Vivaldi OS - QA check for Windows (started by "Check Vivaldi OS (Windows).cmd").
+# Bento OS - QA check for Windows (started by "Check Vivaldi OS (Windows).cmd").
 # Is everything in place in the newest Vivaldi? If not (a Vivaldi update installs into a
 # new version folder without the mod), it runs the installer to put it all back.
 #   -Report : only report, change nothing
@@ -6,7 +6,7 @@ param([switch]$Report)
 $ErrorActionPreference = 'Stop'
 $pkg = Split-Path $PSScriptRoot -Parent
 $version = if (Test-Path (Join-Path $pkg 'VERSION')) { (Get-Content (Join-Path $pkg 'VERSION') -Raw).Trim() } else { '' }
-Write-Host "== Vivaldi OS $version - QA check =="
+Write-Host "== Bento OS $version - QA check =="
 $fails = 0
 function Ok($t)  { Write-Host "  OK  $t" -ForegroundColor Green }
 function Bad($t) { Write-Host "  X   $t" -ForegroundColor Red; $script:fails++ }
@@ -59,5 +59,5 @@ if ((Test-Path $ls) -and ([IO.File]::ReadAllText($ls)).Contains('vivaldi-css-mod
 
 if ($fails -eq 0) { Write-Host 'All good.'; exit 0 }
 if ($Report) { Write-Host "$fails problem(s)."; exit 1 }
-Write-Host "$fails problem(s): putting Vivaldi OS back..."
+Write-Host "$fails problem(s): putting Bento OS back..."
 & (Join-Path $PSScriptRoot 'install-windows.ps1')

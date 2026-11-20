@@ -1216,6 +1216,7 @@ window.vosBeat = window.vosBeat || (() => {
     const slots = mission && b.hasAttribute("data-ft-desktop") ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))), s) : null;
     if (mission) mission.slots = slots;
     missionIcons(slots, s);
+    missionMax(s);
     for (const { id, el } of windows) {
       addChrome(el, id);
       const held = missionDrag?.id === id;
@@ -1223,7 +1224,7 @@ window.vosBeat = window.vosBeat || (() => {
       place(el, r, s, o);
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
-        : cover === id ? "90000"                                     // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts)
+        : cover === id && !mission ? "90000"                         // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts); Mission Control: a window like the others
         : pip.includes(id) ? String((cover ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too)
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       placeFrame(id, el, r, s, o);
@@ -2594,7 +2595,7 @@ window.vosBeat = window.vosBeat || (() => {
       // on no toolbar (an installer reset the tab bar, or it was taken off): back after Workspaces
       const bars = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
       const vals = await Promise.all(bars.map(b => prefGet("vivaldi.toolbars." + b)));
-      if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN))) {
+      if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN)) && !(await vstore.get("vosBentoOff"))) {   // (not when you took it off in the Launchpad)
         const tb = Array.isArray(vals[4]) ? [...vals[4]] : [];
         const at = tb.indexOf("WorkspaceButton");
         tb.splice(at >= 0 ? at + 1 : 0, 0, BENTO_CHAIN);
@@ -2617,6 +2618,38 @@ window.vosBeat = window.vosBeat || (() => {
   const chainButton = () => osChainButtons().vosbento || null;
   const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="1.5" y="7" width="7" height="4" rx="2"/><circle cx="12" cy="9" r="2"/><circle cx="16" cy="9" r="1.6" opacity="0.55"/></svg>';   // Ubuntu: this desktop a line, the others dots
   const TIMER_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12.5" r="7.5"/><path d="M12 12.5V8.6"/></svg>';   // simple: a dial and one hand
+  /* THE TAB BAR WIDGETS - Desktops, Bento, Timer - on or off from the Launchpad's widget gallery */
+  const TB_WIDGETS = { desktops: "WorkspaceButton", bento: BENTO_CHAIN, timer: "COMMAND_vostimer" };
+  const TB_BARS = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
+  const tbBars = async () => Object.fromEntries(await Promise.all(TB_BARS.map(async b => [b, await prefGet("vivaldi.toolbars." + b)])));
+  window.vosTabbarWidgets = {
+    icons: { desktops: MC_ICON, bento: bentoIcon(true), timer: TIMER_ICON },
+    async get() {
+      const bars = await tbBars(), on = n => Object.values(bars).some(v => Array.isArray(v) && v.includes(n));
+      return Object.fromEntries(Object.entries(TB_WIDGETS).map(([k, n]) => [k, on(n)]));
+    },
+    async set(key, on) {
+      const name = TB_WIDGETS[key];
+      if (!name) return false;
+      const bars = await tbBars();
+      if (key === "bento") vstore.set("vosBentoOff", !on);
+      if (!on) {                                       // off every toolbar it is on
+        for (const [b, v] of Object.entries(bars)) if (Array.isArray(v) && v.includes(name)) await prefSet("vivaldi.toolbars." + b, v.filter(x => x !== name));
+        if (key === "timer") window.vosTimer?.hide?.();
+        return true;
+      }
+      if (Object.values(bars).some(v => Array.isArray(v) && v.includes(name))) return true;
+      if (key === "timer") {                           // by the clock
+        const ta = Array.isArray(bars.tabbar_after) ? [...bars.tabbar_after] : [], at = ta.indexOf("Clock");
+        ta.splice(at >= 0 ? at : ta.length, 0, name);
+        return prefSet("vivaldi.toolbars.tabbar_after", ta);
+      }
+      const tb = Array.isArray(bars.tabbar_before) ? [...bars.tabbar_before] : [];
+      if (key === "desktops") tb.unshift(name);      // first, at the left
+      else { const at = tb.indexOf("WorkspaceButton"); tb.splice(at >= 0 ? at + 1 : 0, 0, name); }   // Bento: after Desktops
+      return prefSet("vivaldi.toolbars.tabbar_before", tb);
+    },
+  };
   function osWidgets() {                            // Mission Control and Timer: their drawing and click
     const found = osChainButtons();
     for (const [key, icon, act] of [["vosmission", MC_ICON, () => openWsStrip()], ["vostimer", TIMER_ICON, b => window.vosTimer?.toggle(b)]]) {
@@ -2762,6 +2795,27 @@ window.vosBeat = window.vosBeat || (() => {
       if (z) zoneTimer = setTimeout(() => { shown = z; snapPreview(z, el); }, SNAP_HOLD);
       if (z === "full") deskTimer = setTimeout(openDeskDrop, SNAP_HOLD + 700);
     };
+    /* SPLIT: hold the window over another window (a moment, still): a preview of the half it takes
+       (the side nearest the pointer), and letting go makes the two one split view - as a tab
+       dropped onto the window from the tab bar */
+    let spT = null, spTimer = 0, spArmed = false, spSide = null, spAt = null;
+    const splitOff = () => {
+      clearTimeout(spTimer); spTimer = 0; spArmed = false; spSide = null;
+      splitPreview(null); el.removeAttribute("data-vos-split-armed"); frames.get(id)?.removeAttribute("data-vos-split-armed");
+    };
+    const splitCheck = (x, y) => {
+      const hit = how === "move" && !inMission && !deskDrop && !zone && !leaving && !scaling && !groupFloat.has(id) ? splitTargetAt(id, x, y) : null;
+      if ((hit?.w ?? null) !== (spT?.w ?? null)) { splitOff(); spT = hit; spAt = null; }
+      if (!spT) return;
+      if (spArmed) { spSide = splitPreview(spT.w, x, y, el); return; }
+      if (spAt && Math.hypot(x - spAt.x, y - spAt.y) < 14) return;    // held still: the timer runs on
+      spAt = { x, y }; clearTimeout(spTimer);
+      spTimer = setTimeout(() => {
+        if (!spT || ended) return;
+        spArmed = true; spSide = splitPreview(spT.w, px, py, el);
+        el.setAttribute("data-vos-split-armed", ""); frames.get(id)?.setAttribute("data-vos-split-armed", "");
+      }, SPLIT_HOLD);
+    };
     const deskCheck = (x, y) => {
       if (!deskDrop) return;
       const card = document.elementsFromPoint(x, y).find(n => n.classList?.contains("vos-ws-card") && !n.hasAttribute("data-current")) || null;   // New too: a new desktop for it
@@ -2776,6 +2830,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
       snapCheck(px, py);
       deskCheck(px, py);
+      splitCheck(px, py);
       if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
       if (Math.hypot(px - sx, py - sy) > 4) moved = true;
       if (frame) return;                                            // at most one update per frame
@@ -2845,6 +2900,9 @@ window.vosBeat = window.vosBeat || (() => {
       const heldMD = missionDrag?.id === id ? missionDrag : null, wasHeld = !!heldMD; missionDrag = null;
       if (wasHeld) requestAnimationFrame(() => requestAnimationFrame(() => { el.removeAttribute("data-ft-mc-held"); frames.get(id)?.removeAttribute("data-ft-mc-held"); }));
       if (missionSkip === id) missionSkip = null;
+      { const t = spArmed && spT && spSide && ev.type === "pointerup" ? spT.w : null, side = spSide;
+        splitOff(); spT = null;
+        if (t) { persist(id); if (backToBento.delete(id)) bento.skip.delete(id); splitInto(id, t, side); return; } }
       if (deskDrop) {                                               // the desktops panel is open
         const card = deskOver; deskOver?.removeAttribute("data-drop");
         ntrace("drop", { card: card ? (card.classList.contains("vos-ws-more") ? "new" : card.dataset.ws) : null, type: ev.type, inMission });
@@ -3076,6 +3134,88 @@ window.vosBeat = window.vosBeat || (() => {
     return null;
   }
   let snapEl = null;
+  const SPLIT_HOLD = 550;
+  /* the window under the pointer that a held window can split with (one page, on this desktop) */
+  function splitTargetAt(id, x, y) {
+    for (const w of [...zOrder].reverse()) {
+      if (w === id || !floating.has(w) || minimized.has(w) || awayWs(w) || pip.includes(w) || groupFloat.has(w) || w === cover) continue;
+      const pg = pageOf(w), t = targetOf(pg);
+      if (!t || isTiled(pg)) continue;
+      const r = t.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return { w, r };
+    }
+    return null;
+  }
+  let splitEl = null;
+  function splitPreview(w, x, y, fromEl) {                          // the half of window w the held one takes; null: gone
+    if (w == null) {
+      const old = splitEl; splitEl = null;
+      old?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => old.remove());
+      return null;
+    }
+    const t = targetOf(pageOf(w)), host = stack();
+    if (!t || !host) return null;
+    const r = t.getBoundingClientRect(), ss = stackRect();
+    const fx = (x - r.left) / Math.max(1, r.width), fy = (y - r.top) / Math.max(1, r.height);
+    const side = [["left", fx], ["right", 1 - fx], ["top", fy], ["bottom", 1 - fy]].sort((a, b) => a[1] - b[1])[0][0];
+    const G = 6, hw = r.width / 2, hh = r.height / 2;
+    const p = side === "left" ? { x: r.left, y: r.top, w: hw, h: r.height } : side === "right" ? { x: r.left + hw, y: r.top, w: hw, h: r.height }
+            : side === "top" ? { x: r.left, y: r.top, w: r.width, h: hh } : { x: r.left, y: r.top + hh, w: r.width, h: hh };
+    const born = !splitEl;
+    if (born) { splitEl = document.createElement("div"); splitEl.className = "ft-snap-preview vos-split-preview"; host.appendChild(splitEl); }
+    const z = Number(fromEl && getComputedStyle(fromEl).zIndex) || 100;
+    splitEl.style.zIndex = String(z - 1);                             // over the window it splits, under the one you hold
+    splitEl.dataset.side = side;
+    Object.assign(splitEl.style, { left: (p.x - ss.left + G) + "px", top: (p.y - ss.top + G) + "px", width: Math.max(0, p.w - 2 * G) + "px", height: Math.max(0, p.h - 2 * G) + "px" });
+    if (born) splitEl.animate([{ opacity: 0, transform: "scale(0.94)" }, { opacity: 1, transform: "none" }], { duration: 200, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    return side;
+  }
+  /* Vivaldi's own split (its "tile these tabs"): window src goes beside window target, on that
+     side; the target window holds the split and keeps its place (as a tab dropped on it) */
+  let tileApi = null;
+  function vivTile() {
+    if (tileApi) return tileApi;
+    try {
+      let host = null;
+      try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
+      const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
+      if (!ch?.push) return null;
+      let req = null, tile = null, store = null;
+      ch.push([["vos-tile-" + Date.now()], {}, r => { req = r; }]);
+      for (const mid of Object.keys(req?.m || {})) {
+        let src = "";
+        try { src = Function.prototype.toString.call(req.m[mid]); } catch (e) { continue; }
+        const wantTile = !tile && src.includes('"TILE_SET_LAYOUT"') && src.includes("randomUUID");
+        const wantStore = !store && /getPageInWindow\([a-z],[a-z]\)\{/.test(src);
+        if (!wantTile && !wantStore) continue;
+        let ex; try { ex = req(mid); } catch (e) { continue; }
+        for (const k of Object.keys(ex || {})) {
+          let v; try { v = ex[k]; } catch (e) { continue; }
+          if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; }
+          if (wantStore && v && typeof v.getPageInWindow === "function" && typeof v.getPages === "function") store = v;
+        }
+        if (tile && store) break;
+      }
+      if (tile && store) tileApi = { tile, store };
+    } catch (e) { LOG("tile: Vivaldi's split not found", e); }
+    return tileApi;
+  }
+  async function splitInto(src, target, side) {
+    const api = vivTile();
+    if (!api) { LOG("tile: Vivaldi's split not found"); render(); return false; }
+    try {
+      const wid = await winId(), all = api.store.getPages(wid);
+      const order = side === "left" || side === "top" ? [Number(src), Number(target)] : [Number(target), Number(src)];
+      const list = all?.filter?.(pg => order.includes(pg.id))?.sortBy?.(pg => order.indexOf(pg.id));
+      if (!list || list.size !== 2) { render(); return false; }
+      dropInfo = { target: String(target), dragged: String(src), src: String(src), kind: "window", t: Date.now() };   // the target keeps its place
+      lastOver = { id: String(target), t: Date.now() };
+      raise(target); render();
+      await api.tile(list, side === "left" || side === "right" ? "row" : "column");
+      queueRender();
+      return true;
+    } catch (e) { LOG("tile", e); dropInfo = null; render(); return false; }
+  }
   function snapPreview(zone, fromEl, taken) {
     const host = stack();
     if (!zone) {
@@ -3885,7 +4025,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     swHushAt = 0;
     if (sw && !dx && !dy) { ev.preventDefault(); return swRelease(); }   // the end of the gesture (macOS sends an empty one): the fingers let go
-    if (!sw && Math.abs(dx) <= Math.abs(dy)) return;                 // up / down: not this
+    if (!sw && Math.abs(dx) <= Math.abs(dy)) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }   // up / down: nothing (no tab switching here)
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
     if (!dx) return;
     if (!sw && !swStart()) return;
@@ -3898,13 +4038,26 @@ window.vosBeat = window.vosBeat || (() => {
     const info = deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null;
     sw = { stack, b, info, acc: 0, vs: [], dir: 0, inc: [], D: swDist(), timer: 0 };
     if (!info) { const s = sw; desksNow(true).then(i => { if (sw === s && !s.info) { s.info = i; s.dir = 0; swMove(0, performance.now()); } }); }
-    scene();
+    const sc = scene();
+    const ap = activePage(), apId = ap?.dataset.id;                  // a full-screen page: it slides as it is, on black (no wallpaper)
+    if (ap && b.hasAttribute("data-ft-maxpage") && !winOf(apId) && !isTiled(ap) && !isStart(ap)) { ap.setAttribute("data-vos-swmax", ""); sw.max = ap; if (sc) sc.children[0].style.visibility = "hidden"; }
+    else if (cover && sc) sc.children[0].style.visibility = "hidden";   // a window in full view: the same
     stack.style.setProperty("--vos-dx", "0");
     b.setAttribute("data-vos-dragdesk", "");
     deskDots(true);
     return true;
   }
-  function swTarget(dir) { const i = sw?.info; return i && i.i >= 0 ? i.ds[i.i + dir] || null : null; }
+  /* BENTO is the space at the far left: from the first desktop, swipe left - Bento on; in Bento,
+     swipe right - back to the desktop (Bento off). In Bento there is nothing further left. */
+  const BENTO_IN = { bento: true }, BENTO_OUT = { bento: false };
+  function swTarget(dir) {
+    const i = sw?.info;
+    if (!i || i.i < 0) return null;
+    if (bento.on) return dir > 0 ? BENTO_OUT : null;
+    if (dir < 0 && i.i === 0) return BENTO_IN;
+    return i.ds[i.i + dir] || null;
+  }
+  const isBentoT = t => !!t && "bento" in t;
   function swUnprep() {
     for (const el of sw.inc) { if (el.classList.contains("vos-lp-ghost")) el.remove(); else { el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave"); } }
     sw.inc = [];
@@ -3914,8 +4067,8 @@ window.vosBeat = window.vosBeat || (() => {
     sw.dir = dir;
     const t = swTarget(dir);
     sw.stack.style.setProperty("--vos-in", String(dir * sw.D));
-    const sc = scene(); if (sc) sc.children[1].style.visibility = t ? "" : "hidden";
-    if (!t) return;
+    const sc = scene(); if (sc) sc.children[1].style.visibility = t && !isBentoT(t) ? "" : "hidden";
+    if (!t || isBentoT(t)) return;                                   // Bento: the same windows, tiled - nothing comes in
     const els = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), t.id))
       .flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
     if (!els.length) {                                               // no windows there: its Launchpad (a copy, for the slide)
@@ -3936,7 +4089,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (d) { s.vs.push([now, d / Math.max(4, Math.min(60, now - (s.at || now - 16)))]); s.at = now; while (s.vs.length && now - s.vs[0][0] > 120) s.vs.shift(); }
     const dir = s.acc > 0 ? 1 : s.acc < 0 ? -1 : s.dir;
     if (dir && dir !== s.dir && s.info) swPrep(dir);
-    const shown = swTarget(dir) ? s.acc : s.acc * 0.15;              // nothing that way: a little stretch
+    const tg = swTarget(dir), shown = isBentoT(tg) ? s.acc * 0.3 : tg ? s.acc : s.acc * 0.15;   // nothing that way: a little stretch; Bento: a pull
     s.stack.style.setProperty("--vos-dx", String(Math.round(shown)));
     clearTimeout(s.timer);
     if (Math.abs(s.acc) >= s.D) return swRelease();                  // all the way: there
@@ -3950,6 +4103,15 @@ window.vosBeat = window.vosBeat || (() => {
     s.settling = true; swHushAt = performance.now();
     const dir = s.dir, t = swTarget(dir), D = s.D;
     const v = Math.max(0, ...s.vs.map(([, x]) => x * dir));         // px per ms that way, just now
+    if (isBentoT(t)) {                                               // Bento: the pull springs back as the windows tile (or untile)
+      const goB = Math.abs(s.acc) > D * 0.18 || (v > 0.5 && Math.abs(s.acc) > 30);
+      const fromB = parseFloat(s.stack.style.getPropertyValue("--vos-dx")) || 0;
+      const a = s.stack.animate([{ "--vos-dx": String(fromB) }, { "--vos-dx": "0" }], { duration: 180, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)", fill: "forwards" });
+      await Promise.race([a.finished.catch(() => {}), new Promise(r => setTimeout(r, 380))]);
+      swClean(s);
+      if (goB) bentoToggle(t.bento);
+      return;
+    }
     const go = !!t && (Math.abs(s.acc) > D * 0.4 || (v > 0.5 && Math.abs(s.acc) > 30));
     const from = parseFloat(s.stack.style.getPropertyValue("--vos-dx")) || 0, to = go ? dir * D : 0;
     const dist = Math.max(1, Math.abs(to - from));
@@ -3981,6 +4143,7 @@ window.vosBeat = window.vosBeat || (() => {
     s.stack.style.removeProperty("--vos-dx"); s.stack.style.removeProperty("--vos-in");
     for (const el of s.out || []) { el.removeAttribute("data-vos-out"); el.removeAttribute("data-ft-ws-leave"); }
     sw = s; swUnprep(); sw = null;
+    s.max?.removeAttribute("data-vos-swmax");
     s.b.removeAttribute("data-vos-swipe");
     sceneEnd();
   }
@@ -4064,6 +4227,26 @@ window.vosBeat = window.vosBeat || (() => {
     const t = `translate(${Math.round(disp.x - r.x)}px, ${Math.round(disp.y - r.y)}px) scale(${disp.k ?? mission.k})`;
     el.__mt = true; setStyle(el, "transform-origin", "0 0"); setStyle(el, "transform", t);
     if (f) { const g = f.hasAttribute("data-ft-grab") ? GRAB : 0; f.__mt = true; setStyle(f, "transform-origin", `${RING}px ${RING + g}px`); setStyle(f, "transform", t); }
+  }
+  /* Mission Control over a full-screen page: the page gets smaller too, as a window does
+     (scaled, not resized), on the wallpaper below the panel; a click goes back into it */
+  let mcMax = null;
+  function missionMax(s) {
+    const b = browserEl(), ap = mission && b && !b.hasAttribute("data-ft-desktop") && b.hasAttribute("data-ft-maxpage") ? activePage() : null;
+    const page = ap && !winOf(ap.dataset.id) && !isTiled(ap) && !isStart(ap) ? ap : null;
+    if (mcMax && mcMax !== page) {
+      const o = mcMax; mcMax = null;
+      o.style.removeProperty("transform"); o.removeAttribute("data-vos-mc-max");
+      setTimeout(() => { if (mcMax !== o) o.style.removeProperty("transform-origin"); }, 360);
+      if (!page) setTimeout(() => { if (!mcMax) b?.removeAttribute("data-vos-mc-maxpage"); }, 340);   // the wallpaper stays while it glides back
+    }
+    if (!page) return;
+    const PAD = 24, top = mission.oy, aw = s.width - 2 * PAD, ah = Math.max(40, s.height - top - PAD);
+    const k = Math.max(0.1, Math.min(0.85, aw / s.width, ah / s.height));
+    const x = (s.width - s.width * k) / 2, y = top + (ah - s.height * k) / 2;
+    mcMax = page; page.setAttribute("data-vos-mc-max", ""); b.setAttribute("data-vos-mc-maxpage", "");
+    setStyle(page, "transform-origin", "0 0");
+    setStyle(page, "transform", `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(${k.toFixed(4)})`);
   }
   /* Mission Control: each window's app icon sits on its lower edge, as in macOS */
   let mcIcons = null;
@@ -4460,6 +4643,7 @@ window.vosBeat = window.vosBeat || (() => {
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
       vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
+      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; },
     } });
   } catch (e) {}
   async function wsByTab(sp) {
@@ -4857,6 +5041,7 @@ window.vosBeat = window.vosBeat || (() => {
     hoverTimer = setTimeout(() => {
       noRaise = want;
       hover = { id: want, t: Date.now() };
+      window.__vosHoverFocusAt = Date.now();                         // (a popup is not closed by this focus: it is no click)
       activate(want, { quiet: true });
       // Vivaldi focuses the page it activates; take that focus back, so the
       // first real click in the page counts as a click (front + color)

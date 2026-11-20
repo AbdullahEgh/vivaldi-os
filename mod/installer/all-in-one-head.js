@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Vivaldi OS __VERSION__ — all in one file (built by "Build Release.command")
+   Bento OS __VERSION__ — all in one file (built by "Build Release.command")
    For PCs where no installer can run: this one script, loaded by Vivaldi's
    window.html, brings the whole mod:
      1. the CSS mods (no "CSS modifications" setting or folder needed)
@@ -33,7 +33,7 @@
     try { const v = await vivaldi.prefs.get(path); return v && typeof v === "object" && "value" in v ? v.value : v; }
     catch (_) { return undefined; }
   };
-  const prefSet = (path, value) => { try { vivaldi.prefs.set({ path, value }); } catch (e) { console.warn("Vivaldi OS:", path, e); } };
+  const prefSet = (path, value) => { try { vivaldi.prefs.set({ path, value }); } catch (e) { console.warn("Bento OS:", path, e); } };
 
   async function applySettings() {
     let defs = {};
@@ -74,11 +74,11 @@
         for (const t of [...(CFG.systemThemes || []), ...(CFG.userThemes || [])])
           if (usesWall(t)) await vivaldi.utilities.storeImage({ themeId: t.id, mimeType: "image/jpeg", data });
       }
-    } catch (e) { console.warn("Vivaldi OS: wallpaper", e); }
+    } catch (e) { console.warn("Bento OS: wallpaper", e); }
     markSet(STAMP);
   }
   markGet().then(done => {                          // only when this package's settings are new here
-    if (done !== STAMP) setTimeout(() => applySettings().catch(e => console.warn("Vivaldi OS: settings", e)), 2500);
+    if (done !== STAMP) setTimeout(() => applySettings().catch(e => console.warn("Bento OS: settings", e)), 2500);
   });
 })();
 ;

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Vivaldi OS — one-click installer for macOS. Double-click this file.
+# Bento OS — one-click installer for macOS. Double-click this file.
 #   • floating windows, traffic lights, desktop clock, tab tint (JS mods)
 #   • the CSS mods (mod/css, copied next to the Vivaldi profile) + "Allow CSS modifications"
 #   • your Vivaldi light/dark themes with the wallpaper, and the tab bar setup
@@ -12,7 +12,7 @@ RES="$APP/Contents/Frameworks/Vivaldi Framework.framework/Versions/Current/Resou
 WIN="$RES/window.html"
 USERDATA="$HOME/Library/Application Support/Vivaldi"
 
-echo "== Vivaldi OS $(cat "$PKG/VERSION" 2>/dev/null) installer =="
+echo "== Bento OS $(cat "$PKG/VERSION" 2>/dev/null) installer =="
 [[ -f "$WIN" ]] || { echo "Vivaldi not found in /Applications."; read -r -p "Press Return to close."; exit 1; }
 
 # 1. quit Vivaldi (it saves the open tabs and brings them back)
@@ -57,7 +57,7 @@ done
 # 3. settings: themes + wallpaper, tab bar, CSS folder, CSS experiment
 osascript -l JavaScript "$PKG/installer/apply-settings-mac.js" "$PKG" "$USERDATA" "$PERS"
 
-# the updater: Vivaldi OS's "Update Now" opens vivaldios://update, and this small app
+# the updater: Bento OS's "Update Now" opens vivaldios://update, and this small app
 # (in your Applications folder) asks you, then runs the update in Terminal.
 # Remove it: delete ~/Applications/Vivaldi OS Updater.app
 UPD="$HOME/Applications/Vivaldi OS Updater.app"
@@ -68,13 +68,13 @@ if [[ -f "$PKG/installer/updater-mac.applescript" ]]; then
     $PB -c "Set :CFBundleIdentifier com.vivaldios.updater" "$PL" 2>/dev/null || $PB -c "Add :CFBundleIdentifier string com.vivaldios.updater" "$PL"
     $PB -c "Add :CFBundleURLTypes array" "$PL"
     $PB -c "Add :CFBundleURLTypes:0 dict" "$PL"
-    $PB -c "Add :CFBundleURLTypes:0:CFBundleURLName string Vivaldi OS Update" "$PL"
+    $PB -c "Add :CFBundleURLTypes:0:CFBundleURLName string Bento OS Update" "$PL"
     $PB -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PL"
     $PB -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string vivaldios" "$PL"
     $PB -c "Add :NSAppleEventsUsageDescription string 'Vivaldi OS Updater opens Terminal to install the update.'" "$PL" 2>/dev/null || true
     codesign --force --deep -s - "$UPD" 2>/dev/null || true
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$UPD" 2>/dev/null || true
-    echo "updater: ready (Update Now in Vivaldi OS)"
+    echo "updater: ready (Update Now in Bento OS)"
   fi
 fi
 
