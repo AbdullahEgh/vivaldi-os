@@ -1433,3 +1433,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* the tab bar Date, left of the clock */
 #browser .vos-chain-vosdate button { width: auto !important; min-width: 0 !important; padding: 0 6px !important; }
 #browser .vos-chain-vosdate .vos-chain-ic { display: block !important; white-space: nowrap !important; font-variant-numeric: tabular-nums !important; line-height: 1 !important; }
+/* choosing a desktop: its full-screen app slides in as it is, this one's slides out */
+#browser#browser#browser #webpage-stack .webpageview:is([data-vos-swo], [data-vos-swi]) { visibility: visible !important; opacity: 1 !important; z-index: 2 !important; pointer-events: none !important; filter: none !important; will-change: translate; }
+#browser#browser#browser #webpage-stack .webpageview:is([data-vos-swo], [data-vos-swi]) * { visibility: visible !important; }
+#browser#browser#browser #webpage-stack .webpageview[data-vos-swo="under"] { z-index: auto !important; }

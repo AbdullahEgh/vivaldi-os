@@ -165,6 +165,7 @@ window.vosBeat = window.vosBeat || (() => {
   const wsPending = new Map();                        // tab -> { ws, until }: sent to a desktop, not confirmed yet
   const handStart = new Set();                        // Start Pages opened on purpose: the desktop a window just left
   const pend = (ids, ws) => { const until = Date.now() + 2500; for (const i of ids) { wsPending.set(String(i), { ws, until }); wsOfTab.set(String(i), ws); } wsNowAt = 0; };
+  const deskShown = new Map();                       // desktop -> the tab it showed last
   let underId = null;                                 // the full-screen page under the floating windows
   let liveMove = null;                                // { id, base } a window being moved (by a translate)
   function endLiveMove() {                            // the move is over: its real place, the translate gone
@@ -1272,6 +1273,7 @@ window.vosBeat = window.vosBeat || (() => {
     b.toggleAttribute("data-ft-desktop", desktop);
     b.toggleAttribute("data-ft-has-floats", floating.size > 0);
     const cwNow = curWs();
+    if (act && actId != null && cwNow != null && !pendingActive && sameWs(wsOfTab.get(String(actId)), cwNow)) deskShown.set(String(cwNow), String(actId));   // what this desktop shows (Vivaldi brings it back)
     const emptyHere = tilingRead && cwNow != null && ![...wsOfTab.values()].some(v => sameWs(v, cwNow));
     b.toggleAttribute("data-vos-empty", emptyHere);                    // a desktop with no tab at all
     b.toggleAttribute("data-ft-home", emptyHere || (!!act && isStart(act)));   // the Launchpad page (or a desktop still without one): the Launchpad   // an empty desktop: only its wallpaper (+ opens the Launchpad)   // the Start Page or an empty desktop: the Launchpad
@@ -1391,7 +1393,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (chrome.runtime.lastError || !tab) return;
       const url = tab.url || tab.pendingUrl || "";
       // the desktop (Start Page) shows no address: the field says "Search" (CSS)
-      const name = /^chrome:\/\/vivaldi-webui\/startpage/.test(url) || !url ? "" : siteName(tab.title || "", url);
+      const name = /^(chrome:\/\/(vivaldi-webui\/startpage|newtab)|about:blank|chrome-search:)/.test(url) || !url ? "" : siteName(tab.title || "", url);   // a new tab too: "Search", nothing over it
       siteFor = name;
       for (const f of $$(".UrlBar-AddressField .UrlField")) {
         if (f.getAttribute("data-ft-site") !== name) f.setAttribute("data-ft-site", name);
@@ -2644,12 +2646,32 @@ window.vosBeat = window.vosBeat || (() => {
   function paintDate() {
     const btn = osChainButtons().vosdate, tx = btn?.querySelector(".vos-date-tx");
     if (!tx) return;
-    const t = dateText();
-    if (tx.textContent !== t) tx.textContent = t;
+    fitDate();
     const ck = document.querySelector("#browser .ClockButton");
     if (ck) { const cs = getComputedStyle(ck); if (tx.style.fontSize !== cs.fontSize) { tx.style.fontSize = cs.fontSize; tx.style.fontWeight = cs.fontWeight; tx.style.fontFamily = cs.fontFamily; } }
   }
   setInterval(paintDate, 30000);
+  /* short of room in the tab bar, the date gets shorter: the month goes first, then the day's number, then the day */
+  function fitDate() {
+    const btn = osChainButtons().vosdate, tx = btn?.querySelector(".vos-date-tx");
+    if (!tx) return;
+    const wrap = btn.closest(".button-toolbar") || btn, bar = wrap.parentElement;
+    if (!bar) return;
+    const spacers = [...bar.children].filter(c => c !== wrap && /spacer/i.test(c.className) && /flex/i.test(c.className));
+    const roomy = () => spacers.length ? spacers.every(c => c.getBoundingClientRect().width >= 6) : bar.scrollWidth <= bar.clientWidth + 1;
+    const order = dateFmt === "ddm" ? ["ddm", "dd", "d", ""] : dateFmt === "dd" ? ["dd", "d", ""] : ["d", ""];
+    for (const f of order) {
+      if (f) { const t = dateText(f); if (tx.textContent !== t) tx.textContent = t; }
+      if (f) wrap.style.removeProperty("display"); else wrap.style.setProperty("display", "none", "important");
+      if (!f || roomy()) break;
+    }
+  }
+  addEventListener("resize", () => { clearTimeout(fitDate.t); fitDate.t = setTimeout(fitDate, 60); });
+  (function watchBar() {
+    const c = document.getElementById("tabs-tabbar-container");
+    if (!c || typeof ResizeObserver !== "function") return setTimeout(watchBar, 1000);
+    new ResizeObserver(() => { clearTimeout(fitDate.t); fitDate.t = setTimeout(fitDate, 60); }).observe(c);
+  })();
   async function ensureChain(name) {                 // a toolbar never names a chain that is missing (it breaks the tab bar)
     const o = OS_CHAINS.find(x => chainName(x) === name);
     if (!o) return true;
@@ -4021,6 +4043,10 @@ window.vosBeat = window.vosBeat || (() => {
   }
   function deskFronts(tabs) {                                        // desktop -> the tab it shows (the last one used there)
     const front = new Map();
+    for (const t of tabs || []) {                                    // known: the one it showed last
+      const w = wsOfTab.get(String(t.id));
+      if (w != null && deskShown.get(String(w)) === String(t.id)) front.set(String(w), { ...t, lastAccessed: Infinity });
+    }
     for (const t of tabs || []) {
       if (t.pinned) continue;
       const w = wsOfTab.get(String(t.id)); if (w == null) continue;
@@ -4655,9 +4681,29 @@ window.vosBeat = window.vosBeat || (() => {
     const ms = sp.ms || 300, ease = sp.ease || "cubic-bezier(0.25, 0.8, 0.3, 1)";
     b.style.setProperty("--vos-swipe-ms", ms + "ms"); b.style.setProperty("--vos-swipe-ease", ease);
     const D = swDist(); b.style.setProperty("--vos-swipe-dist", D + "px");
+    // full-screen apps slide as they are seen: this desktop's out, the other desktop's in (never its bare wallpaper first)
+    const fullOut = (() => {
+      const ap = activePage();
+      if (b.hasAttribute("data-ft-maxpage") && ap && !winOf(ap.dataset.id) && !isTiled(ap) && !isStart(ap)) return ap;
+      const up = b.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) ? pageOf(underId) : null;
+      return up?.hasAttribute("data-ft-under") ? up : null;
+    })();
+    let fullIn = null;
+    if (sp.id != null && !(sp.incoming || []).length) {
+      try {
+        const fr = deskInfo?.front && Date.now() - deskInfo.at < 30000 ? deskInfo.front : deskFronts(await tabsQuery({ currentWindow: true }));
+        fullIn = fullOf(fr.get(String(sp.id)));
+      } catch (e) {}
+      if (fullIn === fullOut) fullIn = null;
+    }
+    const fullAnims = [];
+    if (fullOut) { fullOut.setAttribute("data-vos-swo", fullOut.hasAttribute("data-ft-under") ? "under" : ""); fullAnims.push([fullOut, fullOut.animate([{ translate: "0px 0px" }, { translate: `${-dir * D}px 0px` }], { duration: ms, easing: ease, fill: "forwards" })]); }
+    if (fullIn) { fullIn.setAttribute("data-vos-swi", ""); fullAnims.push([fullIn, fullIn.animate([{ translate: `${dir * D}px 0px` }, { translate: "0px 0px" }], { duration: ms, easing: ease, fill: "forwards" })]); }
     { const sc = scene();                                            // the wallpapers slide too: this one out, the other in
       if (sc && sc.children[1].style.visibility === "hidden") sceneAt(parseFloat(sc.children[0].style.translate) || 0, dir * D);
-      sceneGo(-dir * D, 0, ms, ease); }
+      sceneGo(-dir * D, 0, ms, ease);
+      if (sc && fullOut) sc.children[0].style.visibility = "hidden";   // an app over it: no wallpaper to see
+      if (sc && fullIn) sc.children[1].style.visibility = "hidden"; }
     swiping = true;
     const keep = new Set((sp.keep || []).map(String));                // the window that moves along: not left behind
     const leaving = [...document.querySelectorAll(SWIPE_ITEMS)].filter(el => !keep.has(el.dataset.ftFloat || el.dataset.ftFor || ""));
@@ -4689,6 +4735,7 @@ window.vosBeat = window.vosBeat || (() => {
       const lpOut = leaving.filter(el => el.classList.contains("lp-layer"));   // the Launchpad stays slid out until it is put aside
       leaving.forEach(el => { if (lpOut.includes(el)) return; el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
       setTimeout(() => {                                             // once the last window has slid in
+        for (const [el, a] of fullAnims) { el.removeAttribute("data-vos-swo"); el.removeAttribute("data-vos-swi"); a.cancel(); }
         for (const el of sp.incoming || []) { if (el.classList?.contains("vos-lp-ghost")) el.remove(); else el.removeAttribute("data-vos-incoming"); }
         if (gen === swipeGen) { b.removeAttribute("data-vos-swipe"); b.removeAttribute("data-vos-lp-ghost"); }   // (the Launchpad is put aside first, then shown again if wanted)
         lpOut.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });

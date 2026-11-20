@@ -878,12 +878,19 @@
     const L = lp?.layer;
     if (!L || !lp.editing) return;
     L.removeAttribute("data-edge-compact");
-    const bar = L.querySelector(":scope > .lp-searchbar")?.getBoundingClientRect();
+    const sb = L.querySelector(":scope > .lp-searchbar");
+    sb?.style.removeProperty("width");
+    const bar = sb?.getBoundingClientRect();
     if (!bar?.width) return;
     const btns = r => [...L.querySelectorAll(`:scope > .lp-edge-${r} .lp-edge-btn`)].map(b => b.getBoundingClientRect()).filter(x => x.width);
-    const l = btns("l"), rr = btns("r");
-    const tight = (l.length && Math.max(...l.map(x => x.right)) > bar.left - 12) || (rr.length && Math.min(...rr.map(x => x.left)) < bar.right + 12);
-    L.toggleAttribute("data-edge-compact", !!tight);
+    const room = () => { const l = btns("l"), rr = btns("r"); return [l.length ? Math.max(...l.map(x => x.right)) : -Infinity, rr.length ? Math.min(...rr.map(x => x.left)) : Infinity]; };
+    let [lx, rx] = room();
+    if (lx <= bar.left - 12 && rx >= bar.right + 12) return;
+    L.setAttribute("data-edge-compact", "");                      // first: only their icons
+    [lx, rx] = room();
+    if (lx <= bar.left - 12 && rx >= bar.right + 12) return;
+    const cx = bar.left + bar.width / 2, half = Math.min(cx - lx, rx - cx) - 12;   // then: a shorter search field, still centred
+    sb.style.setProperty("width", Math.max(120, Math.floor(half * 2)) + "px", "important");
   }
   addEventListener("resize", () => { if (lp?.editing) fitEdges(); });
   function exitEdit() {

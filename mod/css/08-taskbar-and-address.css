@@ -402,3 +402,6 @@
 
 /* Vivaldi's address-bar popups (a site's permission, passwords) sit under the address field (floating-tile.js) */
 #browser .addressfield-popup-container[data-vos-pop] { left: var(--vos-pop-x) !important; top: var(--vos-pop-y) !important; right: auto !important; bottom: auto !important; }
+
+/* 1.0.121: Vivaldi's own hint never shows under the site name (a new tab said "chrome://newtab" over it) */
+#browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site]:not(.UrlField--HasEditText) input::placeholder { color: transparent !important; opacity: 0 !important; }
