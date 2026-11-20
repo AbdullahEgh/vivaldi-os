@@ -3777,7 +3777,7 @@ window.vosBeat = window.vosBeat || (() => {
   let sw = null, swHush = 0, swQueue = null;
   const springs = new Set();                                         // spring-back animations still running
   const swItems = () => [...document.querySelectorAll(SWIPE_ITEMS)];
-  const dotsRow = () => null;
+  const dotsRow = () => dotsEl?.querySelector(".vos-ws-dots-row");
   /* MACOS SLIDE: the whole desktop moves - its wallpaper too - with a thin black line between two desktops:
      two copies of the wallpaper on black, under the windows, only while it slides */
   const SW_GAP = 6;
@@ -3824,10 +3824,10 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, d = ev.deltaX * k;
+    const now = performance.now();
+    if (swiping || (swHush && now - swHush < 300)) { swHush = now; if (Math.abs(d) > Math.abs(ev.deltaY * k)) ev.preventDefault(); return; }   // a desktop just came in (or sprang back): the rest of that flick - every event of it - is let go
     if (!sw && Math.abs(d) <= Math.abs(ev.deltaY * k)) return;       // up / down: not this
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
-    const now = performance.now();
-    if (swiping || (swHush && now - swHush < 200)) { swHush = now; return; }   // a desktop just came in: the rest of that flick is let go
     swHush = 0;
     if (!d) return;
     if (!sw) swBegin();
@@ -3842,6 +3842,7 @@ window.vosBeat = window.vosBeat || (() => {
   function swBegin() {
     for (const a of springs) a.cancel();                             // a spring-back still running: the fingers take over
     springs.clear();
+    deskDots(true);
     sw = { acc: 0, v: 0, at: performance.now(), last: [], vs: [], items: swItems(), info: deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null };
     if (!sw.info) { const s = sw; desksNow(true).then(i => { if (sw === s) { s.info = i; swDraw(s); } }); }
   }
@@ -3938,7 +3939,9 @@ window.vosBeat = window.vosBeat || (() => {
     set("height", af.offsetHeight + "px");
     set("color", cs.color);
   }
-  function dotsLive() {                                              // while shown: the address field's look as it changes
+  function dotsLive() {                                              // the address field's look, read once each time it shows (no per-frame work)
+    if (dotsEl) dotsSkin(dotsEl);
+    return;
     if (dotsLive.on) return;
     dotsLive.on = true;
     const tick = () => {
@@ -3949,7 +3952,6 @@ window.vosBeat = window.vosBeat || (() => {
     requestAnimationFrame(tick);
   }
   function dotsMark(i) {                                             // light that desktop's dot now
-    return;
     const row = dotsRow();
     if (row && i >= 0) [...row.children].forEach((d, j) => d.toggleAttribute("data-on", j === i));
   }
@@ -3965,7 +3967,6 @@ window.vosBeat = window.vosBeat || (() => {
     dotsEl.style.top = Math.round(r.top + r.height / 2) + "px";
   }
   async function deskDots(show) {
-    if (show) return;                                                // (the dots pill is gone: it slowed the scroll)
     const btn = document.querySelector(".vos-chain-vosmission") || document.querySelector(WS_BTN);
     if (!show || !btn) { clearTimeout(dotsTimer); dotsTimer = setTimeout(() => { dotsEl?.setAttribute("data-out", ""); }, 600); return; }
     clearTimeout(dotsTimer);

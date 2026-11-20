@@ -262,6 +262,7 @@
     lp.grid.append(...kids);
     if (false) lp.grid.appendChild(special("Search the web", `Search for "${raw}"`, "lp-web", () => webSearch(raw)));
     lp.layer.toggleAttribute("data-searching", !!q);
+    if (q) lp.grid.style.setProperty("display", "none", "important"); else lp.grid.style.removeProperty("display");   // searching: the list only, never the grid
     if (!list.length && !raw && !widgets.length) {
       const e = document.createElement("div");
       e.className = "lp-empty";
