@@ -2523,7 +2523,7 @@ window.vosBeat = window.vosBeat || (() => {
   const BENTO_SLOTS = [[1.5, 1.5, 6.6, 15], [9.6, 1.5, 6.9, 6.75], [9.6, 9.75, 6.9, 6.75]];   // Bento's mark: one tall, two stacked
   const rrect = (x, y, w, h, r) => `M${x + r} ${y}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - 2 * r}a${r} ${r} 0 0 1 ${-r} ${r}` +
     `h${-(w - 2 * r)}a${r} ${r} 0 0 1 ${-r} ${-r}v${-(h - 2 * r)}a${r} ${r} 0 0 1 ${r} ${-r}z`;
-  const bentoIcon = on => `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><path${on ? "" : ' opacity="0.5"'} d="` +   // filled tiles (Ubuntu style): off dimmed, on solid
+  const bentoIcon = on => `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="` +   // solid tiles (Ubuntu style); on: the button is lit
     BENTO_SLOTS.map(([x, y, w, h]) => rrect(x, y, w, h, 1.9)).join("") + `"/></svg>`;
   /* THE BENTO BUTTON IN THE TOOLBAR EDITOR: a Command Chain named "Bento" (made once, put
      after the Workspaces button) is Vivaldi's own toolbar button - so View > Customize
@@ -2646,6 +2646,7 @@ window.vosBeat = window.vosBeat || (() => {
       let ic = chain.querySelector(":scope > .vos-bento-ic");
       if (!ic) { ic = document.createElement("span"); ic.className = "vos-bento-ic"; chain.appendChild(ic); ic.__on = null; }
       if (ic.__on !== bento.on) { ic.__on = bento.on; ic.innerHTML = bentoIcon(bento.on); }
+      chain.toggleAttribute("data-vos-on", !!bento.on);
       wrap.toggleAttribute("data-on", bento.on);
       return;
     }
@@ -4023,6 +4024,7 @@ window.vosBeat = window.vosBeat || (() => {
     dotsEl.style.top = Math.round(r.top + r.height / 2) + "px";
   }
   async function deskDots(show) {
+    if (show) { dotsEl?.setAttribute("data-out", ""); return; }      // (the Workspaces icon shows the desktops now: no pill)
     const btn = document.querySelector(".vos-chain-vosmission") || document.querySelector(WS_BTN);
     if (!show || !btn) { clearTimeout(dotsTimer); dotsTimer = setTimeout(() => { dotsEl?.setAttribute("data-out", ""); }, 600); return; }
     clearTimeout(dotsTimer);
@@ -4934,10 +4936,10 @@ window.vosBeat = window.vosBeat || (() => {
     const n = Math.max(1, Math.min(9, info?.ds?.length || 1)), i = Math.max(0, Math.min(n - 1, info?.i ?? 0)), key = n + ":" + i;
     let x = 1; const parts = [];
     for (let j = 0; j < n; j++) {
-      if (j === i) { parts.push(`<rect x="${x}" y="7" width="10" height="4" rx="2"/>`); x += 10 + 3; }
-      else { parts.push(`<circle cx="${x + 2}" cy="9" r="2" opacity="0.5"/>`); x += 4 + 3; }
+      if (j === i) { parts.push(`<rect x="${x}" y="6.4" width="14" height="5.2" rx="2.6"/>`); x += 14 + 3.5; }
+      else { parts.push(`<circle cx="${x + 2.6}" cy="9" r="2.6" opacity="0.5"/>`); x += 5.2 + 3.5; }
     }
-    const w = x - 3 + 1;
+    const w = Math.ceil(x - 3.5 + 1);
     for (const host of document.querySelectorAll("#tabs-tabbar-container .workspace-popup .button-icon, #browser .tabbar-workspace-button .button-icon")) {
       let ic = host.querySelector(":scope > .vos-desks-ic");
       if (ic && ic.__key === key) continue;
