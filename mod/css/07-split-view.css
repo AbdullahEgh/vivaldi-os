@@ -1324,3 +1324,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* the desktop Launchpad slides with the desktops (in from the side the new desktop comes from) */
 #browser[data-vos-swipe-in="next"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
 #browser[data-vos-swipe-in="prev"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
+/* a scroll to an empty desktop: a copy of the Launchpad slides in; the real one shows in its place once it is there */
+#webpage-stack > .lp-layer.vos-lp-ghost { pointer-events: none !important; }
+#browser[data-vos-lp-ghost] #webpage-stack > .lp-layer.lp-desktop:not(.vos-lp-ghost):not([data-ft-swipe-out]) { visibility: hidden !important; animation: none !important; }

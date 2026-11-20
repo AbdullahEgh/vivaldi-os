@@ -1,6 +1,7 @@
 -- Vivaldi OS Updater (macOS): opens vivaldios://update links from Vivaldi OS's
 -- "Update Now" button. It takes nothing from the link: it only ever installs the
--- latest official release of github.com/AbdullahEgh/vivaldi-os, after you confirm.
+-- latest official release of github.com/AbdullahEgh/vivaldi-os, after you confirm,
+-- and only if it carries the signature of Vivaldi OS's release key.
 on open location theURL
 	if theURL does not start with "vivaldios://update" then return
 	try
@@ -11,7 +12,10 @@ on open location theURL
 	do shell script "rm -f /tmp/vivaldi-os-updated"
 	tell application "Terminal"
 		activate
-		set t to do script "curl -fsSL https://github.com/AbdullahEgh/vivaldi-os/releases/latest/download/VivaldiOS-Mac.command -o /tmp/vivaldi-os.command && bash /tmp/vivaldi-os.command && touch /tmp/vivaldi-os-updated"
+		set u to "https://github.com/AbdullahEgh/vivaldi-os/releases/latest/download/VivaldiOS-Mac.command"
+		set k to "vivaldi-os ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJJewhzxQTTIQOK45iTV0OoL3VTClELYcOCLU9GvmG3a"
+		-- a private folder (not /tmp), and the installer runs only if Vivaldi OS's release key signed it
+		set t to do script "d=$(mktemp -d) && curl -fsSL " & u & " -o $d/v.command && curl -fsSL " & u & ".sig -o $d/v.sig && echo " & quoted form of k & " > $d/k && ssh-keygen -q -Y verify -f $d/k -I vivaldi-os -n vivaldi-os-release -s $d/v.sig < $d/v.command && bash $d/v.command && touch /tmp/vivaldi-os-updated || echo 'NOT INSTALLED: the update could not be downloaded or its signature did not check out.'"
 		set w to front window
 	end tell
 	-- done: the Terminal window closes by itself (it stays open only if something went wrong)

@@ -2239,24 +2239,63 @@
       msg.textContent = "If Vivaldi asks, choose Open Vivaldi OS Updater (tick Always allow). Then press Update. If nothing opens, use Terminal below.";
     });
   }
-  /* Windows: download the one-file installer and open it (SmartScreen may ask once) */
-  function winUpdate(b, msg) {
+  /* RELEASE SIGNATURE: Update Now installs only a release signed with Vivaldi OS's release key
+     (an SSH signature, "ssh-keygen -Y sign", made on the publishing Mac) - a file swapped on
+     GitHub, or a hijacked account, cannot get an update in */
+  const SIGN_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIJJewhzxQTTIQOK45iTV0OoL3VTClELYcOCLU9GvmG3a", SIGN_NS = "vivaldi-os-release";
+  async function signedOk(data, armored) {
+    try {
+      const b64 = (s => Uint8Array.from(atob(s), c => c.charCodeAt(0)));
+      const rd = buf => { let o = 0; return { u32() { if (o + 4 > buf.length) throw 0; const v = new DataView(buf.buffer, buf.byteOffset + o, 4).getUint32(0); o += 4; return v; },
+        str() { const n = this.u32(); if (o + n > buf.length) throw 0; const v = buf.subarray(o, o + n); o += n; return v; }, at: () => o, skip(n) { o += n; } }; };
+      const txt = a => new TextDecoder().decode(a), te = s => new TextEncoder().encode(s);
+      const blob = b64(String(armored).replace(/-----[^-]+-----/g, "").replace(/\s+/g, ""));
+      if (txt(blob.subarray(0, 6)) !== "SSHSIG") return false;
+      const r = rd(blob); r.skip(6);
+      if (r.u32() !== 1) return false;
+      const pub = r.str(), ns = r.str(), reserved = r.str(), hash = r.str(), sig = r.str();
+      const want = b64(SIGN_KEY);
+      if (pub.length !== want.length || pub.some((x, i) => x !== want[i])) return false;   // our key, nobody else's
+      if (txt(ns) !== SIGN_NS || !/^sha(256|512)$/.test(txt(hash))) return false;
+      const rs = rd(sig); if (txt(rs.str()) !== "ssh-ed25519") return false;
+      const raw = rs.str();
+      const rp = rd(pub); rp.str(); const key32 = rp.str();
+      const digest = new Uint8Array(await crypto.subtle.digest(txt(hash) === "sha512" ? "SHA-512" : "SHA-256", data));
+      const pack = a => { const out = new Uint8Array(4 + a.length); new DataView(out.buffer).setUint32(0, a.length); out.set(a, 4); return out; };
+      const parts = [te("SSHSIG"), pack(ns), pack(reserved), pack(hash), pack(digest)];
+      const signed = new Uint8Array(parts.reduce((n, a) => n + a.length, 0));
+      parts.reduce((o, a) => (signed.set(a, o), o + a.length), 0);
+      const k = await crypto.subtle.importKey("raw", key32, { name: "Ed25519" }, false, ["verify"]);
+      return await crypto.subtle.verify({ name: "Ed25519" }, k, raw, signed);
+    } catch (e) { return false; }
+  }
+  /* Windows: the one-file installer, checked against its signature, then saved and opened (SmartScreen may ask once) */
+  async function winUpdate(b, msg) {
     b.textContent = "Downloading…"; b.disabled = true;
     const fail = text => { b.textContent = "Update Now"; b.disabled = false; msg.textContent = text; };
-    chrome.downloads.download({ url: relUrl() + "VivaldiOS-Windows.cmd", filename: "VivaldiOS-Update.cmd", conflictAction: "overwrite", saveAs: false }, id => {
-      if (chrome.runtime.lastError || !id) return fail("The download didn't start. Use Copy for PowerShell instead.");
+    let data, sig;
+    try {
+      const [r1, r2] = await Promise.all([fetch(relUrl() + "VivaldiOS-Windows.cmd", { cache: "no-store", credentials: "omit" }), fetch(relUrl() + "VivaldiOS-Windows.cmd.sig", { cache: "no-store", credentials: "omit" })]);
+      if (!r1.ok || !r2.ok) return fail("The download didn't work. Try again later.");
+      data = new Uint8Array(await r1.arrayBuffer()); sig = await r2.text();
+    } catch (e) { return fail("The download didn't work. Try again later."); }
+    if (!(await signedOk(data, sig))) return fail("Not installed: this update is not signed by Vivaldi OS.");
+    const url = URL.createObjectURL(new Blob([data], { type: "application/octet-stream" }));
+    chrome.downloads.download({ url, filename: "VivaldiOS-Update.cmd", conflictAction: "overwrite", saveAs: false }, id => {
+      if (chrome.runtime.lastError || !id) { URL.revokeObjectURL(url); return fail("The download didn't start. Use Copy for PowerShell instead."); }
       const on = d => {
         if (d.id !== id || !d.state) return;
         if (d.state.current === "complete") {
-          chrome.downloads.onChanged.removeListener(on);
+          chrome.downloads.onChanged.removeListener(on); URL.revokeObjectURL(url);
           b.textContent = "Opening…";
           try { chrome.downloads.open(id); msg.textContent = "The installer is starting: Vivaldi will close and come back with your tabs."; }
           catch (e) { chrome.downloads.show?.(id); msg.textContent = "Double-click VivaldiOS-Update.cmd (shown in its folder) to update."; }
-        } else if (d.state.current === "interrupted") { chrome.downloads.onChanged.removeListener(on); fail("The download was stopped. Use Copy for PowerShell instead."); }
+        } else if (d.state.current === "interrupted") { chrome.downloads.onChanged.removeListener(on); URL.revokeObjectURL(url); fail("The download was stopped. Use Copy for PowerShell instead."); }
       };
       chrome.downloads.onChanged.addListener(on);
     });
   }
+  try { Object.defineProperty(window, "__vosSignedOk", { configurable: true, value: signedOk }); } catch (e) {}
   let updEl = null;
   function updateNotice(tag, title, sub, install) {
     updEl?.remove();

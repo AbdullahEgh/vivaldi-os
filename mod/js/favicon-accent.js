@@ -182,7 +182,7 @@
     }
     if (!found) found = await tryUrl(origin + "/apple-touch-icon.png", "apple-touch-icon");
     if (!found) found = await tryUrl(origin + "/favicon.ico", "favicon.ico");
-    if (!found) found = await tryUrl(`https://icons.duckduckgo.com/ip3/${host}.ico`, "duckduckgo");
+    // (no third-party icon service: the sites you visit are not sent anywhere else)
 
     const result = found || fallback || { rgb: null, source: "none" };
     cacheSet(host, result);
