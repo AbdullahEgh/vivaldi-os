@@ -4839,6 +4839,14 @@ window.vosBeat = window.vosBeat || (() => {
 
   /* ---------------- watching Vivaldi ---------------- */
   let queued = false;
+  /* the shown desktop changed (any way: the mod, Vivaldi's own menu, a shortcut) - drawn again, even
+     when no tab became active (back from an empty desktop to the same tab) */
+  let wsShownSeen;
+  setInterval(() => {
+    let v; try { v = vivActiveWs(); } catch (e) { return; }
+    if (v === undefined || (wsShownSeen !== undefined && sameWs(v, wsShownSeen))) return;
+    wsShownSeen = v; wsNowAt = 0; queueRender();
+  }, 150);
   function queueRender() {
     if (queued) return;
     queued = true;
