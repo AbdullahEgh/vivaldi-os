@@ -2614,7 +2614,7 @@ window.vosBeat = window.vosBeat || (() => {
     return out;
   }
   const chainButton = () => osChainButtons().vosbento || null;
-  const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect x="2" y="3" width="6" height="5" rx="1.3"/><rect x="10" y="3" width="6" height="5" rx="1.3"/><rect x="2" y="10" width="14" height="5" rx="1.3"/></svg>';
+  const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect x="4.5" y="4.5" width="9" height="9" rx="1.8"/><rect x="0.5" y="6" width="2.6" height="6" rx="1" opacity="0.55"/><rect x="14.9" y="6" width="2.6" height="6" rx="1" opacity="0.55"/></svg>';   // desktops side by side
   const TIMER_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><circle cx="9" cy="10.2" r="5.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 10.2V7.2M7 2.6h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   function osWidgets() {                            // Mission Control and Timer: their drawing and click
     const found = osChainButtons();
@@ -2782,6 +2782,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (mission && inMission && how === "move") {                // Mission Control: the small window follows the pointer
           const cur = pxRect(id, ss);
           const d = { x: last.clientX - ss.left - gOff.x, y: last.clientY - ss.top - gOff.y, w: cur.w, h: cur.h };
+          if (!missionDrag) { el.setAttribute("data-ft-mc-held", ""); frames.get(id)?.setAttribute("data-ft-mc-held", ""); }   // no easing while held: it sticks to the pointer
           missionDrag = { id, r: d, k: kHeld };
           mcIcons?.querySelector(`[data-id="${CSS.escape(String(id))}"]`)?.setAttribute("data-held", "");   // held: its app icon goes (back when let go)
           place(el, d, ss); placeFrame(id, el, d, ss); missionLook(id, el, { x: d.x, y: d.y, k: kHeld }, d);
@@ -2840,6 +2841,7 @@ window.vosBeat = window.vosBeat || (() => {
       removeEventListener("pointercancel", onUp, true);
       clearTimeout(zoneTimer); clearTimeout(deskTimer);
       const heldMD = missionDrag?.id === id ? missionDrag : null, wasHeld = !!heldMD; missionDrag = null;
+      if (wasHeld) requestAnimationFrame(() => requestAnimationFrame(() => { el.removeAttribute("data-ft-mc-held"); frames.get(id)?.removeAttribute("data-ft-mc-held"); }));
       if (missionSkip === id) missionSkip = null;
       if (deskDrop) {                                               // the desktops panel is open
         const card = deskOver; deskOver?.removeAttribute("data-drop");
@@ -3870,7 +3872,7 @@ window.vosBeat = window.vosBeat || (() => {
      Let go: it settles - on the next desktop when pushed far or fast enough, else back. The rest
      of that flick is let go. One desktop per swipe; none that way: a little stretch. */
   try { CSS.registerProperty({ name: "--vos-dx", syntax: "<number>", inherits: true, initialValue: "0" }); } catch (e) {}
-  const SW_QUIET = 160, SW_HUSH = 220;
+  const SW_QUIET = 700, SW_HUSH = 220;                                 // a pause is not a release: it waits (the fingers may only rest)
   let swHushAt = 0;
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
@@ -3880,6 +3882,7 @@ window.vosBeat = window.vosBeat || (() => {
       swHushAt = now; if (Math.abs(dx) > Math.abs(dy)) ev.preventDefault(); return;
     }
     swHushAt = 0;
+    if (sw && !dx && !dy) { ev.preventDefault(); return swRelease(); }   // the end of the gesture (macOS sends an empty one): the fingers let go
     if (!sw && Math.abs(dx) <= Math.abs(dy)) return;                 // up / down: not this
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
     if (!dx) return;
@@ -3968,7 +3971,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 200))]);
     swClean(s);
-    if (go) { swiping = false; deskInfo = null; deskDots(true); }
+    if (go) { swiping = false; deskInfo = null; deskDots(true); arrive(t.id); }
   }
   function swClean(s) {                                              // all in one frame: everything where it really is
     s.b.removeAttribute("data-vos-dragdesk");
@@ -4407,6 +4410,7 @@ window.vosBeat = window.vosBeat || (() => {
         lpOut.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
         if (gen !== swipeGen) return;                                // a newer swipe owns the rest
         b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; sceneEnd(); deskDots(true);
+        if (sp.id != null) arrive(sp.id);
       }, Math.max(0, (shownAt || Date.now()) + ms - Date.now()) + 40);
     }
   }
@@ -4907,14 +4911,22 @@ window.vosBeat = window.vosBeat || (() => {
     wsShownSeen = v; wsNowAt = 0; queueRender();
     if (first) return;
     window.dispatchEvent(new Event("ft-tint"));                      // the tab bar's colour: this desktop's front tab
-    setTimeout(() => {                                               // landed on its Launchpad page with windows there: the top one comes up (macOS)
-      if (!sameWs(vivActiveWs(), v)) return;
+    arrive(v);
+  }, 150);
+  /* arrived on a desktop: its windows are shown - never hidden behind its Launchpad page (Vivaldi may bring
+     that page to the front a little later: looked at a few times) */
+  let arriveGen = 0;
+  function arrive(v) {
+    const gen = ++arriveGen;
+    for (const ms of [140, 400, 900]) setTimeout(() => {
+      if (gen !== arriveGen || swiping || sw || !sameWs(vivActiveWs(), v)) return;
       const a = activePage(); if (!a || !isStart(a)) return;
       const w = [...zOrder].reverse().find(z => floating.has(z) && !minimized.has(z) && !pip.includes(z) && pageOf(z) && !awayWs(z));
       if (!w) return;
+      vstore.set("vosArriveDiag", JSON.stringify({ ws: v, ms, front: w, t: Date.now() }));   // (a record, to see when it happens)
       raise(w); activate(groupFloat.has(w) ? (splitFocus.get(w) || w) : w);
-    }, 140);
-  }, 150);
+    }, ms);
+  }
   function queueRender() {
     if (queued) return;
     queued = true;

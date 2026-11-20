@@ -1365,3 +1365,15 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* the focus blur is its desktop's: it moves with it when you swipe (the black line and the next desktop stay sharp) */
 #browser[data-vos-dragdesk] #webpage-stack .ft-veil:not([data-vos-incoming]) { translate: calc(var(--vos-dx, 0) * -1px) 0 !important; }
+
+/* Mission Control: the window you hold follows the pointer exactly (no easing that would fling it away first) */
+#browser #webpage-stack [data-ft-float][data-ft-mc-held], #browser .ft-frame[data-ft-mc-held] { transition: none !important; }
+/* the Workspaces button: desktops side by side (one shown, the next ones beside it), not Vivaldi's stacked layers */
+#browser #tabs-tabbar-container .workspace-popup .button-icon > :not(.vos-desks-ic),
+#browser .tabbar-workspace-button .button-icon > :not(.vos-desks-ic) { display: none !important; }
+#browser #tabs-tabbar-container .workspace-popup .button-icon::before,
+#browser .tabbar-workspace-button .button-icon::before {
+  content: "" !important; display: block !important; width: 18px !important; height: 18px !important; margin: auto !important; background: currentColor !important;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Crect x='4.5' y='4.5' width='9' height='9' rx='1.8'/%3E%3Crect x='0.5' y='6' width='2.6' height='6' rx='1' opacity='0.55'/%3E%3Crect x='14.9' y='6' width='2.6' height='6' rx='1' opacity='0.55'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Crect x='4.5' y='4.5' width='9' height='9' rx='1.8'/%3E%3Crect x='0.5' y='6' width='2.6' height='6' rx='1' opacity='0.55'/%3E%3Crect x='14.9' y='6' width='2.6' height='6' rx='1' opacity='0.55'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important;
+}
