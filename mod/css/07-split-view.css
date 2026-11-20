@@ -1338,8 +1338,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* the desktop dots: the address field's colours, from the theme itself (no delay) */
 #browser.color-behind-tabs-on:not(.transparent-tabbar) .vos-ws-dots { color: var(--colorAccentFg, #fff) !important; }
 /* windows held small in a corner stay under a full-screen app (a full page, or a window in full view) */
-#browser#browser[data-ft-maxpage]:not([data-ft-desktop]) :is([data-ft-float][data-ft-pip], .ft-frame[data-ft-pip]),
-#browser#browser[data-ft-cover] :is([data-ft-float][data-ft-pip]:not([data-ft-cover]), .ft-frame[data-ft-pip]) { visibility: hidden !important; pointer-events: none !important; }
+/* windows held small in a corner stay on top of everything - a full page, a window in full view */
+#browser#browser:not([data-ft-desktop]) #webpage-stack [data-ft-float][data-ft-pip]:not([data-ft-min]):not([data-ft-away]),
+#browser#browser:not([data-ft-desktop]) #webpage-stack [data-ft-float][data-ft-pip]:not([data-ft-min]):not([data-ft-away]) .webpageview,
+#browser#browser:not([data-ft-desktop]) #webpage-stack .webpageview[data-ft-float][data-ft-pip]:not([data-ft-min]):not([data-ft-away]) {
+  visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; filter: none !important; transform: none !important; }
+#browser#browser:not([data-ft-desktop]) .ft-frame[data-ft-pip]:not([data-ft-away]) { visibility: visible !important; pointer-events: auto !important; }
 
 /* the desktop follows the fingers (floating-tile.js swMove): one number, --vos-dx, moves this desktop - its
    windows, their frames, its Launchpad, its wallpaper - and --vos-in places the next one beside it */
@@ -1351,9 +1355,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* desktops panel: a hover X deletes a desktop (as in macOS Mission Control) */
 #browser .vos-ws-card { position: relative; }
-#browser .vos-ws-card > .vos-ws-close { position: absolute !important; top: 5px !important; left: 5px !important; z-index: 5 !important; width: 22px !important; height: 22px !important; padding: 5px !important;
+#browser .vos-ws-card > .vos-ws-close { position: absolute !important; top: -9px !important; left: -9px !important; z-index: 5 !important; width: 22px !important; height: 22px !important; padding: 5px !important;
   border: 0 !important; border-radius: 50% !important; background: rgba(60, 60, 64, 0.92) !important; color: #fff !important; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25) !important;
   opacity: 0 !important; transform: scale(0.7) !important; transition: opacity 0.12s ease, transform 0.12s ease !important; cursor: default !important; }
-#browser .vos-ws-card:hover > .vos-ws-close { opacity: 1 !important; transform: none !important; }
-#browser .vos-ws-card > .vos-ws-close:hover { background: rgba(90, 90, 96, 0.98) !important; }
+#browser .vos-ws-card > .vos-ws-close::before { content: "" !important; position: absolute !important; inset: -10px !important; border-radius: 50% !important; }   /* the corner zone that shows it */
+#browser .vos-ws-card > .vos-ws-close:hover { opacity: 1 !important; transform: none !important; }
+
 #browser .vos-ws-card > .vos-ws-close svg { width: 12px !important; height: 12px !important; display: block !important; }
+
+/* the focus blur is its desktop's: it moves with it when you swipe (the black line and the next desktop stay sharp) */
+#browser[data-vos-dragdesk] #webpage-stack .ft-veil:not([data-vos-incoming]) { translate: calc(var(--vos-dx, 0) * -1px) 0 !important; }

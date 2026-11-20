@@ -738,11 +738,20 @@ window.vosBeat = window.vosBeat || (() => {
       if (!l.width || !l.height || !f.width || !f.height) return;
       const dx = f.left - l.left, dy = f.top - l.top, sx = f.width / l.width, sy = f.height / l.height;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
-      e.animate(
-        [{ transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+      let kx = sx, ky = sy, tx = dx, ty = dy;
+      if (Math.abs(sx - sy) > 0.03) {                                // another shape (full view, a Bento slot): one scale, centred - the page is never stretched
+        const k = Math.sqrt(sx * sy);
+        kx = ky = k;
+        tx = f.left + f.width / 2 - (l.left + l.width * k / 2);
+        ty = f.top + f.height / 2 - (l.top + l.height * k / 2);
+      }
+      e.style.setProperty("will-change", "transform");               // its own layer for the move (smooth), only while it moves
+      const a = e.animate(
+        [{ transformOrigin: "0 0", transform: `translate(${tx}px, ${ty}px) scale(${kx}, ${ky})` },
          { transformOrigin: "0 0", transform: "none" }],
         SPR_MOVE
       );
+      a.finished.catch(() => {}).then(() => { if (!e.getAnimations().length) e.style.removeProperty("will-change"); });
     });
   }
   function toTabFrame(el, id) {                     // the window shrunk into its tab icon
@@ -1215,7 +1224,7 @@ window.vosBeat = window.vosBeat || (() => {
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
         : cover === id ? "90000"                                     // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts)
-        : pip.includes(id) ? String(1900 + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top
+        : pip.includes(id) ? String((cover ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too)
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       placeFrame(id, el, r, s, o);
       missionLook(id, el, held ? { x: r.x, y: r.y, k: missionDrag.k } : slots?.get(id) || null, r);   // Mission Control: scaled, not resized
@@ -3938,8 +3947,11 @@ window.vosBeat = window.vosBeat || (() => {
     const v = Math.max(0, ...s.vs.map(([, x]) => x * dir));         // px per ms that way, just now
     const go = !!t && (Math.abs(s.acc) > D * 0.4 || (v > 0.5 && Math.abs(s.acc) > 30));
     const from = parseFloat(s.stack.style.getPropertyValue("--vos-dx")) || 0, to = go ? dir * D : 0;
-    const ms = Math.round(Math.max(130, Math.min(260, Math.abs(to - from) / Math.max(1.8, v * 1.2))));
-    const anim = s.stack.animate([{ "--vos-dx": String(from) }, { "--vos-dx": String(to) }], { duration: ms, easing: "cubic-bezier(0.2, 0.8, 0.25, 1)", fill: "forwards" });
+    const dist = Math.max(1, Math.abs(to - from));
+    const ms = Math.round(go ? Math.max(180, Math.min(280, dist / Math.max(1.8, v * 1.2))) : Math.max(140, Math.min(240, dist / 1.6)));
+    const y1 = Math.max(0.05, Math.min(1, 0.4 * Math.max(v, 0.2) * ms / dist));   // its first speed: the fingers' speed
+    const ease = go ? `cubic-bezier(0.4, ${y1.toFixed(2)}, 0.2, 1)` : "cubic-bezier(0.25, 0.8, 0.3, 1)";
+    const anim = s.stack.animate([{ "--vos-dx": String(from) }, { "--vos-dx": String(to) }], { duration: ms, easing: ease, fill: "forwards" });
     if (go) {
       swiping = true;
       const out = swItems().filter(el => !s.inc.includes(el));      // this desktop's windows: kept in sight while they slide out
@@ -4333,7 +4345,7 @@ window.vosBeat = window.vosBeat || (() => {
   /* DESKTOP SWIPE (like macOS Spaces): what is on this desktop slides away toward the one
      you chose, and the new desktop's windows slide in from that side - one transform on
      elements already on the graphics card (no pictures taken, nothing re-laid out) */
-  const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-layer.lp-desktop:not([style*='visibility']):not(.vos-lp-ghost)";
+  const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-layer.lp-desktop:not([style*='visibility']):not(.vos-lp-ghost), #webpage-stack .ft-veil";
   let swipeGen = 0;
   async function swipeTo(sp, list, dir) {
     const b = browserEl(), gen = ++swipeGen;
