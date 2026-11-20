@@ -2104,7 +2104,7 @@
   /* ---------------- the desktop: the Launchpad on the wallpaper ---------------- */
   function syncDesk() {
     const b = document.getElementById("browser"), stack = document.getElementById("webpage-stack");
-    const want = !!b && !!stack && !b.hasAttribute("data-vos-empty") && (b.hasAttribute("data-ft-home") ||
+    const want = !!b && !!stack && (b.hasAttribute("data-ft-home") ||
                  (b.hasAttribute("data-ft-desktop") && !b.hasAttribute("data-ft-wins")));   // windows open, or an empty desktop: only the wallpaper
     if (want && !lp && parked?.layer.parentElement === stack) {   // back at once: nothing to build, no icon to load
       lp = parked; parked = null;
@@ -2327,7 +2327,7 @@
       // copying the line: a row of its own, apart from Update Now
       const copyRow = document.createElement("div"); copyRow.className = "vos-upd-copy";
       const cap = document.createElement("span"); cap.className = "vos-upd-copy-cap";
-      cap.textContent = auto ? "Or copy the update line for:" : "Copy the update line for:";
+      cap.textContent = auto ? "Update manually: copy the line for" : "Copy the update line for:";
       copyRow.appendChild(cap);
       for (const [where, line] of updateLines()) {
         const label = where;
@@ -2344,6 +2344,13 @@
         });
       }
       n.__copy = copyRow;
+      if (auto) {                                                   // the update lines: behind a small button at the top right
+        copyRow.hidden = true;
+        const man = document.createElement("button"); man.type = "button"; man.className = "vos-upd-manual"; man.title = "Update manually";
+        man.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7.5 10l2.5 2.2-2.5 2.2M12.5 15h4"/></svg>';
+        man.addEventListener("click", ev => { ev.stopPropagation(); copyRow.hidden = !copyRow.hidden; man.toggleAttribute("data-on", !copyRow.hidden); });
+        n.appendChild(man);
+      }
     } else btn("OK", close, "vos-upd-main");
     n.appendChild(row);
     if (n.__copy) n.appendChild(n.__copy);                          // copying: the last row, apart from Update Now

@@ -1348,3 +1348,11 @@
 #browser .lp-row-icon.lp-row-app .lp-row-fav { width: 22px !important; height: 22px !important; border-radius: 5px !important; object-fit: contain !important; }   /* as in the grid: the icon about two thirds of its tile */
 #browser .lp-row[data-last-app] { margin-bottom: 7px !important; position: relative !important; }
 #browser .lp-row[data-last-app]::after { content: "" !important; position: absolute !important; left: 10px !important; right: 10px !important; bottom: -4px !important; border-bottom: 0.5px solid var(--lp-ios-sep) !important; }
+
+/* the update notice: manual updating sits behind a small, quiet button at the top right */
+#browser .vos-upd .vos-upd-title { padding-right: 30px !important; }
+#browser .vos-upd .vos-upd-manual { position: absolute !important; top: 12px !important; right: 12px !important; width: 26px !important; height: 26px !important; padding: 4px !important;
+  border: 0 !important; border-radius: 50% !important; background: transparent !important; color: inherit !important; opacity: 0.45 !important; cursor: default !important; transition: opacity 0.15s, background-color 0.15s !important; }
+#browser .vos-upd .vos-upd-manual:hover, #browser .vos-upd .vos-upd-manual[data-on] { opacity: 0.9 !important; background: rgba(127, 127, 127, 0.18) !important; }
+#browser .vos-upd .vos-upd-manual svg { width: 18px !important; height: 18px !important; display: block !important; }
+#browser .vos-upd .vos-upd-copy[hidden] { display: none !important; }

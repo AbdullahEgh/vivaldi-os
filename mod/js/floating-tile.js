@@ -1247,7 +1247,7 @@ window.vosBeat = window.vosBeat || (() => {
     const cwNow = curWs();
     const emptyHere = tilingRead && cwNow != null && ![...wsOfTab.values()].some(v => sameWs(v, cwNow));
     b.toggleAttribute("data-vos-empty", emptyHere);                    // a desktop with no tab at all
-    b.toggleAttribute("data-ft-home", !emptyHere && !!act && isStart(act));   // an empty desktop: only its wallpaper (+ opens the Launchpad)   // the Start Page or an empty desktop: the Launchpad
+    b.toggleAttribute("data-ft-home", emptyHere || (!!act && isStart(act)));   // the Launchpad page (or a desktop still without one): the Launchpad   // an empty desktop: only its wallpaper (+ opens the Launchpad)   // the Start Page or an empty desktop: the Launchpad
     b.toggleAttribute("data-ft-maxpage", !!act && !desktop && !isStart(act) && !isTiled(act));   // a full-screen page
     ensureMaxGrab();
     if (selected && !pageOf(selected)) selected = null;              // closed
@@ -3190,8 +3190,8 @@ window.vosBeat = window.vosBeat || (() => {
         ntrace("handOver", { to: t.id, ok });
         if (ok) return;
       }
-      ntrace("handOver", { to: "empty" });                            // nothing else here: the desktop stays, empty
-      return "empty";
+      await new Promise(r => chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, t => { void chrome.runtime.lastError; if (t) handStart.add(String(t.id)); r(); }));
+      ntrace("handOver", { to: "start", ok: await settle() });       // nothing else here: its Launchpad page (no empty desktops)
     } catch (e) { wsErr("hand over", e); }
   }
   async function arrivedAt(ids, ws, ms) {             // Vivaldi says every one of these tabs is on that desktop
@@ -3629,7 +3629,6 @@ window.vosBeat = window.vosBeat || (() => {
       raise(winOf(key) || key); shown = ok;
     } }, fresh, 1);
     if (!shown) { ids.forEach(i => wsPending.delete(String(i))); readTiling(); }
-    setTimeout(() => dropBlanks(from), 500);
   }
   /* A WINDOW DROPPED ON NEW: exactly what Vivaldi's "New Workspace with Selected Tabs" does -
      1. a new desktop, 2. the window's pages moved into it, 3. that desktop shown - in one
@@ -4267,9 +4266,7 @@ window.vosBeat = window.vosBeat || (() => {
     const was = curWs();
     if (sp.id != null) {
       const tabs = await tabsQuery({ currentWindow: true });
-      if (!deskTabs(sp.id, tabs).length && await emptySwitch(sp.id)) { setTimeout(() => dropBlanks(was), 400); return; }   // no tab there: no blank page either
     }
-    setTimeout(() => dropBlanks(was), 600);
     const fresh = await prefGet("vivaldi.workspaces.list");
     if (Array.isArray(fresh) && fresh.some(w => sameWs(w.id, sp.id))) list = fresh;   // the order as it is now
     const api = vivWs();
