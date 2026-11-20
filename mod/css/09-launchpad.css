@@ -1357,7 +1357,3 @@
 #browser .vos-upd .vos-upd-manual svg { width: 18px !important; height: 18px !important; display: block !important; }
 #browser .vos-upd .vos-upd-copy[hidden] { display: none !important; }
 
-/* the timer while idle: a simple dial (thin line, as the other icons); running, its ring shows the time left */
-#browser .vos-tm-mini[data-idle] svg { display: none !important; }
-#browser .vos-tm-mini[data-idle]::before { content: "" !important; display: block !important; width: 18px !important; height: 18px !important; background: currentColor !important;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12.5' r='7.5'/%3E%3Cpath d='M12 12.5V8.6'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12.5' r='7.5'/%3E%3Cpath d='M12 12.5V8.6'/%3E%3C/svg%3E") center / 18px 18px no-repeat !important; }

@@ -4950,6 +4950,9 @@ window.vosBeat = window.vosBeat || (() => {
     }
   }
   const deskIndicatorNow = () => desksNow(true).then(deskIndicator).catch(() => {});
+  /* which side Vivaldi's panel is on (its own setting, also while the panel is closed): the panel button's icon follows */
+  const panelSide = () => prefGet("vivaldi.panels.position").then(p => browserEl()?.toggleAttribute("data-vos-panel-right", p === 1 || p === "right")).catch(() => {});
+  setTimeout(panelSide, 1200); setInterval(() => { if (!document.hidden) panelSide(); }, 3000);
   setInterval(() => { if (!document.hidden) deskIndicatorNow(); }, 2000);
   setTimeout(deskIndicatorNow, 1500);
   function queueRender() {
