@@ -1348,3 +1348,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser[data-vos-dragdesk] #webpage-stack > .vos-sw-scene > .vos-sw-wall:first-child { translate: calc(var(--vos-dx, 0) * -1px) 0 !important; animation: none !important; will-change: translate; }
 #browser[data-vos-dragdesk] #webpage-stack :is([data-vos-incoming], .vos-sw-scene > .vos-sw-wall:last-child) { translate: calc((var(--vos-in, 0) - var(--vos-dx, 0)) * 1px) 0 !important; animation: none !important; will-change: translate; }
 #browser[data-vos-dragdesk] #webpage-stack > .lp-layer.vos-lp-ghost { pointer-events: none !important; }
+
+/* desktops panel: a hover X deletes a desktop (as in macOS Mission Control) */
+#browser .vos-ws-card { position: relative; }
+#browser .vos-ws-card > .vos-ws-close { position: absolute !important; top: -7px !important; left: -7px !important; z-index: 5 !important; width: 22px !important; height: 22px !important; padding: 5px !important;
+  border: 0 !important; border-radius: 50% !important; background: rgba(60, 60, 64, 0.92) !important; color: #fff !important; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25) !important;
+  opacity: 0 !important; transform: scale(0.7) !important; transition: opacity 0.12s ease, transform 0.12s ease !important; cursor: default !important; }
+#browser .vos-ws-card:hover > .vos-ws-close { opacity: 1 !important; transform: none !important; }
+#browser .vos-ws-card > .vos-ws-close:hover { background: rgba(90, 90, 96, 0.98) !important; }
+#browser .vos-ws-card > .vos-ws-close svg { width: 12px !important; height: 12px !important; display: block !important; }

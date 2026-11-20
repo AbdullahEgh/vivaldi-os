@@ -3278,6 +3278,34 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* right-click a desktop: Rename, Delete (Vivaldi's own; it closes that desktop's tabs, so
      the first click asks, the second deletes) */
+  /* the nearest desktop of this window: the one before it, else the one after (as the panel shows them) */
+  function deskNear(sp, list) {
+    const shown = list.filter(w => wsStrip?.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(w.id))}"]`));
+    const at = shown.findIndex(w => String(w.id) === String(sp.id));
+    return at > 0 ? shown[at - 1] : shown[at + 1];
+  }
+  /* delete a desktop: its windows go to the nearest desktop (keep) or close with it; its Launchpad page goes */
+  async function deskDelete(sp, list, keep) {
+    const api = vivWs(), near = deskNear(sp, list);
+    if (!api?.removeWorkspace || !near) return;
+    lastDelete = Date.now();
+    try {
+      const wid = await winId();
+      const now = await tabsQuery({ currentWindow: true });            // its tabs as they are now
+      const its = now.filter(t => !t.pinned && !isStartUrl(t) && sameWs(extOf(t)?.workspaceId ?? null, sp.id)).map(t => String(t.id));
+      if (keep && its.length) {                                      // its windows go to the nearest desktop - checked
+        await tpMove(its, near.id);
+        if (!(await arrivedAt(its, near.id, 2000))) { wsErr("delete", "its windows did not move - not deleted"); return; }
+      }
+      if (sameWs(curWs(), sp.id)) {                                  // on it now: go to that desktop first
+        await switchWs({ id: near.id, name: near.name }, list);
+        await new Promise(r => setTimeout(r, 250));
+      }
+      await api.removeWorkspace(wid, sp.id);
+      lastDelete = Date.now(); deskInfo = null;
+      closeWsStrip(); setTimeout(openWsStrip, 300);
+    } catch (e) { wsErr("delete", e); }
+  }
   let wsMenuEl = null;
   const closeWsMenu = () => { wsMenuEl?.remove(); wsMenuEl = null; };
   function wsMenu(sp, card, x, y, tabs, list) {
@@ -3297,32 +3325,8 @@ window.vosBeat = window.vosBeat || (() => {
     const ids = (tabs || []).filter(t => !t.pinned && !isStartUrl(t) && wsOfTab.has(String(t.id)) && sameWs(extOf(t)?.workspaceId ?? null, sp.id)).map(t => t.id);   // its windows, as Vivaldi has them (its Launchpad page is not one)
     const n = ids.length;
     const BIN = '<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>';
-    // the nearest desktop of this window: the one before it, else the one after
-    const shown = list.filter(w => wsStrip?.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(w.id))}"]`));
-    const at = shown.findIndex(w => String(w.id) === String(sp.id));
-    const near = at > 0 ? shown[at - 1] : shown[at + 1];
-    const doDelete = async keep => {
-      closeWsMenu();
-      const api = vivWs();
-      if (!api?.removeWorkspace || !near) return;
-      lastDelete = Date.now();
-      try {
-        const wid = await winId();
-        const now = await tabsQuery({ currentWindow: true });          // its tabs as they are now
-        const its = now.filter(t => !t.pinned && !isStartUrl(t) && sameWs(extOf(t)?.workspaceId ?? null, sp.id)).map(t => String(t.id));   // (its Launchpad page goes with it)
-        if (keep && its.length) {                                    // its windows go to the nearest desktop - checked
-          await tpMove(its, near.id);
-          if (!(await arrivedAt(its, near.id, 2000))) { wsErr("delete", "its windows did not move - not deleted"); return; }
-        }
-        if (sameWs(curWs(), sp.id)) {                                // on it now: go to that desktop first (not to "no desktop")
-          await switchWs({ id: near.id, name: near.name }, list);     // (it reads the order as it is now)
-          await new Promise(r => setTimeout(r, 250));
-        }
-        await api.removeWorkspace(wid, sp.id);
-        lastDelete = Date.now(); deskInfo = null;
-        closeWsStrip(); setTimeout(openWsStrip, 300);
-      } catch (e) { wsErr("delete", e); }
-    };
+    const near = deskNear(sp, list);
+    const doDelete = keep => { closeWsMenu(); deskDelete(sp, list, keep); };
     if (near) {                                                      // the last desktop of a window stays
       add(n ? "Delete, keep windows" : "Delete", BIN, () => doDelete(true));
       if (n) add(`Delete and close ${n} window${n === 1 ? "" : "s"}`, BIN, () => doDelete(false), "lp-danger");
@@ -3896,6 +3900,7 @@ window.vosBeat = window.vosBeat || (() => {
     s.stack.style.setProperty("--vos-dx", String(Math.round(shown)));
     clearTimeout(s.timer);
     if (Math.abs(s.acc) >= s.D) return swRelease();                  // all the way: there
+    if (dir && swTarget(dir) && Math.abs(s.acc) > 60 && Math.max(0, ...s.vs.map(([, x]) => x * dir)) > 1.1) return swRelease();   // a fast flick: there now
     s.timer = setTimeout(swRelease, SW_QUIET);                       // the scrolling stopped: let go
   }
   async function swRelease() {
@@ -4160,6 +4165,13 @@ window.vosBeat = window.vosBeat || (() => {
       if (sp.id != null) {
         card.dataset.ws = String(sp.id);
         card.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); wsMenu(sp, card, ev.clientX, ev.clientY, tabs, list); });
+        if (spaces.filter(x => x.id != null).length > 1) {           // a hover X deletes it (its windows go to the nearest desktop)
+          const x = document.createElement("button"); x.type = "button"; x.className = "vos-ws-close"; x.title = "Delete desktop";
+          x.innerHTML = '<svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+          x.addEventListener("pointerdown", ev => ev.stopPropagation());
+          x.addEventListener("click", ev => { ev.stopPropagation(); ev.preventDefault(); card.style.opacity = "0.4"; deskDelete(sp, list, true); });
+          card.appendChild(x);
+        }
       }
       card.addEventListener("click", ev => {
         if (card.__dragged) { card.__dragged = false; ev.stopPropagation(); return; }   // it was a drag, not a click
@@ -4853,7 +4865,17 @@ window.vosBeat = window.vosBeat || (() => {
   setInterval(() => {
     let v; try { v = vivActiveWs(); } catch (e) { return; }
     if (v === undefined || (wsShownSeen !== undefined && sameWs(v, wsShownSeen))) return;
+    const first = wsShownSeen === undefined;
     wsShownSeen = v; wsNowAt = 0; queueRender();
+    if (first) return;
+    window.dispatchEvent(new Event("ft-tint"));                      // the tab bar's colour: this desktop's front tab
+    setTimeout(() => {                                               // landed on its Launchpad page with windows there: the top one comes up (macOS)
+      if (!sameWs(vivActiveWs(), v)) return;
+      const a = activePage(); if (!a || !isStart(a)) return;
+      const w = [...zOrder].reverse().find(z => floating.has(z) && !minimized.has(z) && !pip.includes(z) && pageOf(z) && !awayWs(z));
+      if (!w) return;
+      raise(w); activate(groupFloat.has(w) ? (splitFocus.get(w) || w) : w);
+    }, 140);
   }, 150);
   function queueRender() {
     if (queued) return;
