@@ -182,7 +182,7 @@ window.vosBeat = window.vosBeat || (() => {
     const slots = new Map();
     if (!mission || !list.length) return slots;
     const PAD = 24, GAP = 28, top = mission.oy, aw = s.width - 2 * PAD, ah = s.height - top - PAD;
-    const items = list.map(({ id }) => ({ id, r: pxRect(id, s) })).sort((a, b) => (a.r.y + a.r.h / 2) - (b.r.y + b.r.h / 2) || a.r.x - b.r.x);
+    const items = list.map(({ id, r }) => ({ id, r: r || pxRect(id, s) })).sort((a, b) => (a.r.y + a.r.h / 2) - (b.r.y + b.r.h / 2) || a.r.x - b.r.x);
     const n = items.length;
     let best = null;
     for (let cols = 1; cols <= n; cols++) {                         // the grid that shows them largest
@@ -199,7 +199,7 @@ window.vosBeat = window.vosBeat || (() => {
       const off = (cols - part.length) * (cw + GAP) / 2;            // a shorter last row is centred
       part.forEach((it, c) => {
         const k = Math.min(0.85, cw / it.r.w, ch / it.r.h), w = it.r.w * k, h = it.r.h * k;
-        slots.set(it.id, { k, x: PAD + off + c * (cw + GAP) + (cw - w) / 2, y: top + row * (ch + GAP) + (ch - h) / 2 });
+        slots.set(it.id, { k, r: it.r, x: PAD + off + c * (cw + GAP) + (cw - w) / 2, y: top + row * (ch + GAP) + (ch - h) / 2 });
       });
     }
     return slots;
@@ -910,12 +910,12 @@ window.vosBeat = window.vosBeat || (() => {
   /* a floating split with its title bar hidden: the strip that moves it sits
      OUTSIDE, just above the window (GRAB px), and the top resize edge lies
      beyond that strip: from the outside in - resize, move, the window */
-  const GRAB = 10;
+  const GRAB = 0;                                     // (the grab is inside now: a long pill at the top centre)
   function placeFrame(id, el, r, s, o) {
     const f = frameFor(id, el);
-    const g = noTitle.has(id) && isSplitWindow(el) ? GRAB : 0;
-    if (f.hasAttribute("data-ft-grab") !== !!g) f.toggleAttribute("data-ft-grab", !!g);
-    place(f, { x: r.x - RING, y: r.y - RING - g, w: r.w + 2 * RING, h: r.h + 2 * RING + g }, s, o);
+    const g = noTitle.has(id) && isSplitWindow(el);
+    if (f.hasAttribute("data-ft-grab") !== g) f.toggleAttribute("data-ft-grab", g);
+    place(f, { x: r.x - RING, y: r.y - RING, w: r.w + 2 * RING, h: r.h + 2 * RING }, s, o);
     setStyle(f, "z-index", el.style.getPropertyValue("z-index") || "100");
   }
 
@@ -1201,7 +1201,7 @@ window.vosBeat = window.vosBeat || (() => {
       else if (ap && isStart(ap)) underId = null;
       const up = underId && pageOf(underId);
       if (!up || winOf(underId) || isTiled(up)) underId = null;
-      else if (String(a0) !== underId && !awayWs(underId)) {
+      else if ((String(a0) !== underId || mission) && !awayWs(underId)) {
         mark(up, "data-ft-under");
         for (let p = up.parentElement; p && p.id !== "webpage-stack"; p = p.parentElement) mark(p, "data-ft-chain");
       }
@@ -1213,10 +1213,16 @@ window.vosBeat = window.vosBeat || (() => {
     }
     bentoSync(s);
     { const w = curWs(); if (w !== undefined && w !== lastWsShown) { lastWsShown = w; setTimeout(noBlankFront, 150); } }
-    const slots = mission && b.hasAttribute("data-ft-desktop") ? missionSlots(windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))), s) : null;
+    // Mission Control over a full-screen page: the desktop shows (its windows too), the page is one of the windows
+    const actM = pendingActive ?? activePage()?.dataset.id, apM = pageOf(actM);
+    const mcOver = !!mission && !!apM && !winOf(actM) && !isStart(apM) && !isTiled(apM) && underId === String(actM);
+    const upM = mission && underId && !awayWs(underId) && pageOf(underId) && !winOf(underId) && (!mission.frozen || mission.frozen.has(underId)) ? underId : null;
+    const mItems = mission ? windows.filter(w => !awayWs(w.id) && w.id !== missionSkip && (!mission.frozen || mission.frozen.has(w.id))).map(w => ({ id: w.id })) : [];
+    if (upM) mItems.push({ id: upM, r: { x: 0, y: 0, w: s.width, h: s.height } });
+    const slots = mission && (b.hasAttribute("data-ft-desktop") || mcOver) ? missionSlots(mItems, s) : null;
     if (mission) mission.slots = slots;
     missionIcons(slots, s);
-    missionMax(s);
+    missionMax(s, slots);
     for (const { id, el } of windows) {
       addChrome(el, id);
       const held = missionDrag?.id === id;
@@ -1236,7 +1242,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     if (focusSet.size) focusLift = new Set(focusSet);
     wsAnimate(windows);
-    b.toggleAttribute("data-ft-wins", windows.some(w => !awayWs(w.id)));   // windows on this desktop (js/launchpad.js)
+    b.toggleAttribute("data-ft-wins", mcOver || windows.some(w => !awayWs(w.id)));   // windows on this desktop (js/launchpad.js)
     veilFor(focusSet.size > 0, s);
     bentoAfterPlace(s);
     {
@@ -1261,8 +1267,8 @@ window.vosBeat = window.vosBeat || (() => {
     // which space is shown
     const actId = pendingActive ?? activePage()?.dataset.id;
     const act = pageOf(actId);
-    const desktop = !!act && !!winOf(actId);
-    if (act && !isStart(act)) onDesktop = desktop;
+    const desktop = !!act && (!!winOf(actId) || mcOver);
+    if (act && !isStart(act)) onDesktop = !!winOf(actId);
     b.toggleAttribute("data-ft-desktop", desktop);
     b.toggleAttribute("data-ft-has-floats", floating.size > 0);
     const cwNow = curWs();
@@ -2567,6 +2573,7 @@ window.vosBeat = window.vosBeat || (() => {
     { key: "vosbento", label: "OS · Bento", old: ["Bento"] },
     { key: "vosmission", label: "OS · Mission Control" },
     { key: "vostimer", label: "OS · Timer" },
+    { key: "vosdate", label: "OS · Date" },
   ];
   const chainName = c => "COMMAND_" + c.key;
   const editingToolbar = () => !!document.querySelector("#browser.toolbar-edit-mode");   // Vivaldi's toolbar editor is open
@@ -2598,8 +2605,16 @@ window.vosBeat = window.vosBeat || (() => {
       if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN)) && !(await vstore.get("vosBentoOff"))) {   // (not when you took it off in the Launchpad)
         const tb = Array.isArray(vals[4]) ? [...vals[4]] : [];
         const at = tb.indexOf("WorkspaceButton");
-        tb.splice(at >= 0 ? at + 1 : 0, 0, BENTO_CHAIN);
+        tb.splice(at >= 0 ? at : 0, 0, BENTO_CHAIN);                  // Bento at the left, then the desktops
         await prefSet("vivaldi.toolbars.tabbar_before", tb);
+      }
+      if (!(await vstore.get("vosBentoFirst1"))) {                   // once: Bento before the desktops (the new default)
+        const tb = await prefGet("vivaldi.toolbars.tabbar_before");
+        if (Array.isArray(tb)) {
+          const i = tb.indexOf(BENTO_CHAIN), j = tb.indexOf("WorkspaceButton");
+          if (i >= 0 && j >= 0 && i > j) { const n = tb.filter(x => x !== BENTO_CHAIN); n.splice(n.indexOf("WorkspaceButton"), 0, BENTO_CHAIN); await prefSet("vivaldi.toolbars.tabbar_before", n); }
+        }
+        vstore.set("vosBentoFirst1", true);
       }
       vstore.set("vosBentoChain2", true);
       chainReady = true;
@@ -2617,13 +2632,41 @@ window.vosBeat = window.vosBeat || (() => {
   }
   const chainButton = () => osChainButtons().vosbento || null;
   const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="1.5" y="7" width="7" height="4" rx="2"/><circle cx="12" cy="9" r="2"/><circle cx="16" cy="9" r="1.6" opacity="0.55"/></svg>';   // Ubuntu: this desktop a line, the others dots
-  const TIMER_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12.5" r="7.5"/><path d="M12 12.5V8.6"/></svg>';   // simple: a dial and one hand
+  const TIMER_ICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none" stroke-width="2.6" stroke-linecap="round"><circle cx="10" cy="10" r="7.5" stroke="currentColor" opacity="0.3"/><path d="M10 2.5a7.5 7.5 0 1 1-7.13 5.18" stroke="#ff9f0a"/></svg>';   // only the ring
+  const DATE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M4 10h16M8.5 3.5v3M15.5 3.5v3"/></svg>';
+  /* THE DATE by the tab bar clock: Fri / Fri 20 / Fri 20 Nov */
+  let dateFmt = "dd";
+  vstore.get("vosDateFmt").then(v => { if (v === "d" || v === "dd" || v === "ddm") { dateFmt = v; paintDate(); } }).catch(() => {});
+  function dateText(f = dateFmt, d = new Date()) {
+    const a = DAYS[d.getDay()];
+    return f === "d" ? a : f === "ddm" ? `${a} ${d.getDate()} ${MONTHS[d.getMonth()]}` : `${a} ${d.getDate()}`;
+  }
+  function paintDate() {
+    const btn = osChainButtons().vosdate, tx = btn?.querySelector(".vos-date-tx");
+    if (!tx) return;
+    const t = dateText();
+    if (tx.textContent !== t) tx.textContent = t;
+    const ck = document.querySelector("#browser .ClockButton");
+    if (ck) { const cs = getComputedStyle(ck); if (tx.style.fontSize !== cs.fontSize) { tx.style.fontSize = cs.fontSize; tx.style.fontWeight = cs.fontWeight; tx.style.fontFamily = cs.fontFamily; } }
+  }
+  setInterval(paintDate, 30000);
+  async function ensureChain(name) {                 // a toolbar never names a chain that is missing (it breaks the tab bar)
+    const o = OS_CHAINS.find(x => chainName(x) === name);
+    if (!o) return true;
+    const list = (await prefGet("vivaldi.chained_commands.command_list")) || [];
+    if (!Array.isArray(list)) return false;
+    if (list.some(c => c?.name === name)) return true;
+    return prefSet("vivaldi.chained_commands.command_list", [...list, { category: "CATEGORY_COMMAND_CHAIN", chain: [], key: o.key, label: o.label, name }]);
+  }
   /* THE TAB BAR WIDGETS - Desktops, Bento, Timer - on or off from the Launchpad's widget gallery */
-  const TB_WIDGETS = { desktops: "WorkspaceButton", bento: BENTO_CHAIN, timer: "COMMAND_vostimer" };
+  const TB_WIDGETS = { desktops: "WorkspaceButton", bento: BENTO_CHAIN, timer: "COMMAND_vostimer", date: "COMMAND_vosdate" };
   const TB_BARS = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
   const tbBars = async () => Object.fromEntries(await Promise.all(TB_BARS.map(async b => [b, await prefGet("vivaldi.toolbars." + b)])));
   window.vosTabbarWidgets = {
-    icons: { desktops: MC_ICON, bento: bentoIcon(true), timer: TIMER_ICON },
+    icons: { desktops: MC_ICON, bento: bentoIcon(true), timer: TIMER_ICON, date: DATE_ICON },
+    dateFmt: () => dateFmt,
+    dateText: f => dateText(f),
+    setDateFmt(f) { if (!["d", "dd", "ddm"].includes(f)) return; dateFmt = f; vstore.set("vosDateFmt", f); paintDate(); },
     async get() {
       const bars = await tbBars(), on = n => Object.values(bars).some(v => Array.isArray(v) && v.includes(n));
       return Object.fromEntries(Object.entries(TB_WIDGETS).map(([k, n]) => [k, on(n)]));
@@ -2639,20 +2682,25 @@ window.vosBeat = window.vosBeat || (() => {
         return true;
       }
       if (Object.values(bars).some(v => Array.isArray(v) && v.includes(name))) return true;
-      if (key === "timer") {                           // by the clock
-        const ta = Array.isArray(bars.tabbar_after) ? [...bars.tabbar_after] : [], at = ta.indexOf("Clock");
+      if (!(await ensureChain(name))) return false;
+      if (key === "timer" || key === "date") {         // by the clock, at its left (the date right next to it)
+        const ta = Array.isArray(bars.tabbar_after) ? [...bars.tabbar_after] : [];
+        const at = key === "timer" && ta.includes(TB_WIDGETS.date) ? ta.indexOf(TB_WIDGETS.date) : ta.indexOf("Clock");
         ta.splice(at >= 0 ? at : ta.length, 0, name);
-        return prefSet("vivaldi.toolbars.tabbar_after", ta);
+        const ok = await prefSet("vivaldi.toolbars.tabbar_after", ta);
+        setTimeout(() => { osWidgets(); paintDate(); }, 400);
+        return ok;
       }
       const tb = Array.isArray(bars.tabbar_before) ? [...bars.tabbar_before] : [];
-      if (key === "desktops") tb.unshift(name);      // first, at the left
-      else { const at = tb.indexOf("WorkspaceButton"); tb.splice(at >= 0 ? at + 1 : 0, 0, name); }   // Bento: after Desktops
+      if (key === "desktops") { const at = tb.indexOf(BENTO_CHAIN); tb.splice(at >= 0 ? at + 1 : 0, 0, name); }   // after Bento
+      else { const at = tb.indexOf("WorkspaceButton"); tb.splice(at >= 0 ? at : 0, 0, name); }   // Bento: at the left, before Desktops
       return prefSet("vivaldi.toolbars.tabbar_before", tb);
     },
   };
   function osWidgets() {                            // Mission Control and Timer: their drawing and click
     const found = osChainButtons();
-    for (const [key, icon, act] of [["vosmission", MC_ICON, () => openWsStrip()], ["vostimer", TIMER_ICON, b => window.vosTimer?.toggle(b)]]) {
+    for (const [key, icon, act] of [["vosmission", MC_ICON, () => openWsStrip()], ["vostimer", TIMER_ICON, b => window.vosTimer?.toggle(b)],
+                                    ["vosdate", '<span class="vos-date-tx"></span>', b => window.vosClockPop?.(b)]]) {
       const btn = found[key];
       if (!btn) continue;
       const wrap = btn.closest(".button-toolbar") || btn;
@@ -2662,7 +2710,8 @@ window.vosBeat = window.vosBeat || (() => {
         wrap.addEventListener("pointerdown", ev => { if (!editingToolbar()) ev.stopPropagation(); }, true);
         wrap.addEventListener("click", ev => { if (editingToolbar()) return; ev.preventDefault(); ev.stopPropagation(); act(wrap); }, true);
       }
-      if (!btn.querySelector(":scope > .vos-chain-ic")) { const ic = document.createElement("span"); ic.className = "vos-chain-ic"; ic.innerHTML = icon; btn.appendChild(ic); }
+      if (!btn.querySelector(":scope > .vos-chain-ic")) { const ic = document.createElement("span"); ic.className = "vos-chain-ic"; ic.innerHTML = icon; btn.appendChild(ic); if (key === "vosdate") paintDate(); }
+      if (key === "vostimer" && !wrap.previousElementSibling?.classList?.contains("vos-tm-mini")) window.vosTimer?.paint?.();   // the ring takes its place
     }
   }
   function bentoButton() {
@@ -2969,8 +3018,7 @@ window.vosBeat = window.vosBeat || (() => {
     const r = el.getBoundingClientRect();
     dragOut = { id, ox: ev.clientX - r.left, oy: ev.clientY - r.top, over: null, overAt: 0 };
     const tab = await new Promise(res => chrome.tabs.get(tabIdOf(id), t => { void chrome.runtime.lastError; res(t); }));
-    let img = "";
-    try { img = await new Promise(res => chrome.tabs.captureVisibleTab(tab?.windowId, { format: "jpeg", quality: 55 }, d => { void chrome.runtime.lastError; res(d || ""); })); } catch (e) {}
+    const img = "";                                     // (the other window shows its app icon)
     if (!dragOut || dragOut.id !== id) return;
     dragCh?.postMessage({ type: "start", from: myWin(), w: r.width, h: r.height, ox: dragOut.ox, oy: dragOut.oy,
                           title: tab?.title || "", url: tab?.url || "", img });
@@ -3002,12 +3050,11 @@ window.vosBeat = window.vosBeat || (() => {
     if (m.type === "start") {
       ghost?.el.remove();
       const g = document.createElement("div");
-      g.className = "vos-drag-ghost";
-      Object.assign(g.style, { width: m.w + "px", height: m.h + "px", display: "none" });
-      if (m.img) g.style.backgroundImage = `url("${m.img}")`;
-      else g.innerHTML = `<img src="chrome://favicon2/?size=64&scaleFactor=2x&pageUrl=${encodeURIComponent(m.url)}&allowGoogleServerFallback=0">`;
+      g.className = "vos-drag-ghost vos-drag-icon";                // its app icon, under the pointer
+      g.style.display = "none";
+      const im = document.createElement("img"); im.alt = ""; im.src = favicon(m.url || ""); g.appendChild(im);
       (browserEl() || document.body).appendChild(g);
-      ghost = { el: g, ox: m.ox, oy: m.oy, from: m.from };
+      ghost = { el: g, ox: 32, oy: 32, from: m.from };
     } else if (m.type === "move" && ghost) {
       const top = window.screenY + (window.outerHeight - window.innerHeight);
       const lx = m.sx - window.screenX, ly = m.sy - top;
@@ -3147,7 +3194,7 @@ window.vosBeat = window.vosBeat || (() => {
     return null;
   }
   let splitEl = null;
-  function splitPreview(w, x, y, fromEl) {                          // the half of window w the held one takes; null: gone
+  function splitPreview(w, x, y, fromEl, overEl) {                          // the half of window w the held one takes; null: gone
     if (w == null) {
       const old = splitEl; splitEl = null;
       old?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => old.remove());
@@ -3163,8 +3210,8 @@ window.vosBeat = window.vosBeat || (() => {
             : side === "top" ? { x: r.left, y: r.top, w: r.width, h: hh } : { x: r.left, y: r.top + hh, w: r.width, h: hh };
     const born = !splitEl;
     if (born) { splitEl = document.createElement("div"); splitEl.className = "ft-snap-preview vos-split-preview"; host.appendChild(splitEl); }
-    const z = Number(fromEl && getComputedStyle(fromEl).zIndex) || 100;
-    splitEl.style.zIndex = String(z - 1);                             // over the window it splits, under the one you hold
+    const z = overEl ? (Number(getComputedStyle(overEl).zIndex) || 100) + 1 : (Number(fromEl && getComputedStyle(fromEl).zIndex) || 100) - 1;
+    splitEl.style.zIndex = String(z);                                 // over the window it splits, under the one you hold
     splitEl.dataset.side = side;
     Object.assign(splitEl.style, { left: (p.x - ss.left + G) + "px", top: (p.y - ss.top + G) + "px", width: Math.max(0, p.w - 2 * G) + "px", height: Math.max(0, p.h - 2 * G) + "px" });
     if (born) splitEl.animate([{ opacity: 0, transform: "scale(0.94)" }, { opacity: 1, transform: "none" }], { duration: 200, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
@@ -3687,9 +3734,22 @@ window.vosBeat = window.vosBeat || (() => {
       if (id === undefined) return false;
       await tpMove(loose.map(t => t.id), id);                        // the active one too: you go along with it
       loose.forEach(t => wsOfTab.set(String(t.id), id)); wsNowAt = 0;
+      const l2 = (await prefGet("vivaldi.workspaces.list")) || [];   // two desktops to start with
+      if (l2.length < 2) await newDesk(l2, true, "Desktop 2");
+      vstore.set("vosTwoDesks1", true);
       return true;
     } finally { unDefaulting = false; }
   }
+  /* once: two desktops (the default) - a window with only one gets a second */
+  setTimeout(async function twoDesks() {
+    try {
+      if (await vstore.get("vosTwoDesks1")) return;
+      if (!vivWs() || curWs() == null) { twoDesks.n = (twoDesks.n || 0) + 1; if (twoDesks.n < 10) setTimeout(twoDesks, 2000); return; }
+      const info = await desksNow(true);
+      if (info.ds.length === 1) await newDesk(info.list, true, "Desktop 2");
+      vstore.set("vosTwoDesks1", true); deskInfo = null;
+    } catch (e) { LOG("two desktops", e); }
+  }, 5000);
   /* once (1.0.68): the empty "Desktop N" desktops an earlier version kept making go away -
      only empty ones with that name; named or used desktops stay */
   setTimeout(async () => {
@@ -3957,7 +4017,23 @@ window.vosBeat = window.vosBeat || (() => {
     const tabs = await tabsQuery({ currentWindow: true });
     const mine = await myDesks(list, tabs, curWs());
     const ds = list.filter(w => mine.has(String(w.id)));
-    return (deskInfo = { list, ds, i: ds.findIndex(w => sameWs(w.id, curWs())), ws: curWs(), at: Date.now() });
+    return (deskInfo = { list, ds, front: deskFronts(tabs), i: ds.findIndex(w => sameWs(w.id, curWs())), ws: curWs(), at: Date.now() });
+  }
+  function deskFronts(tabs) {                                        // desktop -> the tab it shows (the last one used there)
+    const front = new Map();
+    for (const t of tabs || []) {
+      if (t.pinned) continue;
+      const w = wsOfTab.get(String(t.id)); if (w == null) continue;
+      const o = front.get(String(w));
+      if (!o || (t.lastAccessed || 0) > (o.lastAccessed || 0)) front.set(String(w), t);
+    }
+    return front;
+  }
+  function fullOf(t) {                                               // that tab, shown full screen (not a window, not the Launchpad)? its page
+    const id = t && String(t.id);
+    if (!id || winOf(id) || minimized.has(id) || /startpage/.test(t.url || t.pendingUrl || "")) return null;
+    const pg = pageOf(id);
+    return pg && !isTiled(pg) && !isStart(pg) ? pg : null;
   }
   /* SCROLL BETWEEN DESKTOPS: two fingers sideways (or a mouse's side wheel) over the Mission Control
      (Workspaces) button. One gesture, one desktop: a short push turns to the next desktop at once (the
@@ -4040,7 +4116,9 @@ window.vosBeat = window.vosBeat || (() => {
     if (!info) { const s = sw; desksNow(true).then(i => { if (sw === s && !s.info) { s.info = i; s.dir = 0; swMove(0, performance.now()); } }); }
     const sc = scene();
     const ap = activePage(), apId = ap?.dataset.id;                  // a full-screen page: it slides as it is, on black (no wallpaper)
+    const upS = !mcMax && b.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) ? pageOf(underId) : null;
     if (ap && b.hasAttribute("data-ft-maxpage") && !winOf(apId) && !isTiled(ap) && !isStart(ap)) { ap.setAttribute("data-vos-swmax", ""); sw.max = ap; if (sc) sc.children[0].style.visibility = "hidden"; }
+    else if (upS?.hasAttribute("data-ft-under")) { upS.setAttribute("data-vos-swmax", "under"); sw.max = upS; if (sc) sc.children[0].style.visibility = "hidden"; }   // a full-screen page under the windows: it slides with them
     else if (cover && sc) sc.children[0].style.visibility = "hidden";   // a window in full view: the same
     stack.style.setProperty("--vos-dx", "0");
     b.setAttribute("data-vos-dragdesk", "");
@@ -4059,7 +4137,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   const isBentoT = t => !!t && "bento" in t;
   function swUnprep() {
-    for (const el of sw.inc) { if (el.classList.contains("vos-lp-ghost")) el.remove(); else { el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave"); } }
+    for (const el of sw.inc) { if (el.classList.contains("vos-lp-ghost")) el.remove(); else { el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-swmax-in"); } }
     sw.inc = [];
   }
   function swPrep(dir) {                                             // the desktop that way, beside this one: its windows, or its Launchpad
@@ -4069,6 +4147,13 @@ window.vosBeat = window.vosBeat || (() => {
     sw.stack.style.setProperty("--vos-in", String(dir * sw.D));
     const sc = scene(); if (sc) sc.children[1].style.visibility = t && !isBentoT(t) ? "" : "hidden";
     if (!t || isBentoT(t)) return;                                   // Bento: the same windows, tiled - nothing comes in
+    const fp = fullOf(sw.info?.front?.get(String(t.id)));            // that desktop shows a full-screen app: it comes in as it is
+    if (fp) {
+      fp.setAttribute("data-vos-incoming", ""); fp.setAttribute("data-vos-swmax-in", "");
+      if (sc) sc.children[1].style.visibility = "hidden";
+      sw.inc = [fp];
+      return;
+    }
     const els = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), t.id))
       .flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
     if (!els.length) {                                               // no windows there: its Launchpad (a copy, for the slide)
@@ -4231,9 +4316,9 @@ window.vosBeat = window.vosBeat || (() => {
   /* Mission Control over a full-screen page: the page gets smaller too, as a window does
      (scaled, not resized), on the wallpaper below the panel; a click goes back into it */
   let mcMax = null;
-  function missionMax(s) {
-    const b = browserEl(), ap = mission && b && !b.hasAttribute("data-ft-desktop") && b.hasAttribute("data-ft-maxpage") ? activePage() : null;
-    const page = ap && !winOf(ap.dataset.id) && !isTiled(ap) && !isStart(ap) ? ap : null;
+  function missionMax(s, slots) {
+    const b = browserEl(), sl = mission && underId ? slots?.get(underId) : null;
+    const page = sl ? pageOf(underId) : null;
     if (mcMax && mcMax !== page) {
       const o = mcMax; mcMax = null;
       o.style.removeProperty("transform"); o.removeAttribute("data-vos-mc-max");
@@ -4241,12 +4326,9 @@ window.vosBeat = window.vosBeat || (() => {
       if (!page) setTimeout(() => { if (!mcMax) b?.removeAttribute("data-vos-mc-maxpage"); }, 340);   // the wallpaper stays while it glides back
     }
     if (!page) return;
-    const PAD = 24, top = mission.oy, aw = s.width - 2 * PAD, ah = Math.max(40, s.height - top - PAD);
-    const k = Math.max(0.1, Math.min(0.85, aw / s.width, ah / s.height));
-    const x = (s.width - s.width * k) / 2, y = top + (ah - s.height * k) / 2;
     mcMax = page; page.setAttribute("data-vos-mc-max", ""); b.setAttribute("data-vos-mc-maxpage", "");
     setStyle(page, "transform-origin", "0 0");
-    setStyle(page, "transform", `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(${k.toFixed(4)})`);
+    setStyle(page, "transform", `translate(${Math.round(sl.x)}px, ${Math.round(sl.y)}px) scale(${sl.k.toFixed(4)})`);
   }
   /* Mission Control: each window's app icon sits on its lower edge, as in macOS */
   let mcIcons = null;
@@ -4263,7 +4345,7 @@ window.vosBeat = window.vosBeat || (() => {
       seen.add(id);
       let ic = mcIcons.querySelector(`[data-id="${CSS.escape(String(id))}"]`);
       if (!ic) { ic = document.createElement("div"); ic.className = "vos-mc-icon"; ic.dataset.id = String(id); ic.innerHTML = `<img alt="" decoding="async">`; ic.firstChild.src = favicon(url); mcIcons.appendChild(ic); }
-      const r = pxRect(id, s), cx = s.left + sl.x + r.w * sl.k / 2, by = s.top + sl.y + r.h * sl.k;
+      const r = sl.r || pxRect(id, s), cx = s.left + sl.x + r.w * sl.k / 2, by = s.top + sl.y + r.h * sl.k;
       ic.style.setProperty("translate", `${Math.round(cx - 22)}px ${Math.round(by - 22)}px`);
       ic.toggleAttribute("data-held", missionDrag?.id === id);
     }
@@ -4343,6 +4425,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (await noDefault(list, tabs)) return new Promise(r => setTimeout(() => r(openWsStripNow(opts)), 350));   // made "Desktop 1": open with it (the caller waits for it)
     const urls = new Map((tabs || []).map(t => [String(t.id), t.url || t.pendingUrl || ""]));
     const info = new Map((tabs || []).map(t => [String(t.id), t]));
+    const fronts = deskFronts(tabs);
     const ss = stackRect(), cur = curWs();
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
     const mine = await myDesks(list, tabs, cur);
@@ -4370,7 +4453,20 @@ window.vosBeat = window.vosBeat || (() => {
       card.style.setProperty("width", cardW + "px", "important");
       if (wall && wall !== "none") mini.style.backgroundImage = wall;
       // its windows, where they are (the front ones on top)
-      const wins = [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
+      const bE = browserEl(), here = same(sp.id, cur);
+      const fullId = here ? (bE.hasAttribute("data-ft-maxpage") ? activePage()?.dataset.id : bE.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) && pageOf(underId)?.hasAttribute("data-ft-under") ? underId : null)
+                          : fullOf(fronts.get(String(sp.id)))?.dataset.id;
+      const onlyFull = !!fullId && (!here || bE.hasAttribute("data-ft-maxpage"));   // a full-screen app in front: only it
+      if (fullId) {
+        const w = document.createElement("div");
+        w.className = "vos-ws-win vos-ws-full"; w.dataset.tab = String(fullId);
+        Object.assign(w.style, { left: "0%", top: "0%", width: "100%", height: "100%" });
+        const t = info.get(String(fullId));
+        if (t?.url) { const im = document.createElement("img"); im.src = favicon(t.url); im.alt = ""; w.appendChild(im); }
+        pagePicture(w, Number(fullId), { x: 0, y: 0, w: ss.width, h: ss.height });
+        mini.appendChild(w);
+      }
+      const wins = onlyFull ? [] : [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
       for (const id of wins) {
         const r = same(sp.id, cur) ? pxRect(id, ss) : (otherTiles(sp.id, ss).get(id) || (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })());
         if (!r) continue;
@@ -4382,7 +4478,7 @@ window.vosBeat = window.vosBeat || (() => {
         pagePicture(w, Number(id), r);                               // the web page itself (Vivaldi's tab thumbnail)
         mini.appendChild(w);
       }
-      if (!wins.length) { const e = document.createElement("span"); e.className = "vos-ws-empty"; e.textContent = "No windows"; mini.appendChild(e); }
+      if (!wins.length && !fullId) { const e = document.createElement("span"); e.className = "vos-ws-empty"; e.textContent = "No windows"; mini.appendChild(e); }
       card.appendChild(mini);
       const label = document.createElement("div");
       label.className = "vos-ws-label";
@@ -4451,6 +4547,8 @@ window.vosBeat = window.vosBeat || (() => {
         const fr = under?.closest?.(".ft-frame");
         const w = under?.closest?.("[data-ft-float]") || (fr ? targetOf(pageOf(fr.dataset.ftFor)) : null);
         if (w?.hasAttribute("data-ft-float") && !w.hasAttribute("data-ft-away")) return startGesture(ev, w, "move");
+        const mp = under?.closest?.("[data-vos-mc-max]");
+        if (mp?.dataset.id) { const id = mp.dataset.id; closeWsStrip(); if (activePage()?.dataset.id !== id) { activate(id); render(); } return; }
       }
       closeWsStrip();
     });
@@ -4643,7 +4741,7 @@ window.vosBeat = window.vosBeat || (() => {
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
       vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
-      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; },
+      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview,
     } });
   } catch (e) {}
   async function wsByTab(sp) {
@@ -4914,6 +5012,17 @@ window.vosBeat = window.vosBeat || (() => {
         render();
       }
     }
+    // a tab over a lone window: the half it takes shows (as a window held over it); the drop is ours
+    const tabSplit = !!hit && hit !== drag.src && drag.kind === "tab" && drag.id != null && String(drag.id) !== hit &&
+      !isTiled(pageOf(hit)) && !isTiled(pageOf(drag.id)) && !groupFloat.has(String(drag.src ?? "")) && !!vivTile();
+    if (tabSplit) {
+      const t = targetOf(pageOf(hit));
+      drag.split = { to: hit, side: splitPreview(hit, e.clientX, e.clientY, null, t) };
+      e.preventDefault(); e.stopImmediatePropagation();
+      try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
+      return;
+    }
+    if (drag.split) { drag.split = null; splitPreview(null); }
     // Vivaldi splits a lone window with the ACTIVE tab: keep the target active
     // all the way to the drop (asked again until it lands)
     if (hit && hit !== drag.src) {
@@ -4958,6 +5067,14 @@ window.vosBeat = window.vosBeat || (() => {
     const ids = dragIds(e.dataTransfer);
     if (ids.length && d.kind !== "tile") { d.id = ids[0]; if (d.kind === "unknown") d.src = winOf(ids[0]); }
     seeThrough(null);
+    if (d.split) {                                                  // a tab on a window's half: that split
+      const sp = d.split; d.split = null;
+      splitPreview(null);
+      swallow(e);
+      const src = String(ids[0] ?? d.id);
+      if (src !== sp.to && sp.side) splitInto(src, sp.to, sp.side);
+      return;
+    }
     if (!d.desktop) return;
     const hit = windowAt(x, y, d.kind === "tab" ? d.src : null);
     if (hit) {
@@ -5237,7 +5354,7 @@ window.vosBeat = window.vosBeat || (() => {
     window.addEventListener("dragstart", onDragStart, true);
     window.addEventListener("dragover", onDragOver, true);
     window.addEventListener("drop", onDrop, true);
-    window.addEventListener("dragend", () => { drag = null; }, true);
+    window.addEventListener("dragend", () => { if (drag?.split) splitPreview(null); drag = null; }, true);
     document.addEventListener("pointermove", onHoverMove, { capture: true, passive: true });
 
     // Which Vivaldi window is this? Ask about a tab whose page lives in this

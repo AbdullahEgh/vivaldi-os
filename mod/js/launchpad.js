@@ -871,7 +871,21 @@
     lp.editing = true;
     closeMenu();
     lp.layer.setAttribute("data-editing", "");
+    requestAnimationFrame(fitEdges);
   }
+  /* the top buttons never cover the search field: short of room, only their icons */
+  function fitEdges() {
+    const L = lp?.layer;
+    if (!L || !lp.editing) return;
+    L.removeAttribute("data-edge-compact");
+    const bar = L.querySelector(":scope > .lp-searchbar")?.getBoundingClientRect();
+    if (!bar?.width) return;
+    const btns = r => [...L.querySelectorAll(`:scope > .lp-edge-${r} .lp-edge-btn`)].map(b => b.getBoundingClientRect()).filter(x => x.width);
+    const l = btns("l"), rr = btns("r");
+    const tight = (l.length && Math.max(...l.map(x => x.right)) > bar.left - 12) || (rr.length && Math.min(...rr.map(x => x.left)) < bar.right + 12);
+    L.toggleAttribute("data-edge-compact", !!tight);
+  }
+  addEventListener("resize", () => { if (lp?.editing) fitEdges(); });
   function exitEdit() {
     if (!lp?.editing) return false;
     lp.editing = false;
@@ -911,6 +925,7 @@
     folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.5l2 2H18a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5z"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5v13M5.5 12h13"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12.5l4.3 4.3 8.7-9.3"/></svg>',
+    widget: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2.2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="3.75"/><rect x="3.5" y="13" width="17" height="7.5" rx="2.2"/></svg>',
   };
   function edges() {                                // auto-hidden: they slide in at the edge (always, in editing mode)
     const mk = (side, list) => {
@@ -931,7 +946,7 @@
     };
     return [mk("l", [["Folder", ICON.folder, folderPicker], ["Wallpaper", ICON.wall, changeWallpaper],
                      ["Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), ICON.update, () => checkUpdate(true)]]),
-            mk("r", [["Websites", ICON.globe, siteGallery], ["Widgets", ICON.plus, widgetGallery], ["Done", ICON.check, exitEdit, "lp-edge-done"]])];
+            mk("r", [["Websites", ICON.globe, siteGallery], ["Widgets", ICON.widget, widgetGallery], ["Done", ICON.check, exitEdit, "lp-edge-done"]])];
   }
 
   /* ---------------- which folder is the Launchpad (saved) ---------------- */
@@ -1805,9 +1820,10 @@
   let tmMini = null, tmPop = null;
   function paintMini() {
     const st = tmState();
-    if (!tm.mini && st === "idle") { tmMini?.remove(); tmMini = null; closeTmPop(); closeTmMenu(); return; }
+    const host = document.querySelector("#browser .vos-chain-vostimer");   // the Timer on the tab bar: always its ring, in its place
+    if (!tm.mini && st === "idle" && !host) { tmMini?.remove(); tmMini = null; closeTmPop(); closeTmMenu(); return; }
     const clock = document.querySelector("#browser .ClockButton");
-    const anchor = clock?.closest(".button-toolbar") || clock;
+    const anchor = host || clock?.closest(".button-toolbar") || clock;
     if (!anchor?.parentElement) { tmMini?.remove(); tmMini = null; return; }
     if (!tmMini) {
       tmMini = document.createElement("div");
@@ -2055,7 +2071,7 @@
     const l = document.createElement("div"); l.className = "lp-ios-label"; l.textContent = "Tab Bar";
     const g = document.createElement("div"); g.className = "lp-ios-group lp-tb-group";
     body.append(l, g);
-    const items = [["desktops", "Desktops"], ["bento", "Bento"], ["timer", "Timer"]];
+    const items = [["bento", "Bento"], ["desktops", "Desktops"], ["timer", "Timer"], ["date", "Date"]];
     tbw.get().then(st => {
       for (const [k, name] of items) {
         const row = document.createElement("div"); row.className = "lp-ios-row lp-tb-row";
@@ -2072,6 +2088,20 @@
         });
         row.append(ic, t, sw);
         g.appendChild(row);
+        if (k === "date" && tbw.dateFmt) {                   // how it reads: Fri / Fri 20 / Fri 20 Nov
+          const seg = document.createElement("div"); seg.className = "lp-ios-row lp-tb-seg";
+          const paintSeg = () => seg.querySelectorAll("button").forEach(b => b.toggleAttribute("data-on", b.dataset.f === tbw.dateFmt()));
+          for (const f of ["d", "dd", "ddm"]) {
+            const b = document.createElement("button"); b.type = "button"; b.dataset.f = f; b.textContent = tbw.dateText(f);
+            b.addEventListener("click", ev => {
+              ev.stopPropagation(); tbw.setDateFmt(f); paintSeg();
+              if (!st.date) { st.date = true; paint(); Promise.resolve(tbw.set("date", true)).catch(() => {}); }   // choosing one shows it
+            });
+            seg.appendChild(b);
+          }
+          paintSeg();
+          g.appendChild(seg);
+        }
       }
     }).catch(() => {});
   }
@@ -2134,7 +2164,8 @@
     }, true);
 
   // the "OS · Timer" toolbar button: its ring shows by the clock, and the timer opens / closes
-  window.vosTimer = { hide() { if (tmState() === "idle") { tm = { ...tm, mini: false }; saveTm(); paintMini(); } }, toggle() {
+  window.vosClockPop = btn => (clkPop ? closeClkPop() : openClkPop(btn));   // the tab bar Date: the calendar too
+  window.vosTimer = { paint: () => paintMini(), hide() { if (tmState() === "idle") { tm = { ...tm, mini: false }; saveTm(); paintMini(); setTimeout(paintMini, 700); } }, toggle() {
     if (!tm.mini) { tm = { ...tm, mini: true }; saveTm(); }
     paintMini(); ensureTick();
     setTimeout(() => (tmPop ? closeTmPop() : openTmPop()), 0);
