@@ -1437,3 +1437,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser #webpage-stack .webpageview:is([data-vos-swo], [data-vos-swi]) { visibility: visible !important; opacity: 1 !important; z-index: 2 !important; pointer-events: none !important; filter: none !important; will-change: translate; }
 #browser#browser#browser #webpage-stack .webpageview:is([data-vos-swo], [data-vos-swi]) * { visibility: visible !important; }
 #browser#browser#browser #webpage-stack .webpageview[data-vos-swo="under"] { z-index: auto !important; }
+/* 1.0.122: Mission Control - a full-screen app held: above the others, no glide while it follows the pointer */
+#browser#browser#browser #webpage-stack .webpageview[data-vos-mc-held] { z-index: 95000 !important; transition: none !important; cursor: grabbing !important; }
+/* a split's tile dragged out: its app icon (made off-screen, drawn by the drag) */
+#browser .vos-mc-icon.vos-drag-img { position: fixed !important; left: -200px !important; top: -200px !important; z-index: -1 !important; pointer-events: none !important; }

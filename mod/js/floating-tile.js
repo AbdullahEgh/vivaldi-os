@@ -2658,14 +2658,18 @@ window.vosBeat = window.vosBeat || (() => {
     const wrap = btn.closest(".button-toolbar") || btn, bar = wrap.parentElement;
     if (!bar) return;
     const spacers = [...bar.children].filter(c => c !== wrap && /spacer/i.test(c.className) && /flex/i.test(c.className));
-    const roomy = () => spacers.length ? spacers.every(c => c.getBoundingClientRect().width >= 6) : bar.scrollWidth <= bar.clientWidth + 1;
+    const tc = document.getElementById("tabs-container");
+    const roomy = () => !(tc && tc.scrollWidth > tc.clientWidth + 1) && (spacers.length ? spacers.every(c => c.getBoundingClientRect().width >= 6) : bar.scrollWidth <= bar.clientWidth + 1);
     const order = dateFmt === "ddm" ? ["ddm", "dd", "d", ""] : dateFmt === "dd" ? ["dd", "d", ""] : ["d", ""];
+    const was = (wrap.style.display === "none" ? "" : tx.textContent);
     for (const f of order) {
       if (f) { const t = dateText(f); if (tx.textContent !== t) tx.textContent = t; }
       if (f) wrap.style.removeProperty("display"); else wrap.style.setProperty("display", "none", "important");
       if (!f || roomy()) break;
     }
+    return (wrap.style.display === "none" ? "" : tx.textContent) !== was;   // shorter now (the tab bar measures again)
   }
+  window.vosFitDate = fitDate;
   addEventListener("resize", () => { clearTimeout(fitDate.t); fitDate.t = setTimeout(fitDate, 60); });
   (function watchBar() {
     const c = document.getElementById("tabs-tabbar-container");
@@ -4356,6 +4360,53 @@ window.vosBeat = window.vosBeat || (() => {
     setStyle(page, "transform-origin", "0 0");
     setStyle(page, "transform", `translate(${Math.round(sl.x)}px, ${Math.round(sl.y)}px) scale(${sl.k.toFixed(4)})`);
   }
+  /* Mission Control: the full-screen app is picked up like a window - onto another desktop (or New);
+     a click goes back into it */
+  function mcMaxDrag(ev, page) {
+    const id = page.dataset.id, pid = ev.pointerId, sx = ev.clientX, sy = ev.clientY;
+    const icon = mcIcons?.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    let moved = false, card = null, last = [0, 0];
+    const move = e => {
+      if (e.pointerId !== pid) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.hypot(dx, dy) < 5) return;
+      moved = true; last = [dx, dy];
+      page.style.setProperty("translate", `${dx}px ${dy}px`, "important");
+      page.setAttribute("data-vos-mc-held", ""); icon?.setAttribute("data-held", "");
+      const c = document.elementsFromPoint(e.clientX, e.clientY).find(n => n.classList?.contains("vos-ws-card") && !n.hasAttribute("data-current")) || null;
+      if (c !== card) { card?.removeAttribute("data-drop"); card = c; card?.setAttribute("data-drop", ""); }
+    };
+    const up = e => {
+      if (e.pointerId !== pid) return;
+      removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+      card?.removeAttribute("data-drop");
+      if (!moved) { icon?.removeAttribute("data-held"); closeWsStrip(); if (activePage()?.dataset.id !== id) { activate(id); render(); } return; }
+      const done = () => { page.getAnimations().forEach(a => a.cancel()); page.style.removeProperty("translate"); page.removeAttribute("data-vos-mc-held"); icon?.removeAttribute("data-held"); };
+      if (card && e.type === "pointerup") {
+        const list = wsStrip?.__list || [];
+        const box = (card.querySelector(".vos-ws-mini") || card).getBoundingClientRect(), pr = page.getBoundingClientRect();
+        const tx = last[0] + box.left + box.width / 2 - (pr.left + pr.width / 2), ty = last[1] + box.top + box.height / 2 - (pr.top + pr.height / 2);
+        page.animate([{ translate: `${last[0]}px ${last[1]}px`, opacity: 1, scale: "1" }, { translate: `${tx}px ${ty}px`, opacity: 0, scale: "0.25" }],
+                     { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" });
+        const isNew = card.classList.contains("vos-ws-more");
+        const ws = isNew ? null : (list.find(w => String(w.id) === card.dataset.ws)?.id ?? null);
+        if (!isNew) {                                                // its picture moves into that desktop's card
+          const mini = wsStrip?.querySelector(`.vos-ws-card[data-current] .vos-ws-full`);
+          card.querySelector(".vos-ws-empty")?.remove();
+          if (mini) card.querySelector(".vos-ws-mini")?.prepend(mini);
+        }
+        setTimeout(async () => {
+          try { if (isNew) { closeWsStrip(); await toNewDeskNow(id, list); } else { underId = null; await toDesk(id, ws); } }
+          catch (err) { wsErr("move", err); }
+          finally { setTimeout(done, 300); queueRender(); }
+        }, 250);
+        return;
+      }
+      page.animate([{ translate: `${last[0]}px ${last[1]}px` }, { translate: "0px 0px" }], { duration: 220, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" });
+      page.style.removeProperty("translate"); page.removeAttribute("data-vos-mc-held"); icon?.removeAttribute("data-held");
+    };
+    addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+  }
   /* Mission Control: each window's app icon sits on its lower edge, as in macOS */
   let mcIcons = null;
   function missionIcons(slots, s) {
@@ -4574,7 +4625,7 @@ window.vosBeat = window.vosBeat || (() => {
         const w = under?.closest?.("[data-ft-float]") || (fr ? targetOf(pageOf(fr.dataset.ftFor)) : null);
         if (w?.hasAttribute("data-ft-float") && !w.hasAttribute("data-ft-away")) return startGesture(ev, w, "move");
         const mp = under?.closest?.("[data-vos-mc-max]");
-        if (mp?.dataset.id) { const id = mp.dataset.id; closeWsStrip(); if (activePage()?.dataset.id !== id) { activate(id); render(); } return; }
+        if (mp?.dataset.id) return mcMaxDrag(ev, mp);
       }
       closeWsStrip();
     });
@@ -4906,7 +4957,7 @@ window.vosBeat = window.vosBeat || (() => {
   const lpOn = () => !!window.vosLaunchpad?.isOpen;   // js/launchpad.js: the windows are not touchable under it
   function onPointerDown(e) {
     if (lpOn()) return;
-    clearTimeout(hoverTimer);                                       // a click wins over a pending hover
+    clearTimeout(hoverTimer); hoverTimer = 0;                       // a click wins over a pending hover
     drag = null;                                                    // any old drag is over
     lastPointer = e.pointerType || "mouse";
     browserEl()?.toggleAttribute("data-ft-touch", isTouch());
@@ -5009,6 +5060,23 @@ window.vosBeat = window.vosBeat || (() => {
     drag = null;
   }
 
+  let dragIcon = null;                               // a tile's app icon, made when it is pressed (its picture loads before the drag)
+  addEventListener("pointerdown", e => {
+    const strip = e.button === 0 && e.target.closest?.(".mosaic-tile");
+    if (!strip) return;
+    const page = strip.closest(".webpageview[data-id]"), url = page?.querySelector("webview")?.getAttribute("src") || "";
+    if (!url) return;
+    dragIcon?.remove();
+    dragIcon = document.createElement("div"); dragIcon.className = "vos-mc-icon vos-drag-img";
+    const im = document.createElement("img"); im.alt = ""; im.src = favicon(url); dragIcon.appendChild(im);
+    (browserEl() || document.body).appendChild(dragIcon);
+  }, true);
+  addEventListener("dragstart", e => {                 // last of all (after Vivaldi's own): its picture is the icon
+    if (!dragIcon || !e.target.closest?.(".mosaic-tile") || !e.dataTransfer) return;
+    try { e.dataTransfer.setDragImage(dragIcon, 22, 22); } catch (_) {}
+    const d = dragIcon; dragIcon = null; setTimeout(() => d.remove(), 0);
+  });
+  addEventListener("pointerup", () => { if (dragIcon) { dragIcon.remove(); dragIcon = null; } }, true);
   function onDragStart(e) {
     const strip = e.target.closest?.(".mosaic-tile");
     if (strip) {
@@ -5183,26 +5251,31 @@ window.vosBeat = window.vosBeat || (() => {
 
   /* the mouse over a background window makes it the active tab (no raise, no
      tab bar color), so it scrolls and reacts right away, without a click first */
-  let hoverTimer = 0, noRaise = null, hover = null;
+  let hoverTimer = 0, noRaise = null, hover = null, hoverKey = null, hoverMoved = 0;
+  /* (performance) one timer per place, not one per mouse move: it fires once the pointer has rested there */
+  const restThen = (ms, f) => { const go = () => { const left = ms - (performance.now() - hoverMoved); if (left > 4) { hoverTimer = setTimeout(go, left); return; } hoverTimer = 0; f(); }; hoverTimer = setTimeout(go, ms); };
   function onHoverMove(e) {
     if (lpOn()) return;
     if (!e.buttons && drag) drag = null;                            // a drag that ended unseen
     if (e.pointerType && e.pointerType !== "mouse") return;
     if (e.buttons || drag || !browserEl()?.hasAttribute("data-ft-desktop")) return;
     const win = e.target.closest?.("[data-ft-float]:not([data-ft-min])");
-    clearTimeout(hoverTimer);
+    const inner = win && isSplitWindow(win) ? e.target.closest?.(".webpageview[data-id]")?.dataset.id : null;
+    const key = win ? (inner || win.dataset.ftFloat) : "-";
+    hoverMoved = performance.now();
+    if (key === hoverKey && hoverTimer) return;                    // (performance) the same place: its timer runs already
+    hoverKey = key;
+    clearTimeout(hoverTimer); hoverTimer = 0;
     if (!win) {
       const sel = selected, a = activePage()?.dataset.id;
       if (sel && a && a !== sel && pageOf(sel) && window.__ftQuietTint === a) {
-        hoverTimer = setTimeout(() => { noRaise = sel; activate(sel); }, 120);
+        restThen(120, () => { noRaise = sel; activate(sel); });
       }
       return;
     }
-    const id = win.dataset.ftFloat;
-    const inner = isSplitWindow(win) ? e.target.closest?.(".webpageview[data-id]")?.dataset.id : null;
-    const want = inner || id;
+    const want = key;
     if (activePage()?.dataset.id === want || pendingActive === want) return;
-    hoverTimer = setTimeout(() => {
+    restThen(90, () => {
       noRaise = want;
       hover = { id: want, t: Date.now() };
       window.__vosHoverFocusAt = Date.now();                         // (a popup is not closed by this focus: it is no click)
@@ -5210,7 +5283,7 @@ window.vosBeat = window.vosBeat || (() => {
       // Vivaldi focuses the page it activates; take that focus back, so the
       // first real click in the page counts as a click (front + color)
       setTimeout(() => { if (window.__ftQuietTint === want) unfocusPage(); }, 300);
-    }, 90);
+    });
   }
 
   /* move the keyboard focus off a hovered page (onto an invisible spot in the
@@ -5257,6 +5330,7 @@ window.vosBeat = window.vosBeat || (() => {
      when no tab became active (back from an empty desktop to the same tab) */
   let wsShownSeen;
   setInterval(() => {
+    if (document.hidden) return;
     let v; try { v = vivActiveWs(); } catch (e) { return; }
     if (v === undefined || (wsShownSeen !== undefined && sameWs(v, wsShownSeen))) return;
     const first = wsShownSeen === undefined;
@@ -5301,8 +5375,15 @@ window.vosBeat = window.vosBeat || (() => {
   const deskIndicatorNow = () => desksNow(true).then(deskIndicator).catch(() => {});
   /* which side Vivaldi's panel is on (its own setting, also while the panel is closed): the panel button's icon follows */
   const panelSide = () => prefGet("vivaldi.panels.position").then(p => browserEl()?.toggleAttribute("data-vos-panel-right", p === 1 || p === "right")).catch(() => {});
-  setTimeout(panelSide, 1200); setInterval(() => { if (!document.hidden) panelSide(); }, 3000);
-  setInterval(() => { if (!document.hidden) deskIndicatorNow(); }, 2000);
+  /* (performance) the desktop dots and the panel side are read when something changes - a tab made, closed or
+     moved, a setting changed - not every 2-3 seconds; a slow backstop catches anything missed */
+  let dotsQ = 0;
+  const dotsSoon = () => { clearTimeout(dotsQ); dotsQ = setTimeout(() => { if (!document.hidden) deskIndicatorNow(); }, 250); };
+  try { for (const ev of ["onCreated", "onRemoved", "onAttached", "onDetached"]) chrome.tabs[ev].addListener(dotsSoon); } catch (e) {}
+  try { chrome.tabs.onUpdated.addListener((id, info) => { if (info.vivExtData != null) dotsSoon(); }); } catch (e) {}
+  try { vivaldi.prefs.onChanged.addListener(p => { const k = String(p?.path ?? p ?? ""); if (/workspaces/.test(k)) dotsSoon(); if (/panels/.test(k)) panelSide(); }); } catch (e) {}
+  setTimeout(panelSide, 1200); setInterval(() => { if (!document.hidden) panelSide(); }, 15000);
+  setInterval(() => { if (!document.hidden) deskIndicatorNow(); }, 15000);
   setTimeout(deskIndicatorNow, 1500);
   function queueRender() {
     if (queued) return;

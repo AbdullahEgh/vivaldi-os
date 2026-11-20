@@ -74,7 +74,9 @@
   }
   const overflowing = tc => tc.scrollWidth > tc.clientWidth + 1;
 
-  let tightNeed = 0;                       // bar width that was too small (to leave "tight" again)
+  /* a tight tab bar, step by step (CSS section 10): the date shortens first (floating-tile.js), then a short
+     address field, then no timer ring, and only at the very end no clock */
+  const TIGHT = ["data-vos-tight", "data-vos-tight2", "data-vos-tight3"], tightNeed = [];
   function layout() {
     const b = $("#browser"), tc = $("#tabs-container");
     if (!b) return;
@@ -84,7 +86,7 @@
     const first = items[0] || null;
     if (pushed && pushed !== first) clear(pushed);
     pushed = first;
-    if (!first) { b.removeAttribute("data-vos-tight"); return; }
+    if (!first) { TIGHT.forEach(a => b.removeAttribute(a)); return; }
     const rects = items.map(el => el.getBoundingClientRect());
     const left = Math.min(...rects.map(r => r.left)), right = Math.max(...rects.map(r => r.right));
     const bar = (tc.closest("#tabs-tabbar-container") || tc).getBoundingClientRect();
@@ -102,11 +104,12 @@
     }
 
     // still no room with the dock at its leftmost: a tight bar (CSS section 10)
-    const width = tc.clientWidth;
-    if (!b.hasAttribute("data-vos-tight")) {
-      if (m === 0 && overflowing(tc)) { tightNeed = tc.scrollWidth; b.setAttribute("data-vos-tight", ""); queue(); }
-    } else if (width > tightNeed + 16) {
-      b.removeAttribute("data-vos-tight");
+    const width = tc.clientWidth, lv = TIGHT.filter(a => b.hasAttribute(a)).length;
+    if (m === 0 && overflowing(tc) && lv < TIGHT.length) {
+      if (lv === 0 && window.vosFitDate?.()) { queue(); return; }  // the date got shorter: measured again
+      tightNeed[lv] = tc.scrollWidth; b.setAttribute(TIGHT[lv], ""); queue();
+    } else if (lv > 0 && width > tightNeed[lv - 1] + 16) {
+      b.removeAttribute(TIGHT[lv - 1]);
       queue();
     }
   }

@@ -382,7 +382,16 @@
   width: 80px !important;
   flex: 0 0 80px !important;
 }
-#browser[data-vos-tight]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container .ClockButton {
+/* the date goes first (shorter, then gone - floating-tile.js), then this short field, then the timer ring
+   and a shorter field still; the clock only when nothing else is left to give */
+#browser[data-vos-tight2]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container :is(.vos-tm-mini, .vos-chain-vostimer) {
+  display: none !important;
+}
+#browser[data-vos-tight2]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container :is(.toolbar-tabbar-before, .toolbar-tabbar-after) .UrlBar-AddressField,
+#browser[data-vos-tight2]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container :is(.toolbar-tabbar-before, .toolbar-tabbar-after) .UrlBar-AddressField:not(:focus-within) {
+  min-width: 56px !important; max-width: 56px !important; width: 56px !important; flex: 0 0 56px !important;
+}
+#browser[data-vos-tight3]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container .ClockButton {
   display: none !important;
 }
 
@@ -405,3 +414,5 @@
 
 /* 1.0.121: Vivaldi's own hint never shows under the site name (a new tab said "chrome://newtab" over it) */
 #browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site]:not(.UrlField--HasEditText) input::placeholder { color: transparent !important; opacity: 0 !important; }
+/* a tight bar never brings the date back (it went first) */
+#browser[data-vos-tight]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container .vos-chain-vosdate { display: none !important; }
