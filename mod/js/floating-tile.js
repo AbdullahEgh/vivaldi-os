@@ -271,6 +271,7 @@ window.vosBeat = window.vosBeat || (() => {
   };
   /* workspaces: the desktop shows only the windows of the current workspace */
   const wsOfTab = new Map();                        // tab id -> its workspace (null: none)
+  const panelTabs = new Set();                        // tabs that are a side panel's page (never windows)
   /* the workspace shown: the one of the tabs in the tab bar (Vivaldi only lists
      the current workspace's tabs there) - not the active tab's, which is wrong
      for a moment after a tab is moved to another workspace */
@@ -309,6 +310,12 @@ window.vosBeat = window.vosBeat || (() => {
           const k = String(t.id), g = tilingOfTab(t);
           live.add(k);
           if (splitOfTab.get(k) !== g) { splitOfTab.set(k, g); changed = true; }
+          if (extOf(t)?.panelId != null) {                              // a side panel's page (web panel, extension panel): not a window
+            panelTabs.add(k);
+            if (floating.has(k)) { forget(k); wsChanged = true; }
+            if (wsOfTab.delete(k)) wsChanged = true;
+            continue;
+          }
           let w = extOf(t)?.workspaceId ?? null;
           const pd = wsPending.get(k);                                 // just moved: Vivaldi may not say so yet
           if (pd) { if (sameWs(w, pd.ws) || Date.now() > pd.until) wsPending.delete(k); else w = pd.ws; }
@@ -317,6 +324,7 @@ window.vosBeat = window.vosBeat || (() => {
           if (floating.has(k) && !groupFloat.has(k) && /^chrome:\/\/vivaldi-webui\/startpage/.test(t.url || t.pendingUrl || "")) { forget(k); wsChanged = true; }
         }
         for (const k of [...wsOfTab.keys()]) if (!live.has(k)) wsOfTab.delete(k);
+        for (const k of [...panelTabs]) if (!live.has(k)) panelTabs.delete(k);
         for (const k of [...extCache.keys()]) if (!live.has(k)) extCache.delete(k);
         if (wsChanged) queueRender();
         for (const k of [...splitOfTab.keys()]) if (!live.has(k)) { splitOfTab.delete(k); changed = true; }
@@ -577,6 +585,7 @@ window.vosBeat = window.vosBeat || (() => {
         let f;
         try { f = JSON.parse(tab.vivExtData || "{}")?.[EXT_KEY]; } catch { continue; }
         if (!f) continue;
+        if (ext(tab).panelId != null) { persist(String(tab.id)); continue; }   // a side panel's page: not a window (its old window mark goes)
         const id = String(tab.id);
         const home = splitHome.get(String(ext(tab).tiling?.id || ""));
         if (home && home !== id) { persist(id); continue; }       // floating.has(id) is false: clears it
@@ -593,7 +602,7 @@ window.vosBeat = window.vosBeat || (() => {
       const splitsDone = new Set(splitHome.keys());
       for (const tab of tabs || []) {
         const id = String(tab.id);
-        if (floating.has(id) || !isSite(tab)) continue;
+        if (floating.has(id) || !isSite(tab) || ext(tab).panelId != null) continue;
         const sp = ext(tab).tiling?.id;
         if (sp != null) {
           if (splitsDone.has(String(sp))) continue;                 // its split is already a window
@@ -926,6 +935,7 @@ window.vosBeat = window.vosBeat || (() => {
     persist(id);                                                    // also clears an old saved window
   }
   function floatNow(id, page) {
+    if (panelTabs.has(String(id))) return;                          // a side panel's page stays in its panel
     origin.set(id, { tiled: isTiled(page), group: isTiled(page) ? groupOf(page) : "" });
     noTitle.add(id);                                              // floating windows never show a title bar
     floating.add(id); minimized.delete(id); raise(id);
@@ -1237,7 +1247,7 @@ window.vosBeat = window.vosBeat || (() => {
     const cwNow = curWs();
     const emptyHere = tilingRead && cwNow != null && ![...wsOfTab.values()].some(v => sameWs(v, cwNow));
     b.toggleAttribute("data-vos-empty", emptyHere);                    // a desktop with no tab at all
-    b.toggleAttribute("data-ft-home", emptyHere || (!!act && isStart(act)));   // the Start Page or an empty desktop: the Launchpad
+    b.toggleAttribute("data-ft-home", !emptyHere && !!act && isStart(act));   // an empty desktop: only its wallpaper (+ opens the Launchpad)   // the Start Page or an empty desktop: the Launchpad
     b.toggleAttribute("data-ft-maxpage", !!act && !desktop && !isStart(act) && !isTiled(act));   // a full-screen page
     ensureMaxGrab();
     if (selected && !pageOf(selected)) selected = null;              // closed
@@ -3768,6 +3778,49 @@ window.vosBeat = window.vosBeat || (() => {
   const springs = new Set();                                         // spring-back animations still running
   const swItems = () => [...document.querySelectorAll(SWIPE_ITEMS)];
   const dotsRow = () => null;
+  /* MACOS SLIDE: the whole desktop moves - its wallpaper too - with a thin black line between two desktops:
+     two copies of the wallpaper on black, under the windows, only while it slides */
+  const SW_GAP = 6;
+  const swDist = () => (document.getElementById("webpage-stack")?.clientWidth || innerWidth) + SW_GAP;   // one desktop over
+  function scene() {
+    const stack = document.getElementById("webpage-stack");
+    if (!stack) return null;
+    let sc = stack.querySelector(":scope > .vos-sw-scene");
+    if (sc) return sc;
+    sc = document.createElement("div"); sc.className = "vos-sw-scene";
+    const r = stack.getBoundingClientRect();
+    for (let i = 0; i < 2; i++) {                                  // each one as big as the screen, as the real one is laid out
+      const w = document.createElement("i"); w.className = "vos-sw-wall";
+      Object.assign(w.style, { left: -r.left + "px", top: -r.top + "px", width: innerWidth + "px", height: innerHeight + "px",
+        clipPath: `inset(${r.top}px ${innerWidth - r.right}px ${innerHeight - r.bottom}px ${r.left}px)` });
+      if (i) w.style.visibility = "hidden";
+      sc.appendChild(w);
+    }
+    stack.prepend(sc);
+    browserEl()?.setAttribute("data-vos-sliding", "");
+    return sc;
+  }
+  function sceneAt(here, there) {                                    // px: this desktop's wallpaper, the other one's (null: none)
+    const sc = scene(); if (!sc) return;
+    const [a, b] = sc.children;
+    a.getAnimations().forEach(x => x.cancel()); b.getAnimations().forEach(x => x.cancel());
+    a.style.translate = `${Math.round(here)}px 0px`;
+    if (there == null) b.style.visibility = "hidden";
+    else { b.style.visibility = ""; b.style.translate = `${Math.round(there)}px 0px`; }
+  }
+  function sceneGo(here, there, ms, ease) {                          // both glide to where they end
+    const sc = document.querySelector("#webpage-stack > .vos-sw-scene"); if (!sc) return;
+    [here, there].forEach((x, i) => {
+      const w = sc.children[i]; if (x == null) return;
+      const from = w.style.translate || "0px 0px", to = `${Math.round(x)}px 0px`;
+      w.style.translate = to;
+      w.animate([{ translate: from }, { translate: to }], { duration: ms, easing: ease });
+    });
+  }
+  function sceneEnd() {
+    document.querySelectorAll("#webpage-stack > .vos-sw-scene").forEach(x => x.remove());
+    browserEl()?.removeAttribute("data-vos-sliding");
+  }
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, d = ev.deltaX * k;
@@ -3780,6 +3833,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (!sw) swBegin();
     swFeed(d, now);
   }, { capture: true, passive: false });
+  document.addEventListener("visibilitychange", () => {               // hidden mid-scroll: nothing stays half-slid
+    if (!document.hidden || !sw) return;
+    clearTimeout(sw.timer); const s = sw; sw = null;
+    for (const el of s.items) el.style.removeProperty("translate");
+    clearIncoming(s); if (!swiping) sceneEnd();
+  });
   function swBegin() {
     for (const a of springs) a.cancel();                             // a spring-back still running: the fingers take over
     springs.clear();
@@ -3790,36 +3849,30 @@ window.vosBeat = window.vosBeat || (() => {
     const s = sw, dt = Math.max(4, Math.min(60, now - s.at));
     s.v = s.v * 0.6 + (d / dt) * 0.4; s.at = now;
     s.vs.push([now, s.v]); while (s.vs.length && now - s.vs[0][0] > 400) s.vs.shift();   // the speeds of the last moments
-    s.acc = Math.max(-innerWidth, Math.min(innerWidth, s.acc + d));
+    const D = swDist();
+    s.acc = Math.max(-D, Math.min(D, s.acc + d));
     s.last.push(Math.abs(d)); if (s.last.length > 4) s.last.shift();
     swDraw(s);
     clearTimeout(s.timer);
     const L = s.last, fading = L.length === 4 && L[0] > L[1] && L[1] > L[2] && L[2] > L[3] && L[3] < 3;   // the momentum running out
-    if (Math.abs(s.acc) >= innerWidth || fading) return swipeEnd();
+    if (Math.abs(s.acc) >= D || fading) return swipeEnd();
     s.timer = setTimeout(swipeEnd, 220);                             // the scrolling stopped (the fingers let go)
   }
   function swDraw(s) {
     const info = s.info, dir = s.acc > 0 ? 1 : -1;
     const t = info?.ds[info.i + dir];
     const shown = !info || t ? s.acc : s.acc * 0.15;                 // nothing that way: a little stretch
+    const D = swDist();
     for (const el of s.items) el.style.setProperty("translate", `${Math.round(-shown)}px 0px`);
     if (s.inc && s.incDir !== dir) clearIncoming(s);
     if (t && !s.inc && Math.abs(s.acc) > 2) { s.inc = incomingFor(t.id); s.incDir = dir; }
-    for (const el of s.inc || []) el.style.setProperty("translate", `${Math.round(dir * innerWidth - shown)}px 0px`);
+    for (const el of s.inc || []) el.style.setProperty("translate", `${Math.round(dir * D - shown)}px 0px`);
+    sceneAt(-shown, t ? dir * D - shown : null);                     // the wallpapers go along
   }
   /* another desktop's windows, shown for the scroll - or, when it has none, its Launchpad (a copy) */
   function incomingFor(ws) {
     const els = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), ws))
       .flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
-    if (!els.length) {
-      const lp = document.querySelector("#webpage-stack > .lp-layer.lp-desktop"), stack = document.getElementById("webpage-stack");
-      if (lp && stack) {
-        const g = lp.cloneNode(true);
-        g.classList.add("vos-lp-ghost"); g.removeAttribute("data-ft-swipe-out"); g.removeAttribute("data-ft-ws-leave");
-        g.style.removeProperty("visibility"); g.style.removeProperty("translate"); g.setAttribute("aria-hidden", "true");
-        stack.appendChild(g); els.push(g);
-      }
-    }
     els.forEach(el => { el.setAttribute("data-ft-ws-leave", ""); el.setAttribute("data-vos-incoming", ""); });
     return els;
   }
@@ -3839,14 +3892,17 @@ window.vosBeat = window.vosBeat || (() => {
     const info = s.info || await desksNow(true);
     const dir = s.acc > 0 ? 1 : -1, t = info?.ds[info.i + dir];
     const v = Math.max(0, ...s.vs.map(([, x]) => x * dir));        // the fastest the fingers went that way, just now (px per ms)
-    if (t && (Math.abs(s.acc) > innerWidth * 0.3 || (v > 0.6 && Math.abs(s.acc) > 40))) {
+    const D = swDist();
+    if (t && (Math.abs(s.acc) > D * 0.3 || (v > 0.6 && Math.abs(s.acc) > 40))) {
       if (wsStrip) closeWsStrip(false, !!mission);
-      const left = Math.max(1, innerWidth - Math.abs(s.acc));
+      const left = Math.max(1, D - Math.abs(s.acc));
       const ms = Math.round(Math.max(140, Math.min(300, v > 0.1 ? left / v : 300)));
       swipeTo({ id: t.id, name: t.name, incoming: s.incDir === dir ? s.inc : null, ms, ease: "cubic-bezier(0.2, 0.7, 0.3, 1)" }, info.list, dir);
       return;
     }
     const ease = { duration: 240, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" };
+    sceneGo(0, s.incDir ? s.incDir * D : null, ease.duration, ease.easing);
+    setTimeout(() => { if (!sw && !swiping) sceneEnd(); }, ease.duration + 20);
     for (const el of s.items) {                                       // springs back
       const from = el.style.getPropertyValue("translate") || "0px 0px";
       el.style.removeProperty("translate");
@@ -3857,7 +3913,7 @@ window.vosBeat = window.vosBeat || (() => {
     for (const el of inc || []) {
       const from = el.style.getPropertyValue("translate") || "0px 0px";
       el.style.removeProperty("translate");
-      const a = el.animate([{ translate: from }, { translate: `${d * innerWidth}px 0px` }], { ...ease, fill: "forwards" });
+      const a = el.animate([{ translate: from }, { translate: `${d * D}px 0px` }], { ...ease, fill: "forwards" });
       springs.add(a);
       a.finished.catch(() => {}).then(() => {
         springs.delete(a);
@@ -4047,7 +4103,7 @@ window.vosBeat = window.vosBeat || (() => {
     const ss = stackRect(), cur = curWs();
     const wall = getComputedStyle(browserEl()).getPropertyValue("--browserBackgroundImage").trim();
     const mine = await myDesks(list, tabs, cur);
-    const loose = (tabs || []).some(t => wsOfTab.has(String(t.id)) && wsOfTab.get(String(t.id)) == null);
+    const loose = !list.length && (tabs || []).some(t => !t.pinned && wsOfTab.has(String(t.id)) && wsOfTab.get(String(t.id)) == null);   // a "Desktop" card only before any desktop exists
     const spaces = [...(loose ? [{ id: null, name: "Desktop", icon: null }] : []), ...list.filter(w => mine.has(String(w.id))).map(w => ({ id: w.id, name: w.name || "Workspace", icon: w.icon, emoji: w.emoji }))];
     const cardW = Math.round(Math.min(220, 128 * (ss.width / Math.max(1, ss.height))));   // at most 128px high
 
@@ -4241,6 +4297,7 @@ window.vosBeat = window.vosBeat || (() => {
         missionMode(null, true);
         for (const el of sp.incoming || []) { el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); }
         for (const el of items) el.style.removeProperty("translate");
+        sceneEnd();
         if (gen === swipeGen) swiping = false;
       }
       return;
@@ -4249,6 +4306,10 @@ window.vosBeat = window.vosBeat || (() => {
     const side = dir > 0 ? "next" : "prev";
     const ms = sp.ms || 300, ease = sp.ease || "cubic-bezier(0.25, 0.8, 0.3, 1)";
     b.style.setProperty("--vos-swipe-ms", ms + "ms"); b.style.setProperty("--vos-swipe-ease", ease);
+    const D = swDist(); b.style.setProperty("--vos-swipe-dist", D + "px");
+    { const sc = scene();                                            // the wallpapers slide too: this one out, the other in
+      if (sc && sc.children[1].style.visibility === "hidden") sceneAt(parseFloat(sc.children[0].style.translate) || 0, dir * D);
+      sceneGo(-dir * D, 0, ms, ease); }
     swiping = true;
     const keep = new Set((sp.keep || []).map(String));                // the window that moves along: not left behind
     const leaving = [...document.querySelectorAll(SWIPE_ITEMS)].filter(el => !keep.has(el.dataset.ftFloat || el.dataset.ftFor || ""));
@@ -4269,7 +4330,7 @@ window.vosBeat = window.vosBeat || (() => {
     const t1 = Date.now();
     let shownAt = 0;
     try {
-      const made = await (sp.go ? sp.go() : switchWs(sp, list));    // at once: both desktops move together
+      const made = await Promise.race([sp.go ? sp.go() : switchWs(sp, list), new Promise(r => setTimeout(r, 2000))]);   // at once: both desktops move together (never stuck half-way)
       if (sp.id == null && made != null) sp.id = made;                // a desktop made just now
       while (Date.now() - t1 < 1500) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
       render(); shownAt = Date.now();                                 // the new desktop's other windows slide in from now
@@ -4284,7 +4345,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (gen === swipeGen) { b.removeAttribute("data-vos-swipe"); b.removeAttribute("data-vos-lp-ghost"); }   // (the Launchpad is put aside first, then shown again if wanted)
         lpOut.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
         if (gen !== swipeGen) return;                                // a newer swipe owns the rest
-        b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true);
+        b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; sceneEnd(); deskDots(true);
       }, Math.max(0, (shownAt || Date.now()) + ms - Date.now()) + 40);
     }
   }

@@ -255,7 +255,7 @@
     lp.grid.dataset.parent = root?.id || "";
     const list = q ? flat(items(root)).filter(n => nameOf(n).toLowerCase().includes(q) || host(n.url).includes(q)) : items(root);
     if (false) lp.grid.appendChild(special(raw.replace(/^https?:\/\//i, "").replace(/\/$/, ""), "Open " + toUrl(raw), "lp-go", () => goTo(raw)));
-    const kids = list.map(n => app(n, launch));
+    const kids = q ? [] : list.map(n => app(n, launch));            // searching: the matching apps are rows of the list (Spotlight), no grid
     if (!raw)                                       // the widgets at their places among the icons
       widgets.map((w, i) => ({ w, at: w.pos ?? i })).sort((x, y) => x.at - y.at)
         .forEach(({ w, at }) => kids.splice(Math.max(0, Math.min(at, kids.length)), 0, widgetEl(w)));
@@ -268,7 +268,7 @@
       e.textContent = chosen ? "This folder is empty" : "Your Bookmark Bar is empty";
       lp.grid.appendChild(e);
     }
-    suggest(raw);
+    suggest(raw, q ? list : null);
   }
 
   function openFolder(n, trail, rename, quiet) {
@@ -639,8 +639,8 @@
       if (!q) return;
       if (lp.sel >= 0 && lp.rows[lp.sel]) return lp.rows[lp.sel].run();
       if (looksLikeUrl(q)) return goTo(q);
-      const first = grid.querySelector(".lp-app:not(.lp-special)");
-      if (first) first.click(); else webSearch(q);
+      if (lp.rows[0]?.kind === "app") return lp.rows[0].run();       // the first matching app
+      webSearch(q);
     });
     layer.addEventListener("pointerdown", ev => {   // a click anywhere first closes an open menu
       if (lp) lp.swallow = false;
@@ -707,21 +707,23 @@
     search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     go: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   };
-  const SUB = { tab: "Switch to Tab", bookmark: "Bookmark", history: "History", go: "Open Address", search: "Search the Web" };
-  function suggest(raw) {
+  const SUB = { app: "App", tab: "Switch to Tab", bookmark: "Bookmark", history: "History", go: "Open Address", search: "Search the Web" };
+  function suggest(raw, apps) {
     clearTimeout(sugTimer);
     if (!lp) return;
     if (!raw) { lp.sug.textContent = ""; lp.sug.hidden = true; lp.rows = []; lp.sel = -1; return; }
     const seq = ++sugSeq;
-    sugTimer = setTimeout(() => buildSuggest(raw, seq), 70);
+    sugTimer = setTimeout(() => buildSuggest(raw, seq, apps || []), 70);
   }
   const ask = (fn, arg) => new Promise(r => { try { fn(arg, x => { void chrome.runtime.lastError; r(x || []); }); } catch (e) { r([]); } });
-  async function buildSuggest(raw, seq) {
+  async function buildSuggest(raw, seq, apps = []) {
     const q = raw.toLowerCase(), rows = [], seen = new Set();
     const add = (kind, title, url, run) => {
       if (url) { const k = url.replace(/\/$/, ""); if (seen.has(k)) return; seen.add(k); }
       rows.push({ kind, title, url, run });
     };
+    for (const n of apps.slice(0, 8)) add("app", nameOf(n), n.url, () => launch(n));   // your apps first, as in Spotlight
+    const nApps = rows.length;
     if (looksLikeUrl(raw)) add("go", toUrl(raw).replace(/^https?:\/\//i, "").replace(/\/$/, ""), toUrl(raw), () => goTo(raw));
     const [tabs, marks, hist] = await Promise.all([
       ask((a, cb) => chrome.tabs.query(a, cb), { currentWindow: true }),
@@ -737,7 +739,7 @@
       add("bookmark", b.title || host(b.url), b.url, () => { openUrl(b.url); close(); });
     for (const h of hist.filter(h => web(h.url)).slice(0, 6))
       add("history", h.title || host(h.url), h.url, () => { openUrl(h.url, true); close(); });
-    rows.splice(8);
+    rows.splice(nApps + 8);
     add("search", raw, null, () => webSearch(raw));     // a web search is always there, last
     lp.rows = rows; lp.sel = -1;
     const box = lp.sug;
@@ -747,7 +749,8 @@
       b.type = "button"; b.className = "lp-row";
       const ic = document.createElement("span");
       ic.className = "lp-row-icon";
-      if (r.url && r.kind !== "go") ic.appendChild(siteIcon(r.url, mini, "lp-row-fav"));
+      if (r.kind === "app") { ic.classList.add("lp-row-app"); ic.appendChild(siteIcon(r.url, icon, "lp-row-fav")); }
+      else if (r.url && r.kind !== "go") ic.appendChild(siteIcon(r.url, mini, "lp-row-fav"));
       else ic.innerHTML = GLYPH[r.kind] || GLYPH.search;
       const tx = document.createElement("span");
       tx.className = "lp-row-text";
@@ -758,7 +761,8 @@
       u.textContent = SUB[r.kind] + (r.url && r.kind !== "go" ? " — " + host(r.url) : "");
       tx.append(t, u);
       b.append(ic, tx);
-      if (r.url) b.appendChild(addButton(r.url, r.kind === "go" ? "" : r.title));
+      if (r.url && r.kind !== "app") b.appendChild(addButton(r.url, r.kind === "go" ? "" : r.title));
+      if (r.kind === "app" && rows[i + 1] && rows[i + 1].kind !== "app") b.setAttribute("data-last-app", "");
       b.addEventListener("pointerenter", () => selectRow(i));
       b.addEventListener("click", ev => { ev.stopPropagation(); r.run(); });
       box.appendChild(b);
@@ -2099,8 +2103,8 @@
   /* ---------------- the desktop: the Launchpad on the wallpaper ---------------- */
   function syncDesk() {
     const b = document.getElementById("browser"), stack = document.getElementById("webpage-stack");
-    const want = !!b && !!stack && (b.hasAttribute("data-ft-home") ||
-                 (b.hasAttribute("data-ft-desktop") && !b.hasAttribute("data-ft-wins")));   // windows open: only the wallpaper
+    const want = !!b && !!stack && !b.hasAttribute("data-vos-empty") && (b.hasAttribute("data-ft-home") ||
+                 (b.hasAttribute("data-ft-desktop") && !b.hasAttribute("data-ft-wins")));   // windows open, or an empty desktop: only the wallpaper
     if (want && !lp && parked?.layer.parentElement === stack) {   // back at once: nothing to build, no icon to load
       lp = parked; parked = null;
       lp.layer.style.removeProperty("visibility");
@@ -2119,7 +2123,7 @@
   (function watchDesk() {
     const b = document.getElementById("browser");
     if (!b) return setTimeout(watchDesk, 50);
-    new MutationObserver(syncDesk).observe(b, { attributes: true, attributeFilter: ["data-ft-desktop", "data-ft-home", "data-ft-wins", "data-vos-swipe"] });
+    new MutationObserver(syncDesk).observe(b, { attributes: true, attributeFilter: ["data-ft-desktop", "data-ft-home", "data-ft-wins", "data-vos-swipe", "data-vos-empty"] });
     (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(syncDesk);
     syncDesk();
   })();

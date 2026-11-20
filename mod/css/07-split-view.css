@@ -1249,10 +1249,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) forwards !important; }
 #browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
 #browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
-@keyframes vos-swipe-out-left { to { translate: -100vw 0; } }
-@keyframes vos-swipe-in-right { from { translate: 100vw 0; } }
-@keyframes vos-swipe-out-right { to { translate: 100vw 0; } }
-@keyframes vos-swipe-in-left { from { translate: -100vw 0; } }
+@keyframes vos-swipe-out-left { to { translate: calc(-1 * var(--vos-swipe-dist, 100vw)) 0; } }
+@keyframes vos-swipe-in-right { from { translate: var(--vos-swipe-dist, 100vw) 0; } }
+@keyframes vos-swipe-out-right { to { translate: var(--vos-swipe-dist, 100vw) 0; } }
+@keyframes vos-swipe-in-left { from { translate: calc(-1 * var(--vos-swipe-dist, 100vw)) 0; } }
 
 /* Bento: while windows slide to new slots the gaps wait, then fade back in */
 #browser[data-bento-moving] #webpage-stack > :is(.bento-divider, .bento-grip) { opacity: 0 !important; transition: none !important; }
@@ -1327,3 +1327,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* a scroll to an empty desktop: a copy of the Launchpad slides in; the real one shows in its place once it is there */
 #webpage-stack > .lp-layer.vos-lp-ghost { pointer-events: none !important; }
 #browser[data-vos-lp-ghost] #webpage-stack > .lp-layer.lp-desktop:not(.vos-lp-ghost):not([data-ft-swipe-out]) { visibility: hidden !important; animation: none !important; }
+/* the macOS slide: the wallpaper of each desktop moves with it, a thin black line between them (floating-tile.js scene) */
+#browser #webpage-stack > .vos-sw-scene { position: absolute !important; inset: 0 !important; z-index: 1 !important; overflow: hidden !important; background: #000 !important; pointer-events: none !important; contain: strict; }
+#browser #webpage-stack > .vos-sw-scene > .vos-sw-wall { position: absolute !important; display: block !important; will-change: translate;
+  background-color: var(--browserBackgroundColor) !important; background-image: var(--browserBackgroundImage) !important;
+  background-position: var(--browserBackgroundPosition) !important; background-repeat: var(--browserBackgroundRepeat) !important;
+  background-size: var(--browserBackgroundSize) !important; background-attachment: scroll !important; }
+#browser[data-vos-sliding] #webpage-stack > .lp-layer.lp-desktop { background: transparent !important; }   /* its wallpaper is the sliding one */

@@ -1340,3 +1340,11 @@
 #browser .lp-wcard svg.lp-clock.lp-sec .lp-sh { animation: none !important; }
 #browser .lp-wcard svg.lp-clock.lp-sec .lp-face, #browser .lp-wcard svg.lp-clock.lp-sec .lp-sq-face { display: none !important; }
 @keyframes lp-sweep-layer { from { rotate: 0deg; } to { rotate: 360deg; } }
+
+/* searching: one list (Spotlight / iOS) - your apps first, then tabs, bookmarks, history, the web - no icon grid */
+#browser .lp-layer[data-searching] .lp-grid { display: none !important; }
+#browser .lp-layer[data-searching] .lp-suggest { max-height: min(70vh, 640px) !important; overflow-y: auto !important; }
+#browser .lp-row-icon.lp-row-app { width: 34px !important; height: 34px !important; border-radius: 8px !important; background: #fff !important; overflow: hidden !important; }
+#browser .lp-row-icon.lp-row-app .lp-row-fav { width: 34px !important; height: 34px !important; border-radius: 8px !important; object-fit: cover !important; }
+#browser .lp-row[data-last-app] { margin-bottom: 7px !important; position: relative !important; }
+#browser .lp-row[data-last-app]::after { content: "" !important; position: absolute !important; left: 10px !important; right: 10px !important; bottom: -4px !important; border-bottom: 0.5px solid var(--lp-ios-sep) !important; }
