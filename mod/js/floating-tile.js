@@ -2523,8 +2523,8 @@ window.vosBeat = window.vosBeat || (() => {
   const BENTO_SLOTS = [[1.5, 1.5, 6.6, 15], [9.6, 1.5, 6.9, 6.75], [9.6, 9.75, 6.9, 6.75]];   // Bento's mark: one tall, two stacked
   const rrect = (x, y, w, h, r) => `M${x + r} ${y}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - 2 * r}a${r} ${r} 0 0 1 ${-r} ${r}` +
     `h${-(w - 2 * r)}a${r} ${r} 0 0 1 ${-r} ${-r}v${-(h - 2 * r)}a${r} ${r} 0 0 1 ${r} ${-r}z`;
-  const bentoIcon = on => `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill-rule="evenodd" d="` +
-    BENTO_SLOTS.map(([x, y, w, h]) => rrect(x, y, w, h, 1.9) + (on ? "" : rrect(x + 1.3, y + 1.3, w - 2.6, h - 2.6, 0.8))).join("") + `"/></svg>`;
+  const bentoIcon = on => `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><path${on ? "" : ' opacity="0.5"'} d="` +   // filled tiles (Ubuntu style): off dimmed, on solid
+    BENTO_SLOTS.map(([x, y, w, h]) => rrect(x, y, w, h, 1.9)).join("") + `"/></svg>`;
   /* THE BENTO BUTTON IN THE TOOLBAR EDITOR: a Command Chain named "Bento" (made once, put
      after the Workspaces button) is Vivaldi's own toolbar button - so View > Customize
      Toolbar moves it, removes it, adds it back. The mod gives it the Bento drawing and click. */
@@ -2614,8 +2614,8 @@ window.vosBeat = window.vosBeat || (() => {
     return out;
   }
   const chainButton = () => osChainButtons().vosbento || null;
-  const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect x="4.5" y="4.5" width="9" height="9" rx="1.8"/><rect x="0.5" y="6" width="2.6" height="6" rx="1" opacity="0.55"/><rect x="14.9" y="6" width="2.6" height="6" rx="1" opacity="0.55"/></svg>';   // desktops side by side
-  const TIMER_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><circle cx="9" cy="10.2" r="5.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 10.2V7.2M7 2.6h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="1.5" y="7" width="7" height="4" rx="2"/><circle cx="12" cy="9" r="2"/><circle cx="16" cy="9" r="1.6" opacity="0.55"/></svg>';   // Ubuntu: this desktop a line, the others dots
+  const TIMER_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M12 5a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1.1 3.8v5.1l3.9 2.3 1.1-1.9-2.8-1.6V8.8z"/><rect x="9" y="1.5" width="6" height="2.2" rx="1.1"/></svg>';
   function osWidgets() {                            // Mission Control and Timer: their drawing and click
     const found = osChainButtons();
     for (const [key, icon, act] of [["vosmission", MC_ICON, () => openWsStrip()], ["vostimer", TIMER_ICON, b => window.vosTimer?.toggle(b)]]) {
@@ -3352,16 +3352,16 @@ window.vosBeat = window.vosBeat || (() => {
     const add = (label, svg, fn, cls) => {
       const b = document.createElement("button");
       b.type = "button"; b.className = "lp-menu-item" + (cls ? " " + cls : "");
-      b.innerHTML = `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${svg}</svg><span class="lp-mi-text"></span>`;
+      b.innerHTML = `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="currentColor">${svg}</svg><span class="lp-mi-text"></span>`;   // filled (Ubuntu style)
       b.querySelector(".lp-mi-text").textContent = label;
       b.addEventListener("click", ev => { ev.stopPropagation(); fn(b); });
       m.appendChild(b); return b;
     };
-    add("Rename", '<path d="M4 20l1.2-4.2L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z"/><path d="M14 7l3 3"/>',
+    add("Rename", '<path d="M15.3 3.9a2.2 2.2 0 0 1 3.1 0l1.7 1.7a2.2 2.2 0 0 1 0 3.1L9.2 19.6 3.6 20.4l.8-5.6z"/>',
         () => { closeWsMenu(); card.querySelector(".vos-ws-name")?.__edit?.(); });
     const ids = (tabs || []).filter(t => !t.pinned && !isStartUrl(t) && wsOfTab.has(String(t.id)) && sameWs(extOf(t)?.workspaceId ?? null, sp.id)).map(t => t.id);   // its windows, as Vivaldi has them (its Launchpad page is not one)
     const n = ids.length;
-    const BIN = '<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>';
+    const BIN = '<path d="M9.2 3h5.6l.9 2H20v2.2H4V5h4.3z"/><path d="M5.6 8.5h12.8l-.9 11.1a2 2 0 0 1-2 1.9H8.5a2 2 0 0 1-2-1.9z"/>';
     const near = deskNear(sp, list);
     const doDelete = keep => { closeWsMenu(); deskDelete(sp, list, keep); };
     if (near) {                                                      // the last desktop of a window stays
@@ -4911,6 +4911,7 @@ window.vosBeat = window.vosBeat || (() => {
     wsShownSeen = v; wsNowAt = 0; queueRender();
     if (first) return;
     window.dispatchEvent(new Event("ft-tint"));                      // the tab bar's colour: this desktop's front tab
+    deskIndicatorNow();
     arrive(v);
   }, 150);
   /* arrived on a desktop: its windows are shown - never hidden behind its Launchpad page (Vivaldi may bring
@@ -4927,6 +4928,27 @@ window.vosBeat = window.vosBeat || (() => {
       raise(w); activate(groupFloat.has(w) ? (splitFocus.get(w) || w) : w);
     }, ms);
   }
+  /* THE DESKTOP INDICATOR (Ubuntu): on the Workspaces button, a dot per desktop of this window -
+     the one shown a short line - drawn from what is known, again whenever it changes */
+  function deskIndicator(info) {
+    const n = Math.max(1, Math.min(9, info?.ds?.length || 1)), i = Math.max(0, Math.min(n - 1, info?.i ?? 0)), key = n + ":" + i;
+    let x = 1; const parts = [];
+    for (let j = 0; j < n; j++) {
+      if (j === i) { parts.push(`<rect x="${x}" y="7" width="10" height="4" rx="2"/>`); x += 10 + 3; }
+      else { parts.push(`<circle cx="${x + 2}" cy="9" r="2" opacity="0.5"/>`); x += 4 + 3; }
+    }
+    const w = x - 3 + 1;
+    for (const host of document.querySelectorAll("#tabs-tabbar-container .workspace-popup .button-icon, #browser .tabbar-workspace-button .button-icon")) {
+      let ic = host.querySelector(":scope > .vos-desks-ic");
+      if (ic && ic.__key === key) continue;
+      if (!ic) { ic = document.createElement("span"); ic.className = "vos-desks-ic"; host.appendChild(ic); }
+      ic.__key = key;
+      ic.innerHTML = `<svg viewBox="0 0 ${w} 18" width="${w}" height="18" fill="currentColor" aria-hidden="true">${parts.join("")}</svg>`;
+    }
+  }
+  const deskIndicatorNow = () => desksNow(true).then(deskIndicator).catch(() => {});
+  setInterval(() => { if (!document.hidden) deskIndicatorNow(); }, 2000);
+  setTimeout(deskIndicatorNow, 1500);
   function queueRender() {
     if (queued) return;
     queued = true;

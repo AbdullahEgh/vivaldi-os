@@ -880,22 +880,22 @@
   }
   /* right-click menus: an icon on the left of every item (like macOS / iOS menus) */
   const MI = (d, fill) => `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-  const MENU_ICONS = [
-    [/^open in new|new tab|new window/i, MI('<rect x="3.5" y="5" width="13" height="12" rx="2.5"/><path d="M19.5 9v9a2.5 2.5 0 0 1-2.5 2.5H8"/><path d="M10 9v4M8 11h4"/>')],
-    [/^open launchpad/i, MI('<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/>')],
-    [/^open/i, MI('<path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>')],
-    [/^(edit home|done editing)/i, MI('<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><path d="M14.5 19.5l1-3 4-4 2 2-4 4z"/>')],
-    [/rename|edit/i, MI('<path d="M4 20l1.2-4.2L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z"/><path d="M14 7l3 3"/>')],
-    [/^copy/i, MI('<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')],
-    [/delete|remove/i, MI('<path d="M4.5 7h15M10 4h4M6.5 7l.9 12a2 2 0 0 0 2 1.8h5.2a2 2 0 0 0 2-1.8l.9-12M10 11v6M14 11v6"/>')],
-    [/folder|show in launchpad|show "/i, MI('<path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.5l2 2H18a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5z"/>')],
-    [/bookmark/i, MI('<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/>')],
-    [/add website|add to launchpad/i, MI('<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/>')],
-    [/widget/i, MI('<rect x="4" y="4" width="7" height="7" rx="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.8"/><path d="M16.5 14v5M14 16.5h5"/>')],
-    [/wallpaper/i, MI('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M6 16.5l4.3-4.6 3.2 3.2 2-2 3 3.4"/><circle cx="15.5" cy="9.5" r="1.4"/>')],
-    [/update/i, MI('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.6 4.6v4.2h-4.2"/>')],
-    [/settings/i, MI('<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6"/>')],
-    [/\bmin$/i, MI('<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 2M9.5 3.5h5"/>')],
+  const MENU_ICONS = [                              // filled, Ubuntu / GNOME symbolic style
+    [/^open in new|new tab|new window/i, MI('<path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" opacity=".35"/><path d="M6 4h12a2 2 0 0 1 2 2v2H4V6a2 2 0 0 1 2-2z"/><path d="M11 10.5h2v2.5h2.5v2H13v2.5h-2V15H8.5v-2H11z"/>', true)],
+    [/^open launchpad/i, MI('<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>', true)],
+    [/^open/i, MI('<path d="M13 3.5h7.5V11l-2.8-2.8-5 5-1.9-1.9 5-5z"/><path d="M5.5 6H11v2.2H6.2v9.6h9.6V13H18v5.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6z"/>', true)],
+    [/^(edit home|done editing)/i, MI('<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>', true)],
+    [/rename|edit/i, MI('<path d="M15.3 3.9a2.2 2.2 0 0 1 3.1 0l1.7 1.7a2.2 2.2 0 0 1 0 3.1L9.2 19.6 3.6 20.4l.8-5.6z"/>', true)],
+    [/^copy/i, MI('<path d="M6 3h8.5A1.5 1.5 0 0 1 16 4.5V6H8.5A2.5 2.5 0 0 0 6 8.5V17H4.5A1.5 1.5 0 0 1 3 15.5V6a3 3 0 0 1 3-3z" opacity=".45"/><rect x="8" y="8" width="13" height="13" rx="2.5"/>', true)],
+    [/delete|remove/i, MI('<path d="M9.2 3h5.6l.9 2H20v2.2H4V5h4.3z"/><path d="M5.6 8.5h12.8l-.9 11.1a2 2 0 0 1-2 1.9H8.5a2 2 0 0 1-2-1.9z"/>', true)],
+    [/folder|show in launchpad|show "/i, MI('<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2h7.4A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>', true)],
+    [/bookmark/i, MI('<path d="M7 3h10a1.5 1.5 0 0 1 1.5 1.5V21L12 16.8 5.5 21V4.5A1.5 1.5 0 0 1 7 3z"/>', true)],
+    [/add website|add to launchpad/i, MI('<path fill-rule="evenodd" d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm-1.1 4.5v3.4H7.5v2.2h3.4v3.4h2.2v-3.4h3.4v-2.2h-3.4V7.5z"/>', true)],
+    [/widget/i, MI('<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><circle cx="16.5" cy="16.5" r="3.6"/>', true)],
+    [/wallpaper/i, MI('<rect x="3" y="4" width="18" height="16" rx="2.5" opacity=".35"/><path d="M3 16.8l5.5-5.8 4 4 2.6-2.6 5.9 5.9v.2a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/><circle cx="16" cy="8.5" r="2"/>', true)],
+    [/update/i, MI('<path d="M12 4a8 8 0 0 1 6.3 3.1V4.5h2.2v6.6h-6.6V8.9h3a5.8 5.8 0 1 0 1 5.6l2.1.7A8 8 0 1 1 12 4z"/>', true)],
+    [/settings/i, MI('<path fill-rule="evenodd" d="M10.2 2.5h3.6l.5 2.6a7.4 7.4 0 0 1 1.9 1.1l2.5-.9 1.8 3.1-2 1.7a7.6 7.6 0 0 1 0 2.2l2 1.7-1.8 3.1-2.5-.9a7.4 7.4 0 0 1-1.9 1.1l-.5 2.6h-3.6l-.5-2.6a7.4 7.4 0 0 1-1.9-1.1l-2.5.9-1.8-3.1 2-1.7a7.6 7.6 0 0 1 0-2.2l-2-1.7 1.8-3.1 2.5.9a7.4 7.4 0 0 1 1.9-1.1zM12 8.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4z"/>', true)],
+    [/\bmin$/i, MI('<path fill-rule="evenodd" d="M12 5a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1.1 3.8v5.1l3.9 2.3 1.1-1.9-2.8-1.6V8.8z"/><rect x="9" y="1.5" width="6" height="2.2" rx="1.1"/>', true)],
   ];
   const BLANK_IC = '<svg class="lp-mi-ic" viewBox="0 0 24 24"></svg>';
   function menuLabel(b, label) {                    // an icon on the left, then the words
@@ -904,13 +904,13 @@
     const t = document.createElement("span"); t.className = "lp-mi-text"; t.textContent = label;
     b.appendChild(t);
   }
-  const ICON = {
-    update: '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M19.6 4.6v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    globe: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M3.6 12h16.8M12 3.4c2.4 2.6 2.4 14.6 0 17.2M12 3.4c-2.4 2.6-2.4 14.6 0 17.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
-    wall: '<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M5.5 17l4.6-5 3.4 3.4 2.2-2.2 3.3 3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="15.8" cy="8.8" r="1.6" fill="currentColor"/></svg>',
-    folder: '<svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2h7.4A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" fill="currentColor"/></svg>',
-    plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
-    check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  const ICON = {                                    // filled (Ubuntu / GNOME symbolic)
+    update: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4a8 8 0 0 1 6.3 3.1V4.5h2.2v6.6h-6.6V8.9h3a5.8 5.8 0 1 0 1 5.6l2.1.7A8 8 0 1 1 12 4z"/></svg>',
+    globe: '<svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm-1.9 2.4a7 7 0 0 0-4.9 5.5h3.4c.1-2 .6-3.9 1.5-5.5zm3.8 0c.9 1.6 1.4 3.5 1.5 5.5h3.4a7 7 0 0 0-4.9-5.5zM10.8 10.9h2.4c-.1-1.9-.5-3.5-1.2-4.8-.7 1.3-1.1 2.9-1.2 4.8zm-5.6 2.2a7 7 0 0 0 4.9 5.5c-.9-1.6-1.4-3.5-1.5-5.5zm5.6 0c.1 1.9.5 3.5 1.2 4.8.7-1.3 1.1-2.9 1.2-4.8zm4.6 0c-.1 2-.6 3.9-1.5 5.5a7 7 0 0 0 4.9-5.5z"/></svg>',
+    wall: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="4" width="18" height="16" rx="2.5" opacity=".35"/><path d="M3 16.8l5.5-5.8 4 4 2.6-2.6 5.9 5.9v.2a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/><circle cx="16" cy="8.5" r="2"/></svg>',
+    folder: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2h7.4A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.8 4.5h2.4v6.3h6.3v2.4h-6.3v6.3h-2.4v-6.3H4.5v-2.4h6.3z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 15.6l9.2-9.2 1.8 1.8-11 11-5.6-5.6 1.8-1.8z"/></svg>',
   };
   function edges() {                                // auto-hidden: they slide in at the edge (always, in editing mode)
     const mk = (side, list) => {
