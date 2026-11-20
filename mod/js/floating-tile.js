@@ -90,7 +90,7 @@ window.vosBeat = window.vosBeat || (() => {
   const noTitle = new Set();        // floating windows with the title bar hidden
   let cover = null;                 // the window held to full view (over the tab bar and Vivaldi's buttons)
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
-  const PIP_K = 0.7, PIP_GAP = 8;   // their size (of what they were), and the space between them
+  const PIP_K = 0.25, PIP_Z = 0.3, PIP_GAP = 8;   // their size (a quarter of what they were), the page's zoom in them, the space between them
   const pipCorner = new Map();      // id -> "bl" | "br" | "tl" | "tr"
   const pipW = new Map();           // corner -> the width of every window there
   const pipH = new Map();           // id -> its own height
@@ -666,12 +666,12 @@ window.vosBeat = window.vosBeat || (() => {
      away from it (no overlap); one width per corner, a height per window */
   function pipRect(id, s) {
     const c = pipCorner.get(id) || "bl", bottom = c[0] === "b";
-    const W = Math.max(180, Math.min(s.width - 2 * MARGIN, pipW.get(c) || 360));
+    const W = Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(c) || 240));
     const x = c[1] === "r" ? s.width - MARGIN - W : MARGIN;
     let edge = bottom ? s.height - MARGIN : MARGIN;
     for (const p of [...pip].reverse()) {
       if ((pipCorner.get(p) || "bl") !== c) continue;
-      const h = Math.max(120, Math.min(s.height - 2 * MARGIN, pipH.get(p) || 240));
+      const h = Math.max(100, Math.min(s.height - 2 * MARGIN, pipH.get(p) || 150));
       const y = bottom ? edge - h : edge;
       if (p === id) return { x, y: Math.max(0, Math.min(s.height - h, y)), w: W, h };
       if (!awayWs(p) && !minimized.has(p)) edge = bottom ? y - PIP_GAP : y + h + PIP_GAP;   // only the ones on this desktop take room
@@ -1603,8 +1603,8 @@ window.vosBeat = window.vosBeat || (() => {
         el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
         return;
       }
-      if (/[lr]/.test(how)) pipW.set(c, Math.max(180, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx))));   // every window in this corner
-      if (/[tb]/.test(how)) pipH.set(id, Math.max(120, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));   // only this one
+      if (/[lr]/.test(how)) pipW.set(c, Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx))));   // every window in this corner
+      if (/[tb]/.test(how)) pipH.set(id, Math.max(100, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));   // only this one
       render();
     };
     const onMove = ev => { if (ev.pointerId !== pid) return; last = ev; if (!frame) frame = requestAnimationFrame(apply); };
@@ -1634,7 +1634,7 @@ window.vosBeat = window.vosBeat || (() => {
   function pipZoom(id, on) {
     webviewsOf(id).forEach(wv => {
       const own = pageZoom[wv.closest(".webpageview")?.dataset.id];
-      setWebZoom(wv, (own ?? zoomOf[id] ?? 1) * (on ? PIP_K : 1));
+      setWebZoom(wv, (own ?? zoomOf[id] ?? 1) * (on ? PIP_Z : 1));
     });
   }
   function pipOff(id) {
@@ -1651,13 +1651,13 @@ window.vosBeat = window.vosBeat || (() => {
     const others = [...floating].filter(p => p !== win && !minimized.has(p) && !awayWs(p)).map(p => targetOf(pageOf(p)));   // the stack, and Bento closing / opening the gap, glide too
     if (what === "zoom") flip([el, ...others], () => { if (cover === win) cover = null; else { pipOff(win); cover = win; } render(); });
     else {
-      const r = el.getBoundingClientRect();                          // 70% of the size it has on the screen now
+      const r = el.getBoundingClientRect();                          // a quarter of the size it has on the screen now
       flip([el, ...others], () => {
         if (!pipOff(win)) {
           if (cover === win) cover = null;
           const c = "bl";
-          if (!pip.some(p => (pipCorner.get(p) || "bl") === c)) pipW.set(c, Math.max(180, r.width * PIP_K));   // a corner in use keeps its width
-          pipH.set(win, Math.max(120, r.height * PIP_K));
+          if (!pip.some(p => (pipCorner.get(p) || "bl") === c)) pipW.set(c, Math.max(160, r.width * PIP_K));   // a corner in use keeps its width
+          pipH.set(win, Math.max(100, r.height * PIP_K));
           pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
           persist(win);
         }
@@ -1720,7 +1720,7 @@ window.vosBeat = window.vosBeat || (() => {
     for (const id of floating) webviewsOf(id).forEach(wv => {
       const own = pageZoom[wv.closest(".webpageview")?.dataset.id];
       let z = own ?? zoomOf[id];
-      if (pip.includes(id)) z = (z || 1) * PIP_K;                    // in the corner stack
+      if (pip.includes(id)) z = (z || 1) * PIP_Z;                    // in the corner stack
       if (z) setWebZoom(wv, z);
     });
   }
