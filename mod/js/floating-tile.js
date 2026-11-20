@@ -279,6 +279,7 @@ window.vosBeat = window.vosBeat || (() => {
     const t = performance.now();
     if (t - wsNowAt < 40) return wsNow;
     wsNowAt = t;
+    { const v = vivActiveWs(); if (v !== undefined) return (wsNow = v); }   // Vivaldi's own (also for a desktop with no tab)
     const counts = new Map();
     for (const w of document.querySelectorAll("#tabs-container .tab-strip .tab-wrapper[id^='tab-']")) {
       const k = w.id.slice(4);
@@ -1233,7 +1234,10 @@ window.vosBeat = window.vosBeat || (() => {
     if (act && !isStart(act)) onDesktop = desktop;
     b.toggleAttribute("data-ft-desktop", desktop);
     b.toggleAttribute("data-ft-has-floats", floating.size > 0);
-    b.toggleAttribute("data-ft-home", !!act && isStart(act));     // the Start Page (empty desktop)
+    const cwNow = curWs();
+    const emptyHere = tilingRead && cwNow != null && ![...wsOfTab.values()].some(v => sameWs(v, cwNow));
+    b.toggleAttribute("data-vos-empty", emptyHere);                    // a desktop with no tab at all
+    b.toggleAttribute("data-ft-home", emptyHere || (!!act && isStart(act)));   // the Start Page or an empty desktop: the Launchpad
     b.toggleAttribute("data-ft-maxpage", !!act && !desktop && !isStart(act) && !isTiled(act));   // a full-screen page
     ensureMaxGrab();
     if (selected && !pageOf(selected)) selected = null;              // closed
@@ -2712,7 +2716,7 @@ window.vosBeat = window.vosBeat || (() => {
     };
     const deskCheck = (x, y) => {
       if (!deskDrop) return;
-      const card = document.elementsFromPoint(x, y).find(n => n.classList?.contains("vos-ws-card") && !n.classList.contains("vos-ws-more") && !n.hasAttribute("data-current")) || null;
+      const card = document.elementsFromPoint(x, y).find(n => n.classList?.contains("vos-ws-card") && !n.hasAttribute("data-current")) || null;   // New too: a new desktop for it
       if (card !== deskOver) { deskOver?.removeAttribute("data-drop"); deskOver = card; deskOver?.setAttribute("data-drop", ""); }
     };
 
@@ -2796,6 +2800,11 @@ window.vosBeat = window.vosBeat || (() => {
         const strip = wsStrip, list = strip?.__list || [];
         const keep = inMission && card && !card.classList.contains("vos-ws-more");   // Mission Control stays open
         if (!keep && (!inMission || card || !moved)) closeWsStrip();
+        if (card?.classList.contains("vos-ws-more") && ev.type === "pointerup") {   // New: a desktop made for it, and you go there with it
+          persist(id);
+          if (backToBento.delete(id)) bento.skip.delete(id);
+          return toNewDeskNow(id, list);
+        }
         if (card && ev.type === "pointerup") {
           persist(id);
           if (backToBento.delete(id)) bento.skip.delete(id);
@@ -2910,7 +2919,7 @@ window.vosBeat = window.vosBeat || (() => {
     const ids = (groupFloat.has(id) && page ? membersOf(page) : [id]).map(tabIdOf).filter(Boolean);
     if (!ids.length) return;
     const tabs = (await Promise.all(ids.map(t => new Promise(r => chrome.tabs.get(t, x => { void chrome.runtime.lastError; r(x); })))))
-      .filter(t => t && /^https?:/i.test(t.url || t.pendingUrl || ""));
+      .filter(Boolean);
     if (!tabs.length) return;
     const urls = tabs.map(t => t.url || t.pendingUrl);
     const me = await new Promise(r => chrome.windows.getCurrent(w => r(w)));
@@ -2925,7 +2934,25 @@ window.vosBeat = window.vosBeat || (() => {
     // Vivaldi itself opens it there, as a new tab of the desktop that window shows - the
     // reliable way (moving a live tab between windows confuses its workspaces); the page reloads
     const closeOld = () => chrome.tabs.remove(tabs.map(t => t.id), () => void chrome.runtime.lastError);
-    if (target) {
+    if (target) {                                                   // moved, as it is, onto the desktop that window shows
+      const tws = vivActiveWs(target.id);
+      vstore.set(DROP_KEY, { urls, ids: ids.map(String), sx, sy, w: w0, h: h0, ox: held.ox, oy: held.oy, t: Date.now() });
+      const cur = curWs();
+      const left = await handOver(ids.map(String), cur);              // this window stays on its desktop
+      const moved = await new Promise(res => {
+        try {
+          vivaldi.tabsPrivate.move({ tabIds: ids.map(Number), target: "last", tweaks: ["do-not-reparent"], windowId: target.id, workspaceId: tws == null ? "window" : tws },
+            () => res(!chrome.runtime.lastError));
+        } catch (e) { res(false); }
+      });
+      if (moved) {
+        if (left === "empty" && cur != null && !sameWs(vivActiveWs(), cur)) emptySwitch(cur);
+        chrome.windows.update(target.id, { focused: true }, () => void chrome.runtime.lastError);
+        chrome.tabs.update(Number(ids[0]), { active: true }, () => void chrome.runtime.lastError);
+        return;
+      }
+    }
+    if (target) {                                                   // (could not move: opened there instead)
       let n = 0;
       for (const [i, url] of urls.entries())
         chrome.tabs.create({ windowId: target.id, url, active: i === 0 }, () => { void chrome.runtime.lastError; if (++n === urls.length) closeOld(); });
@@ -3153,8 +3180,8 @@ window.vosBeat = window.vosBeat || (() => {
         ntrace("handOver", { to: t.id, ok });
         if (ok) return;
       }
-      await new Promise(r => chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, t => { void chrome.runtime.lastError; if (t) handStart.add(String(t.id)); r(); }));
-      ntrace("handOver", { to: "start", ok: await settle() });       // nothing else here: its desktop page
+      ntrace("handOver", { to: "empty" });                            // nothing else here: the desktop stays, empty
+      return "empty";
     } catch (e) { wsErr("hand over", e); }
   }
   async function arrivedAt(ids, ws, ms) {             // Vivaldi says every one of these tabs is on that desktop
@@ -3172,11 +3199,12 @@ window.vosBeat = window.vosBeat || (() => {
     const key = String(id), cur = curWs();
     const pg = pageOf(key);                                          // every page of the window (a split has several)
     const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
-    await handOver(ids, cur);
-    ntrace("toDesk", { ids, ws, cur, act: (await tabsQuery({ currentWindow: true })).find(t => t.active)?.id });
+    const left = await handOver(ids, cur);
+    ntrace("toDesk", { ids, ws, cur, left, act: (await tabsQuery({ currentWindow: true })).find(t => t.active)?.id });
     pend(ids, ws);
     queueRender();                                                   // gone from this desktop at once
     await tpMove(ids, ws);
+    if (left === "empty" && cur != null && !sameWs(vivActiveWs(), cur)) await emptySwitch(cur);   // Vivaldi went along with it: back, to the empty desktop
     setTimeout(() => {                                               // did it arrive? (kept for a look if not)
       chrome.tabs.query({ currentWindow: true }, tabs => {
         void chrome.runtime.lastError;
@@ -3505,6 +3533,97 @@ window.vosBeat = window.vosBeat || (() => {
       }
     } catch (e) { LOG("pages: Vivaldi's page list not found", e); }
     return null;
+  }
+  /* Vivaldi's workspace store (its own list of the desktop each window shows) */
+  let wsStoreApi = null;
+  function vivWsStore() {
+    if (wsStoreApi) return wsStoreApi;
+    try {
+      let host = null;
+      try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
+      const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
+      if (!ch?.push) return null;
+      let req = null;
+      ch.push([["vos-wss-" + Date.now()], {}, r => { req = r; }]);
+      const isW = v => v && typeof v.getActiveWorkspaceId === "function" && typeof v.getWorkspaces === "function";
+      for (const id of Object.keys(req?.m || {})) {
+        let src = "";
+        try { src = Function.prototype.toString.call(req.m[id]); } catch (e) { continue; }
+        if (!src.includes("getActiveWorkspaceId(") || !src.includes("activeWorkspaces")) continue;
+        let ex; try { ex = req(id); } catch (e) { continue; }
+        if (isW(ex)) return (wsStoreApi = ex);
+        for (const k of Object.keys(ex || {})) { let v; try { v = ex[k]; } catch (e) { continue; } if (isW(v)) return (wsStoreApi = v); }
+      }
+    } catch (e) { LOG("workspaces: Vivaldi's store not found", e); }
+    return null;
+  }
+  // the desktop this Vivaldi window shows, as Vivaldi has it (null: none; undefined: not known)
+  const vivActiveWs = (win = myWin()) => {
+    const st = vivWsStore();
+    if (!st || win == null) return undefined;
+    try { const v = st.getActiveWorkspaceId(Number(win)); return v === undefined ? null : v; } catch (e) { return undefined; }
+  };
+  /* an EMPTY DESKTOP is just that: no tab at all (no blank Start Page) - Vivaldi's own switch
+     without the page it would open; the Launchpad is its desktop */
+  async function emptySwitch(ws) {
+    const st = vivWsStore(), wid = await winId();
+    const d = st?.getDispatcher?.() || st?.__dispatcher || st?._dispatcher;
+    const act = { actionType: "SET_ACTIVE_WORKSPACE", windowId: wid, workspaceId: ws ?? undefined };
+    if (wid == null || (!d?.dispatch && typeof st?.dispatchAction !== "function")) return false;
+    try { if (d?.dispatch) d.dispatch(act); else st.dispatchAction(act); }      // (the store's own, if Vivaldi's dispatcher is out of reach)
+    catch (e) { wsErr("empty switch", e); return false; }
+    emptySwitch.err = null;
+    try {                                                              // the browser engine too: new tabs open on this desktop
+      const x = vivaldi.tabsPrivate.notifyActiveWorkspace(wid, ws || 0);
+      if (x?.then) await Promise.race([x, new Promise(r => setTimeout(r, 300))]);
+    } catch (e) {
+      emptySwitch.err = String(e);
+      try { await new Promise(r => { vivaldi.tabsPrivate.notifyActiveWorkspace(wid, ws || 0, () => { void chrome.runtime.lastError; r(); }); setTimeout(r, 300); }); } catch (e2) { emptySwitch.err += " | " + e2; }
+    }
+    wsNowAt = 0; queueRender();
+    return true;
+  }
+  const deskTabs = (ws, tabs) => (tabs || []).filter(t => !t.pinned && sameWs(wsOfTab.has(String(t.id)) ? wsOfTab.get(String(t.id)) : (extOf(t)?.workspaceId ?? null), ws));
+  const isStartUrl = t => /^chrome:\/\/vivaldi-webui\/startpage|^chrome:\/\/newtab/i.test(t.url || t.pendingUrl || "");
+  /* a desktop left with only blank Start Pages: they close - it is an empty desktop */
+  async function dropBlanks(ws) {
+    if (ws == null) return;
+    const tabs = await tabsQuery({ currentWindow: true });
+    const its = deskTabs(ws, tabs);
+    if (!its.length || !its.every(isStartUrl) || its.some(t => t.active)) return;
+    chrome.tabs.remove(its.map(t => t.id), () => void chrome.runtime.lastError);
+  }
+  /* A WINDOW DROPPED ON NEW, in one go: a new desktop, the window moved into it, that
+     desktop shown with the window in front (the desktop swipe around it) */
+  async function toNewDeskNow(id, list) {
+    const key = String(id), pg = pageOf(key);
+    const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
+    { const w = winOf(key) || key; if (cover === w) cover = null; pipOff(w); }
+    const from = curWs();
+    const ws = await newDesk(list, true);
+    ntrace("new+move", { ws, ids });
+    if (ws == null) return;
+    deskInfo = null;
+    let fresh = list;
+    for (let i = 0; i < 30; i++) {                                    // Vivaldi has saved it
+      fresh = (await prefGet("vivaldi.workspaces.list")) || list;
+      if (fresh.some(w => sameWs(w.id, ws))) break;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    const name = fresh.find(w => sameWs(w.id, ws))?.name || "Desktop";
+    let shown = false;
+    await swipeTo({ id: ws, name, keep: ids, go: async () => {
+      pend(ids, ws);
+      await tpMove(ids, ws);                                          // the window goes ...
+      let ok = await arrivedAt(ids, ws, 1500);
+      if (!ok) { await tpMove(ids, ws); ok = await arrivedAt(ids, ws, 1200); }
+      ntrace("new+move moved", ok);
+      if (!sameWs(vivActiveWs(), ws)) await switchWs({ id: ws, name }, fresh);   // ... and you with it
+      chrome.tabs.update(Number(key), { active: true }, () => void chrome.runtime.lastError);
+      raise(winOf(key) || key); shown = ok;
+    } }, fresh, 1);
+    if (!shown) { ids.forEach(i => wsPending.delete(String(i))); readTiling(); }
+    setTimeout(() => dropBlanks(from), 500);
   }
   /* A WINDOW DROPPED ON NEW: exactly what Vivaldi's "New Workspace with Selected Tabs" does -
      1. a new desktop, 2. the window's pages moved into it, 3. that desktop shown - in one
@@ -4124,7 +4243,7 @@ window.vosBeat = window.vosBeat || (() => {
   /* DESKTOP SWIPE (like macOS Spaces): what is on this desktop slides away toward the one
      you chose, and the new desktop's windows slide in from that side - one transform on
      elements already on the graphics card (no pictures taken, nothing re-laid out) */
-  const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])";
+  const SWIPE_ITEMS = "#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), #webpage-stack > .lp-layer.lp-desktop:not([style*='visibility'])";
   let swipeGen = 0;
   async function swipeTo(sp, list, dir) {
     const b = browserEl(), gen = ++swipeGen;
@@ -4172,9 +4291,12 @@ window.vosBeat = window.vosBeat || (() => {
     } catch (e) { wsErr("swipe", e); }
     finally {                                                        // whatever happened: nothing stays half-done
       missionMode(null, true);                                        // Mission Control ends with the old desktop out of sight
-      leaving.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
+      const lpOut = leaving.filter(el => el.classList.contains("lp-layer"));   // the Launchpad stays slid out until it is put aside
+      leaving.forEach(el => { if (lpOut.includes(el)) return; el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
       setTimeout(() => {                                             // once the last window has slid in
         for (const el of sp.incoming || []) el.removeAttribute("data-vos-incoming");
+        if (gen === swipeGen) { b.removeAttribute("data-vos-swipe"); }   // (the Launchpad is put aside first, then shown again if wanted)
+        lpOut.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
         if (gen !== swipeGen) return;                                // a newer swipe owns the rest
         b.removeAttribute("data-vos-swipe-in"); b.removeAttribute("data-vos-swipe"); swiping = false; deskDots(true);
         const q = swQueue; swQueue = null;                           // fingers already swiping again: they go on from here
@@ -4183,6 +4305,12 @@ window.vosBeat = window.vosBeat || (() => {
     }
   }
   async function switchWs(sp, list) {
+    const was = curWs();
+    if (sp.id != null) {
+      const tabs = await tabsQuery({ currentWindow: true });
+      if (!deskTabs(sp.id, tabs).length && await emptySwitch(sp.id)) { setTimeout(() => dropBlanks(was), 400); return; }   // no tab there: no blank page either
+    }
+    setTimeout(() => dropBlanks(was), 600);
     const fresh = await prefGet("vivaldi.workspaces.list");
     if (Array.isArray(fresh) && fresh.some(w => sameWs(w.id, sp.id))) list = fresh;   // the order as it is now
     const api = vivWs();
@@ -4219,6 +4347,7 @@ window.vosBeat = window.vosBeat || (() => {
     Object.defineProperty(window, "__vosQA", { configurable: true, value: {
       curWs, toDesk, newDesk, switchWs, swipeTo, openWsStrip, closeWsStrip, desksNow, wsOfTab, wsPending, floating, minimized,
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
+      vivWsStore, vivActiveWs, emptySwitch, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
     } });
   } catch (e) {}

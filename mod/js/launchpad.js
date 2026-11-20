@@ -2108,7 +2108,7 @@
       ensureTick(); try { onTick(); } catch (e) {}
     }
     else if (want && !lp) { parked?.layer.remove(); parked = null; open({ desktop: true }); }
-    else if (!want && lp?.desktop && !drag) {                     // windows open: put aside, as it is
+    else if (!want && lp?.desktop && !drag && !b.hasAttribute("data-vos-swipe")) {   // windows open: put aside, as it is (after a swipe has slid it out)
       close();                                                     // (its plain state: no menu, folder or search)
       const p = lp; lp = null;
       p.layer.style.setProperty("visibility", "hidden", "important");
@@ -2119,7 +2119,7 @@
   (function watchDesk() {
     const b = document.getElementById("browser");
     if (!b) return setTimeout(watchDesk, 50);
-    new MutationObserver(syncDesk).observe(b, { attributes: true, attributeFilter: ["data-ft-desktop", "data-ft-home", "data-ft-wins"] });
+    new MutationObserver(syncDesk).observe(b, { attributes: true, attributeFilter: ["data-ft-desktop", "data-ft-home", "data-ft-wins", "data-vos-swipe"] });
     (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(syncDesk);
     syncDesk();
   })();

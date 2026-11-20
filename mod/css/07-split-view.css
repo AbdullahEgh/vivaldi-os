@@ -1318,3 +1318,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    buttons appear on hover (on macOS, beside the system's own) */
 #browser #main [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar { cursor: default !important; }
 #browser.mac #main [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar .ft-lights { left: 76px !important; }
+
+/* ---------- an empty desktop: no tab at all - only the Launchpad on the wallpaper ---------- */
+#browser[data-vos-empty] #webpage-stack .webpageview:not([data-ft-float]):not([data-ft-float] .webpageview) { visibility: hidden !important; }
+/* the desktop Launchpad slides with the desktops (in from the side the new desktop comes from) */
+#browser[data-vos-swipe-in="next"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
+#browser[data-vos-swipe-in="prev"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
