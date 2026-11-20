@@ -130,3 +130,5 @@ top: -7px !important;
 /* an empty desktop (no tab): the empty tab strip takes no room - no gap before +, the group stays centered */
 #browser#browser[data-vos-empty] #tabs-container#tabs-container > .resize,
 #browser#browser[data-vos-empty] #tabs-container#tabs-container > .resize > .tab-strip { min-width: 0 !important; width: 0 !important; flex: 0 0 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; }
+/* ... and + sits as close to the address field as the back button does */
+#browser#browser[data-vos-empty] #tabs-container#tabs-container .UrlBar-AddressField { margin-right: var(--vos-empty-plus-gap, 5px) !important; }

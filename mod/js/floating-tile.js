@@ -3750,15 +3750,12 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* SWIPE BETWEEN DESKTOPS: two fingers sideways over the Mission Control (Workspaces) button */
   async function swipeDesk(dir) {
-    const list = (await prefGet("vivaldi.workspaces.list")) || [];
-    const tabs = await tabsQuery({ currentWindow: true });
-    const mine = await myDesks(list, tabs, curWs());
-    const ds = list.filter(w => mine.has(String(w.id)));
-    const i = ds.findIndex(w => sameWs(w.id, curWs()));
-    const t = ds[i + dir];
-    if (i < 0 || !t) return;
+    const info = deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : await desksNow(true);   // known already: at once
+    const t = info?.ds[info.i + dir];
+    if (info?.i < 0 || !t) return;                                   // nothing that way
     if (wsStrip) closeWsStrip(false, !!mission);
-    swipeTo({ id: t.id, name: t.name }, list, dir);
+    deskDots(true);
+    swipeTo({ id: t.id, name: t.name, ms: 260, ease: "cubic-bezier(0.2, 0.8, 0.25, 1)" }, info.list, dir);
   }
   /* the desktops of this window, in order, and which one is shown (kept for a moment) */
   let deskInfo = null;
@@ -3770,12 +3767,11 @@ window.vosBeat = window.vosBeat || (() => {
     const ds = list.filter(w => mine.has(String(w.id)));
     return (deskInfo = { list, ds, i: ds.findIndex(w => sameWs(w.id, curWs())), ws: curWs(), at: Date.now() });
   }
-  /* SCROLL BETWEEN DESKTOPS: two fingers sideways over the Mission Control (Workspaces) button.
-     A plain paged scroll: the desktops follow the fingers (and their momentum), the next one -
-     its windows, or its Launchpad when it is empty - comes in from the side; when the scrolling
-     stops it settles on the nearest desktop. One desktop per swipe; none that way: a little stretch. */
-  let sw = null, swHush = 0, swQueue = null;
-  const springs = new Set();                                         // spring-back animations still running
+  /* SCROLL BETWEEN DESKTOPS: two fingers sideways (or a mouse's side wheel) over the Mission Control
+     (Workspaces) button. One gesture, one desktop: a short push turns to the next desktop at once (the
+     macOS slide); the rest of that gesture - its momentum too - is let go until the scrolling stops.
+     Nothing is moved by hand while scrolling: no work per event, no guessing when the fingers lift. */
+  let sw = null;                                                     // (no hand-moved swipe any more)
   const swItems = () => [...document.querySelectorAll(SWIPE_ITEMS)];
   const dotsRow = () => dotsEl?.querySelector(".vos-ws-dots-row");
   /* MACOS SLIDE: the whole desktop moves - its wallpaper too - with a thin black line between two desktops:
@@ -3821,109 +3817,26 @@ window.vosBeat = window.vosBeat || (() => {
     document.querySelectorAll("#webpage-stack > .vos-sw-scene").forEach(x => x.remove());
     browserEl()?.removeAttribute("data-vos-sliding");
   }
+  const SW_PUSH = 36, SW_QUIET = 220;                                 // px to turn a page; ms of no scrolling that ends a gesture
+  const swGest = { acc: 0, last: -1e9, done: false };
+  function swRecognize(dx, dy, t) {                                  // a scroll event -> +1 / -1 (turn a page now) or 0
+    const g = swGest;
+    if (t - g.last > SW_QUIET) { g.acc = 0; g.done = false; }        // a new gesture
+    g.last = t;                                                      // any event keeps the gesture going (momentum, a bit of up/down)
+    if (g.done || Math.abs(dx) <= Math.abs(dy)) return 0;
+    if (g.acc && Math.sign(dx) !== Math.sign(g.acc)) g.acc = 0;      // turned around: from here
+    g.acc += dx;
+    if (Math.abs(g.acc) < SW_PUSH) return 0;
+    g.done = true;
+    return Math.sign(g.acc);
+  }
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
-    const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, d = ev.deltaX * k;
-    const now = performance.now();
-    if (swiping || (swHush && now - swHush < 300)) { swHush = now; if (Math.abs(d) > Math.abs(ev.deltaY * k)) ev.preventDefault(); return; }   // a desktop just came in (or sprang back): the rest of that flick - every event of it - is let go
-    if (!sw && Math.abs(d) <= Math.abs(ev.deltaY * k)) return;       // up / down: not this
-    ev.preventDefault();                                             // not Vivaldi's back / forward swipe
-    swHush = 0;
-    if (!d) return;
-    if (!sw) swBegin();
-    swFeed(d, now);
+    const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, dx = ev.deltaX * k, dy = ev.deltaY * k;
+    if (Math.abs(dx) > Math.abs(dy) || swGest.done) ev.preventDefault();   // not Vivaldi's back / forward swipe
+    const dir = swRecognize(dx, dy, performance.now());
+    if (dir && !swiping) swipeDesk(dir);
   }, { capture: true, passive: false });
-  document.addEventListener("visibilitychange", () => {               // hidden mid-scroll: nothing stays half-slid
-    if (!document.hidden || !sw) return;
-    clearTimeout(sw.timer); const s = sw; sw = null;
-    for (const el of s.items) el.style.removeProperty("translate");
-    clearIncoming(s); if (!swiping) sceneEnd();
-  });
-  function swBegin() {
-    for (const a of springs) a.cancel();                             // a spring-back still running: the fingers take over
-    springs.clear();
-    deskDots(true);
-    sw = { acc: 0, v: 0, at: performance.now(), last: [], vs: [], items: swItems(), info: deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null };
-    if (!sw.info) { const s = sw; desksNow(true).then(i => { if (sw === s) { s.info = i; swDraw(s); } }); }
-  }
-  function swFeed(d, now) {
-    const s = sw, dt = Math.max(4, Math.min(60, now - s.at));
-    s.v = s.v * 0.6 + (d / dt) * 0.4; s.at = now;
-    s.vs.push([now, s.v]); while (s.vs.length && now - s.vs[0][0] > 400) s.vs.shift();   // the speeds of the last moments
-    const D = swDist();
-    s.acc = Math.max(-D, Math.min(D, s.acc + d));
-    s.last.push(Math.abs(d)); if (s.last.length > 4) s.last.shift();
-    swDraw(s);
-    clearTimeout(s.timer);
-    const L = s.last, fading = L.length === 4 && L[0] > L[1] && L[1] > L[2] && L[2] > L[3] && L[3] < 3;   // the momentum running out
-    if (Math.abs(s.acc) >= D || fading) return swipeEnd();
-    s.timer = setTimeout(swipeEnd, 220);                             // the scrolling stopped (the fingers let go)
-  }
-  function swDraw(s) {
-    const info = s.info, dir = s.acc > 0 ? 1 : -1;
-    const t = info?.ds[info.i + dir];
-    const shown = !info || t ? s.acc : s.acc * 0.15;                 // nothing that way: a little stretch
-    const D = swDist();
-    for (const el of s.items) el.style.setProperty("translate", `${Math.round(-shown)}px 0px`);
-    if (s.inc && s.incDir !== dir) clearIncoming(s);
-    if (t && !s.inc && Math.abs(s.acc) > 2) { s.inc = incomingFor(t.id); s.incDir = dir; }
-    for (const el of s.inc || []) el.style.setProperty("translate", `${Math.round(dir * D - shown)}px 0px`);
-    sceneAt(-shown, t ? dir * D - shown : null);                     // the wallpapers go along
-  }
-  /* another desktop's windows, shown for the scroll - or, when it has none, its Launchpad (a copy) */
-  function incomingFor(ws) {
-    const els = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), ws))
-      .flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
-    els.forEach(el => { el.setAttribute("data-ft-ws-leave", ""); el.setAttribute("data-vos-incoming", ""); });
-    return els;
-  }
-  function clearIncoming(s) {
-    for (const el of s.inc || []) {
-      if (el.classList.contains("vos-lp-ghost")) { el.remove(); continue; }
-      el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-incoming"); el.style.removeProperty("translate");
-      el.getAnimations().forEach(a => { if (!(a instanceof CSSAnimation)) a.cancel(); });   // never left shifted off the screen
-    }
-    s.inc = null;
-  }
-  async function swipeEnd() {
-    const s = sw; sw = null;
-    if (!s) return;
-    clearTimeout(s.timer);
-    swHush = performance.now();                                      // what is left of the flick: not a new swipe
-    const info = s.info || await desksNow(true);
-    const dir = s.acc > 0 ? 1 : -1, t = info?.ds[info.i + dir];
-    const v = Math.max(0, ...s.vs.map(([, x]) => x * dir));        // the fastest the fingers went that way, just now (px per ms)
-    const D = swDist();
-    if (t && (Math.abs(s.acc) > D * 0.3 || (v > 0.6 && Math.abs(s.acc) > 40))) {
-      if (wsStrip) closeWsStrip(false, !!mission);
-      const left = Math.max(1, D - Math.abs(s.acc));
-      const ms = Math.round(Math.max(140, Math.min(300, v > 0.1 ? left / v : 300)));
-      swipeTo({ id: t.id, name: t.name, incoming: s.incDir === dir ? s.inc : null, ms, ease: "cubic-bezier(0.2, 0.7, 0.3, 1)" }, info.list, dir);
-      return;
-    }
-    const ease = { duration: 240, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" };
-    sceneGo(0, s.incDir ? s.incDir * D : null, ease.duration, ease.easing);
-    setTimeout(() => { if (!sw && !swiping) sceneEnd(); }, ease.duration + 20);
-    for (const el of s.items) {                                       // springs back
-      const from = el.style.getPropertyValue("translate") || "0px 0px";
-      el.style.removeProperty("translate");
-      const a = el.animate([{ translate: from }, { translate: "0px 0px" }], ease);
-      springs.add(a); a.finished.catch(() => {}).then(() => springs.delete(a));
-    }
-    const inc = s.inc, d = s.incDir;                                  // the other desktop slides back out
-    for (const el of inc || []) {
-      const from = el.style.getPropertyValue("translate") || "0px 0px";
-      el.style.removeProperty("translate");
-      const a = el.animate([{ translate: from }, { translate: `${d * D}px 0px` }], { ...ease, fill: "forwards" });
-      springs.add(a);
-      a.finished.catch(() => {}).then(() => {
-        springs.delete(a);
-        if (el.classList.contains("vos-lp-ghost")) return el.remove();
-        el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-incoming");
-        el.getAnimations().forEach(x => x.cancel());
-      });
-    }
-  }
   /* DESKTOP DOTS: over the Mission Control (Workspaces) button, a small pill shows the desktops of
      this window as dots, the shown one bright, with its name - also while you swipe */
   let dotsEl = null, dotsTimer = 0;
@@ -4393,7 +4306,7 @@ window.vosBeat = window.vosBeat || (() => {
     Object.defineProperty(window, "__vosQA", { configurable: true, value: {
       curWs, toDesk, newDesk, switchWs, swipeTo, openWsStrip, closeWsStrip, desksNow, wsOfTab, wsPending, floating, minimized,
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
-      vivWsStore, vivActiveWs, emptySwitch, toNewDeskNow, toOtherWindow, dropBlanks,
+      vivWsStore, vivActiveWs, emptySwitch, swRecognize, swGest, swipeDesk, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
     } });
   } catch (e) {}
