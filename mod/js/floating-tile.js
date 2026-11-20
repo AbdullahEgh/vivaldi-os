@@ -3301,9 +3301,17 @@ window.vosBeat = window.vosBeat || (() => {
         await switchWs({ id: near.id, name: near.name }, list);
         await new Promise(r => setTimeout(r, 250));
       }
+      const wasOpen = !!wsStrip;
       await api.removeWorkspace(wid, sp.id);
       lastDelete = Date.now(); deskInfo = null;
-      closeWsStrip(); setTimeout(openWsStrip, 300);
+      if (!wasOpen || !wsStrip) return;                               // the panel stays open (even if it was redrawn meanwhile): the card goes
+      const card = wsStrip.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(sp.id))}"]`);
+      if (card) await card.animate([{ opacity: card.style.opacity || 1, transform: "none" }, { opacity: 0, transform: "scale(0.85)" }], { duration: 160, easing: "ease-in", fill: "forwards" }).finished.catch(() => {});
+      for (let i = 0; i < 20 && ((await prefGet("vivaldi.workspaces.list")) || []).some(w => sameWs(w.id, sp.id)); i++) await new Promise(r => setTimeout(r, 50));
+      for (let i = 0; i < 20 && wsOpening; i++) await new Promise(r => setTimeout(r, 50));   // a redraw under way: after it
+      if (!wsStrip || wsOpening) return;
+      wsOpening = true;
+      try { await openWsStripNow({ refresh: true }); } finally { wsOpening = false; }
     } catch (e) { wsErr("delete", e); }
   }
   let wsMenuEl = null;

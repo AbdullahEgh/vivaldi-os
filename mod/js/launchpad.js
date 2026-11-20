@@ -549,7 +549,7 @@
     sep();
     add("Change Wallpaper…", changeWallpaper);
     sep();
-    add("Vivaldi OS Updates…" + (window.vosVersion ? "  (" + window.vosVersion + ")" : ""), () => checkUpdate(true));
+    add("Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), () => checkUpdate(true));
     add("Settings…", openSettings);
     m.addEventListener("click", ev => ev.stopPropagation());
     m.addEventListener("pointerdown", ev => ev.stopPropagation());
@@ -930,7 +930,7 @@
       return e;
     };
     return [mk("l", [["Folder", ICON.folder, folderPicker], ["Wallpaper", ICON.wall, changeWallpaper],
-                     ["Updates" + (window.vosVersion ? " · " + window.vosVersion : ""), ICON.update, () => checkUpdate(true)]]),
+                     ["Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), ICON.update, () => checkUpdate(true)]]),
             mk("r", [["Websites", ICON.globe, siteGallery], ["Widgets", ICON.plus, widgetGallery], ["Done", ICON.check, exitEdit, "lp-edge-done"]])];
   }
 
@@ -2387,7 +2387,7 @@
     sep();
     add("Change Wallpaper…", changeWallpaper);
     sep();
-    add("Vivaldi OS Updates…" + (window.vosVersion ? "  (" + window.vosVersion + ")" : ""), () => checkUpdate(true));
+    add("Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), () => checkUpdate(true));
     add("Settings…", openSettings);
     m.addEventListener("contextmenu", ev => { ev.preventDefault(); ev.stopPropagation(); });
     (document.getElementById("browser") || document.body).appendChild(m);
