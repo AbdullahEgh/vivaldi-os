@@ -1472,3 +1472,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser[data-vos-swipe] #webpage-stack [data-ft-float][data-vos-incoming]:not([data-ft-min]) *,
 #browser#browser#browser[data-vos-swipe] .ft-frame[data-vos-incoming], #browser#browser#browser[data-vos-swipe] .ft-frame[data-vos-incoming] * { visibility: visible !important; }
 #browser#browser#browser[data-vos-swipe]:not([data-ft-desktop]) #webpage-stack [data-ft-float][data-vos-incoming] { filter: none !important; transform: none !important; }
+/* 1.0.135: a window dragged in from another Vivaldi window: a full app icon (its tile, like the Launchpad and Mission Control), not a bare site icon */
+#browser .vos-drag-ghost.vos-drag-icon { width: 64px !important; height: 64px !important; border-radius: 15px !important; overflow: hidden !important;
+  background: var(--colorBg, #fff) !important; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(127, 127, 127, 0.35) !important; display: grid !important; place-items: center !important; }
+#browser .vos-drag-ghost.vos-drag-icon img { width: 42px !important; height: 42px !important; border-radius: 0 !important; filter: none !important; object-fit: contain !important; }
