@@ -1512,6 +1512,6 @@
 #browser .lp-w-m .lp-tm-time[data-len="9"] { font-size: 20px !important; }
 
 /* 1.0.157: a submenu (macOS): its own small menu beside the item, the item stays lit while it is open */
-#browser .lp-menu > .lp-menu-side { z-index: 6 !important; min-width: 190px !important; }
+#browser .lp-menu.lp-menu-side { min-width: 190px !important; }   /* (its own menu, beside the other: the same blur and look) */
 #browser .lp-menu .lp-menu-nest[data-open] { background: var(--colorHighlightBg, #0a84ff) !important; color: var(--colorHighlightFg, #fff) !important; }
 #browser .lp-menu .lp-menu-nest[data-open] .lp-menu-chev { opacity: 1 !important; }

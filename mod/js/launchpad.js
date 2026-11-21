@@ -2326,13 +2326,19 @@
     const b = document.createElement("button");
     b.type = "button"; b.className = "lp-menu-item lp-menu-nest"; menuLabel(b, label);
     b.insertAdjacentHTML("beforeend", '<svg class="lp-menu-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5L8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-    let sub = null, t = 0;
-    const close = () => { clearTimeout(t); sub?.remove(); sub = null; b.removeAttribute("data-open"); };
+    let sub = null, t = 0, watch = null;
+    const close = () => { clearTimeout(t); watch?.disconnect(); watch = null; sub?.remove(); sub = null; b.removeAttribute("data-open"); };
+    if (!m.__vosOwnContains) {                       // a click in a submenu counts as one in the menu (it sits beside it, not in it)
+      const own = Node.prototype.contains;
+      m.__vosOwnContains = true;
+      m.contains = n => own.call(m, n) || [...(m.__vosSides || [])].some(x => x.isConnected && own.call(x, n));
+    }
     const open = () => {
       clearTimeout(t);
       if (sub) return;
-      m.querySelectorAll(":scope > .lp-menu-side").forEach(x => x.__close?.());
-      sub = document.createElement("div"); sub.className = "lp-menu lp-menu-side"; sub.__close = close;
+      (m.__vosSides || []).forEach(x => x.__close?.());
+      sub = document.createElement("div"); sub.className = [...m.classList].filter(c => c !== "lp-menu-side").join(" ") + " lp-menu-side";   // the same kind of menu (its look) sub.__close = close;
+      (m.__vosSides ||= new Set()).add(sub);
       for (const item of items) {
         if (item === "-") { const sp = document.createElement("div"); sp.className = "lp-menu-sep"; sub.appendChild(sp); continue; }
         const [l, fn, on] = item;
@@ -2343,11 +2349,17 @@
       sub.addEventListener("pointerdown", e => e.stopPropagation());
       sub.addEventListener("click", e => e.stopPropagation());
       sub.addEventListener("mouseenter", () => clearTimeout(t));
-      m.appendChild(sub); b.setAttribute("data-open", "");
+      // beside the menu, as a menu of its own (its own blur, the same look) - in the same place in the page as the menu
+      m.parentElement.insertBefore(sub, m.nextSibling); b.setAttribute("data-open", "");
       const mr = m.getBoundingClientRect(), br = b.getBoundingClientRect(), w = sub.offsetWidth, h = sub.offsetHeight;
-      const left = mr.right + w - 4 > innerWidth - 8 ? -w + 4 : mr.width - 4;
-      const top = Math.min(br.top - mr.top - 5, innerHeight - 8 - h - mr.top);
-      for (const [k, v] of [["position", "absolute"], ["left", left + "px"], ["top", Math.max(8 - mr.top, top) + "px"]]) sub.style.setProperty(k, v, "important");
+      const host = sub.offsetParent?.getBoundingClientRect?.() || { left: 0, top: 0 };   // (a menu inside a sheet is placed in it)
+      const x = mr.right + w - 4 > innerWidth - 8 ? mr.left - w + 4 : mr.right - 4;
+      const y = Math.max(8, Math.min(br.top - 5, innerHeight - 8 - h));
+      const pos = getComputedStyle(m).position === "fixed" ? "fixed" : "absolute";
+      const ox = pos === "fixed" ? 0 : host.left, oy = pos === "fixed" ? 0 : host.top;
+      for (const [k, v] of [["position", pos], ["left", Math.round(x - ox) + "px"], ["top", Math.round(y - oy) + "px"], ["z-index", String((Number(getComputedStyle(m).zIndex) || 5) + 1)]]) sub.style.setProperty(k, v, "important");
+      watch = new MutationObserver(() => { if (!m.isConnected) close(); });   // the menu gone: its submenu too
+      watch.observe(m.parentElement, { childList: true });
       sub.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 110, easing: "ease-out" });
     };
     b.addEventListener("mouseenter", () => { clearTimeout(t); t = setTimeout(open, sub ? 0 : 140); });
@@ -2355,6 +2367,7 @@
     m.addEventListener("mouseover", ev => {                          // another item of this menu: the submenu goes
       const it = ev.target.closest?.(".lp-menu-item");
       if (sub && it && it !== b && it.parentElement === m) { clearTimeout(t); t = setTimeout(close, 160); }
+      if (sub && ev.target === b) clearTimeout(t);
     });
     m.appendChild(b);
     return b;
