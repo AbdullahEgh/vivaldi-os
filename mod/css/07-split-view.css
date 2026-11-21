@@ -1531,3 +1531,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 }
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview[data-vos-tone="dark"] .mosaic-tile::after { background: rgba(255, 255, 255, 0.34) !important; }
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile:hover::after { opacity: 1 !important; }
+
+/* 1.0.157: the desktops strip scrolls from edge to edge of its panel - every desktop can be reached (a centred row that
+   overflows used to push the first one out of reach on the left) */
+#browser .vos-ws-row { justify-content: safe center !important; margin: -6px -18px 0 !important; padding: 10px 18px 4px !important; scroll-padding-inline: 18px !important; }

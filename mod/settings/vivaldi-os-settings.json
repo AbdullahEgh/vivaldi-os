@@ -971,7 +971,7 @@
     "vivaldi.status_bar": {
       "display": 1
     },
-    "vivaldi.system.desktop_theme_color": 0,
+    "vivaldi.system.desktop_theme_color": 1,
     "vivaldi.system.mac": {
       "action_on_double_click": "Minimize",
       "keyboard_ui_mode": 0,
@@ -1000,7 +1000,7 @@
       "dim_blurred": false,
       "schedule": {
         "o_s": {
-          "dark": "Vivaldi1",
+          "dark": "Vivaldi2",
           "light": "Vivaldi1"
         }
       }

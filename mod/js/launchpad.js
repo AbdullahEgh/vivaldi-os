@@ -1826,6 +1826,7 @@
     overTone(card, st);
     const t = card.querySelector(".lp-tm-time");
     setText(t, st === "over" ? fmtUp(tmOver()) : fmt(left));
+    if (t) { const n = String(Math.min(9, t.textContent.length)); if (t.dataset.len !== n) t.dataset.len = n; }   // longer: smaller (always inside the ring)
     ringSet(card.querySelector(".lp-ring-fg"), st);
     const go = card.querySelector(".lp-tm-go");
     if (go) { setText(go, st === "run" ? "Pause" : st === "pause" ? "Resume" : st === "over" ? "Restart" : "Start"); if (go.dataset.state !== st) go.dataset.state = st; }
@@ -2315,59 +2316,56 @@
       const i = Array.isArray(list) ? list.findIndex(t => t?.id === id) : -1;
       if (i < 0) continue;
       if (!fields) return list[i];
-      list[i] = { ...list[i], ...fields }; vivaldi.prefs.set({ path, value: list });
+      list[i] = { ...list[i], ...fields }; await vivaldi.prefs.set({ path, value: list });
     }
     return null;
   }
-  /* AN iOS NESTED MENU: an item with a chevron opens its list in the same menu, in place; its header row goes back */
+  /* A macOS SUBMENU: an item with a chevron opens its list beside the menu - on hover (a moment's pause) or a click -
+     on the right, or on the left where there is no room; hovering another item of the menu closes it */
   function nestedItem(m, label, items, done) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "lp-menu-item lp-menu-nest"; menuLabel(b, label);
     b.insertAdjacentHTML("beforeend", '<svg class="lp-menu-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5L8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-    b.addEventListener("click", ev => {
-      ev.stopPropagation();
-      const main = [...m.children], top0 = m.getBoundingClientRect().top;
-      const sub = document.createElement("div"); sub.className = "lp-menu-sub";
-      const back = document.createElement("button"); back.type = "button"; back.className = "lp-menu-item lp-menu-back";
-      back.innerHTML = '<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg>';
-      const t = document.createElement("span"); t.textContent = label; back.appendChild(t);
-      back.addEventListener("click", e => {
-        e.stopPropagation(); sub.remove(); main.forEach(c => c.style.removeProperty("display"));
-        m.animate([{ opacity: 0.6, transform: "translateX(-8px)" }, { opacity: 1, transform: "none" }], { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
-      });
-      sub.appendChild(back);
-      const sep = document.createElement("div"); sep.className = "lp-menu-sep"; sub.appendChild(sep);
+    let sub = null, t = 0;
+    const close = () => { clearTimeout(t); sub?.remove(); sub = null; b.removeAttribute("data-open"); };
+    const open = () => {
+      clearTimeout(t);
+      if (sub) return;
+      m.querySelectorAll(":scope > .lp-menu-side").forEach(x => x.__close?.());
+      sub = document.createElement("div"); sub.className = "lp-menu lp-menu-side"; sub.__close = close;
       for (const item of items) {
         if (item === "-") { const sp = document.createElement("div"); sp.className = "lp-menu-sep"; sub.appendChild(sp); continue; }
         const [l, fn, on] = item;
         const it = document.createElement("button"); it.type = "button"; it.className = "lp-menu-item" + (on ? " lp-menu-on" : ""); menuLabel(it, l);
-        it.addEventListener("click", e => { e.stopPropagation(); done(); fn(); });
+        it.addEventListener("click", e => { e.stopPropagation(); close(); done(); fn(); });
         sub.appendChild(it);
       }
-      main.forEach(c => c.style.setProperty("display", "none", "important"));
-      m.appendChild(sub);
-      const r = m.getBoundingClientRect();                         // still on the screen, where it was
-      if (r.bottom > innerHeight - 8) m.style.top = Math.max(8, innerHeight - 8 - r.height) + "px"; else m.style.top = Math.round(top0) + "px";
-      sub.animate([{ opacity: 0, transform: "translateX(10px)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+      sub.addEventListener("pointerdown", e => e.stopPropagation());
+      sub.addEventListener("click", e => e.stopPropagation());
+      sub.addEventListener("mouseenter", () => clearTimeout(t));
+      m.appendChild(sub); b.setAttribute("data-open", "");
+      const mr = m.getBoundingClientRect(), br = b.getBoundingClientRect(), w = sub.offsetWidth, h = sub.offsetHeight;
+      const left = mr.right + w - 4 > innerWidth - 8 ? -w + 4 : mr.width - 4;
+      const top = Math.min(br.top - mr.top - 5, innerHeight - 8 - h - mr.top);
+      for (const [k, v] of [["position", "absolute"], ["left", left + "px"], ["top", Math.max(8 - mr.top, top) + "px"]]) sub.style.setProperty(k, v, "important");
+      sub.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 110, easing: "ease-out" });
+    };
+    b.addEventListener("mouseenter", () => { clearTimeout(t); t = setTimeout(open, sub ? 0 : 140); });
+    b.addEventListener("click", ev => { ev.stopPropagation(); open(); });
+    m.addEventListener("mouseover", ev => {                          // another item of this menu: the submenu goes
+      const it = ev.target.closest?.(".lp-menu-item");
+      if (sub && it && it !== b && it.parentElement === m) { clearTimeout(t); t = setTimeout(close, 160); }
     });
     m.appendChild(b);
     return b;
   }
-  /* WALLPAPER PER WINDOW: a picture chosen here is this Vivaldi window's own (for Light Mode, Dark Mode, or both);
-     the theme's wallpaper shows where a window has none. Dim (15% black) and Blur (strong) are baked into the picture
-     once - no live filter on the screen - over this window's own picture or the theme's. */
-  const WALL_FX_KEY = "vosWallFx";                  // (+ ":" + the window: each Vivaldi window its own)
-  let wallFx = { dim: false, blur: false }, wallWin = null, wallOwn = null, wallStyle = null, wallSeq = 0, wallTheme = "";
-  const wallMade = new Map();                      // picture + effects -> its blob url (the last few)
-  const wallKey = () => (wallWin ? "vosWall:" + wallWin : null);
-  const fxKey = () => (wallWin ? WALL_FX_KEY + ":" + wallWin : null);
-  const winKeyNow = () => new Promise(r => chrome.windows.getCurrent(w => {     // this window, also after a restart (Vivaldi's own id for it)
-    void chrome.runtime.lastError; let k = null;
-    try { k = JSON.parse(w?.vivExtData || "{}").ext_id; } catch (e) {}
-    r(k || (w ? "id" + w.id : null));
-  }));
+  /* THE WALLPAPER is Vivaldi's own (its theme's picture): it shows from the first moment Vivaldi opens, in every window.
+     Dim (25% black) and Blur (strong) are baked into a copy of the picture, stored by Vivaldi and set on the light and
+     dark themes; the picture itself is kept, and comes back when both are off. The change fades. */
+  const WALL_FX_KEY = "vosWallFx2", WALL_BASE_KEY = "vosWallBase";
+  let wallFx = { dim: false, blur: false }, wallBusy = Promise.resolve();
   const loadImg = src => new Promise(r => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
-  function drawWall(img, fx, max = 2560) {
+  function drawWall(img, fx, max = 3200) {
     const k = Math.min(1, max / Math.max(1, img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
     const c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -2376,96 +2374,65 @@
       const r = Math.round(Math.max(w, h) / 40);
       x.filter = `blur(${r}px)`; x.drawImage(img, -2 * r, -2 * r, w + 4 * r, h + 4 * r); x.filter = "none";
     } else x.drawImage(img, 0, 0, w, h);
-    if (fx.dim) { x.fillStyle = "rgba(0, 0, 0, 0.15)"; x.fillRect(0, 0, w, h); }
+    if (fx.dim) { x.fillStyle = "rgba(0, 0, 0, 0.25)"; x.fillRect(0, 0, w, h); }
     return c;
   }
-  async function bakeWall(src, fx) {
-    const key = src.length > 200 ? src.slice(0, 80) + src.length + src.slice(-80) : src;
-    const k = key + "|" + !!fx.dim + !!fx.blur;
-    if (wallMade.has(k)) return wallMade.get(k);
+  async function storeWall(src, fx) {               // the picture with its effects, kept by Vivaldi: its address
     const img = await loadImg(src);
     if (!img) return null;
-    const blob = await new Promise(r => { try { drawWall(img, fx).toBlob(r, "image/jpeg", 0.9); } catch (e) { r(null); } });
-    if (!blob) return null;
-    const url = URL.createObjectURL(blob);
-    wallMade.set(k, url);
-    while (wallMade.size > 4) { const [k0, u0] = wallMade.entries().next().value; wallMade.delete(k0); setTimeout(() => URL.revokeObjectURL(u0), 3000); }
-    return url;
+    const blob = await new Promise(r => { try { drawWall(img, fx).toBlob(r, "image/jpeg", 0.92); } catch (e) { r(null); } });
+    if (!blob || !vivaldi?.utilities?.storeImage) return null;
+    const data = await blob.arrayBuffer();
+    return await new Promise(r => { try { vivaldi.utilities.storeImage({ data, mimeType: "image/jpeg" }, u => { void chrome.runtime.lastError; r(u || null); }); } catch (e) { r(null); } });
   }
-  async function applyWall(fade) {
-    const seq = ++wallSeq, b = document.getElementById("browser");
-    if (!b) return;
-    let dark = false; try { dark = await isDarkNow(); } catch (e) {}
-    const own = wallOwn ? (dark ? wallOwn.dark || wallOwn.both : wallOwn.light || wallOwn.both) || null : null;
-    wallTheme = b.style.getPropertyValue("--browserBackgroundImage") || "";
-    const theme = /url\(["']?([^"')]+)/.exec(wallTheme)?.[1] || null;
-    const src = own || theme;
-    const url = src && (own || wallFx.dim || wallFx.blur) ? await bakeWall(src, own && !wallFx.dim && !wallFx.blur ? {} : wallFx) : null;
-    if (seq !== wallSeq) return;
-    const css = url ? `#browser#browser { --browserBackgroundImage: url("${url}") !important;${own ? " --browserBackgroundSize: cover !important; --browserBackgroundPosition: center !important; --browserBackgroundRepeat: no-repeat !important;" : ""} }` : "";
-    if ((wallStyle?.isConnected ? wallStyle.textContent : "") === css) return;
-    if (url) { const im = new Image(); im.src = url; try { await im.decode(); } catch (e) {} }   // ready to draw: no empty frame when it shows
-    if (seq !== wallSeq) return;
-    const put = () => {
-      if (!css) { wallStyle?.remove(); wallStyle = null; return; }
-      if (!wallStyle) { wallStyle = document.createElement("style"); wallStyle.id = "vos-wall"; }
-      if (!wallStyle.isConnected) document.head.appendChild(wallStyle);
-      wallStyle.textContent = css;
-    };
-    const stack = document.getElementById("webpage-stack");
-    if (!fade || !stack || document.hidden) return put();
-    // the old wallpaper, on a layer just over the wallpaper (under the Launchpad's icons and the windows), fades away
-    const cs = getComputedStyle(b), old = document.createElement("div");
+  function wallFade() {                             // the wallpaper seen now, on a layer that fades once the new one is drawn
+    const b = document.getElementById("browser"), stack = document.getElementById("webpage-stack");
+    if (!b || !stack || document.hidden) return async () => {};
+    const cs = getComputedStyle(b), was = cs.getPropertyValue("--browserBackgroundImage"), old = document.createElement("div");
     old.className = "vos-wall-old";
     for (const [k, v] of [["background-color", "--browserBackgroundColor"], ["background-image", "--browserBackgroundImage"], ["background-size", "--browserBackgroundSize"],
                           ["background-position", "--browserBackgroundPosition"], ["background-repeat", "--browserBackgroundRepeat"]]) old.style.setProperty(k, cs.getPropertyValue(v), "important");
-    stack.appendChild(old);
-    b.setAttribute("data-vos-wallfade", "");
-    put();
-    await old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 520, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }).finished.catch(() => {});
-    old.remove();
-    if (!document.querySelector(".vos-wall-old")) b.removeAttribute("data-vos-wallfade");
+    stack.appendChild(old); b.setAttribute("data-vos-wallfade", "");
+    return async () => {
+      for (let i = 0; i < 50 && getComputedStyle(b).getPropertyValue("--browserBackgroundImage") === was; i++) await new Promise(r => setTimeout(r, 40));
+      const u = /url\(["']?([^"')]+)/.exec(getComputedStyle(b).getPropertyValue("--browserBackgroundImage"))?.[1];
+      if (u) { const im = new Image(); im.src = u; try { await im.decode(); } catch (e) {} }   // drawn before the old one goes: no empty moment
+      await old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 520, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }).finished.catch(() => {});
+      old.remove();
+      if (!document.querySelector(".vos-wall-old")) b.removeAttribute("data-vos-wallfade");
+    };
   }
-  function pickWallpaper(mode) {                   // a picture from the computer: this window's own
-    if (lp && !lp.desktop) close(true, true); else if (lp) close();
-    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
-    inp.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
-    document.body.appendChild(inp);
-    inp.addEventListener("change", async () => {
-      const f = inp.files?.[0]; inp.remove();
-      if (!f) return;
-      const raw = URL.createObjectURL(f), img = await loadImg(raw);
-      URL.revokeObjectURL(raw);
-      if (!img) return;
-      let data = null; try { data = drawWall(img, {}).toDataURL("image/jpeg", 0.88); } catch (e) {}   // kept at 2560 at most
-      if (!data) return;
-      wallWin = wallWin || await winKeyNow();
-      const o = { ...(wallOwn || {}) };
-      if (mode === "both") { delete o.light; delete o.dark; o.both = data; } else o[mode] = data;
-      wallOwn = o; if (wallKey()) vstore.set(wallKey(), o);
-      applyWall(true);
-    });
-    inp.click();
-    setTimeout(() => inp.remove(), 120000);
+  function applyWall(fade) { return (wallBusy = wallBusy.then(() => applyWallNow(fade)).catch(e => console.warn("Bento OS: wallpaper", e))); }
+  async function applyWallNow(fade) {
+    const t = await modeThemes(), ids = [...new Set([t.light, t.dark].filter(Boolean))];
+    let bases = {}; try { bases = JSON.parse((await vstore.get(WALL_BASE_KEY)) || "{}") || {}; } catch (e) {}
+    const want = [];
+    for (const id of ids) {
+      const th = await themeBg(id);
+      if (!th) continue;
+      const cur = th.backgroundImage || "";
+      let rec = bases[id];
+      if (!rec || (cur && cur !== rec.made && cur !== rec.base)) rec = { base: cur, made: "", fx: "" };   // a picture chosen since: that one is the picture now
+      bases[id] = rec;
+      if (!rec.base) continue;
+      const fxs = (wallFx.dim ? "d" : "") + (wallFx.blur ? "b" : "");
+      if (fxs && (rec.fx !== fxs || !rec.made)) { const u = await storeWall(rec.base, wallFx); if (u) { rec.made = u; rec.fx = fxs; } }
+      const to = fxs && rec.made ? rec.made : rec.base;
+      if (to !== cur) want.push([id, to]);
+    }
+    vstore.set(WALL_BASE_KEY, JSON.stringify(bases));
+    if (!want.length) return;
+    const done = fade ? wallFade() : null;
+    for (const [id, to] of want) await themeBg(id, { backgroundImage: to });
+    if (done) await done();
   }
-  window.vosWallpaper = { apply: applyWall, pick: pickWallpaper, toggle: wallToggle, state: () => ({ win: wallWin, fx: wallFx, own: wallOwn ? Object.keys(wallOwn) : null, style: wallStyle?.textContent?.slice(0, 120) || null }) };
-  function themeWallpaper() { wallOwn = null; if (wallKey()) vstore.del(wallKey()); applyWall(true); }   // this window: the theme's wallpaper again
-  function wallToggle(k) { wallFx = { ...wallFx, [k]: !wallFx[k] }; if (fxKey()) vstore.set(fxKey(), wallFx); applyWall(true); }
-  (async () => {
-    wallWin = await winKeyNow();
-    const [o, fx] = await Promise.all([wallKey() ? vstore.get(wallKey()) : null, fxKey() ? vstore.get(fxKey()) : null]);
-    if (o && typeof o === "object") wallOwn = o;
-    if (fx && typeof fx === "object") wallFx = { dim: !!fx.dim, blur: !!fx.blur };
-    for (let i = 0; i < 100 && !document.getElementById("browser")?.style.getPropertyValue("--browserBackgroundImage"); i++) await new Promise(r => setTimeout(r, 150));   // Vivaldi's window drawn, its wallpaper set
-    applyWall();
-    const b = document.getElementById("browser");     // the theme's wallpaper changed (another theme, a new picture): again
-    if (b) new MutationObserver(() => { if ((b.style.getPropertyValue("--browserBackgroundImage") || "") !== wallTheme) applyWall(); }).observe(b, { attributes: true, attributeFilter: ["style"] });
-    addEventListener("vos-appearance", () => setTimeout(applyWall, 200));
-    try { chrome.storage.onChanged.addListener((ch, area) => { const k = fxKey(); if (area === "local" && k && ch[k]) { const v = ch[k].newValue; wallFx = { dim: !!v?.dim, blur: !!v?.blur }; applyWall(true); } }); } catch (e) {}
-    vstore.del(WALL_FX_KEY);                         // (the one for every window, of 1.0.153)
-  })();
-  const wallpaperItems = () => [["Light Mode…", () => pickWallpaper("light")], ["Dark Mode…", () => pickWallpaper("dark")],
-                                ["Both Modes…", () => pickWallpaper("both")], ...(wallOwn ? [["Theme Wallpaper", themeWallpaper]] : []), "-",
+  function wallToggle(k) { wallFx = { ...wallFx, [k]: !wallFx[k] }; vstore.set(WALL_FX_KEY, wallFx); applyWall(true); }
+  window.vosWallpaper = { apply: applyWall, toggle: wallToggle, state: () => ({ fx: wallFx }) };
+  try { chrome.storage.local.get(null, all => { void chrome.runtime.lastError; const old = Object.keys(all || {}).filter(k => /^vosWall(:|Fx$|Fx:)/.test(k)); if (old.length) chrome.storage.local.remove(old); }); } catch (e) {}   // (1.0.153's wallpapers per window: gone)
+  vstore.get(WALL_FX_KEY).then(fx => { if (fx && typeof fx === "object") wallFx = { dim: !!fx.dim, blur: !!fx.blur }; });
+  try { chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch[WALL_FX_KEY]) { const v = ch[WALL_FX_KEY].newValue; wallFx = { dim: !!v?.dim, blur: !!v?.blur }; } }); } catch (e) {}
+  const wallpaperItems = () => [["Light Mode…", () => changeWallpaper("light")], ["Dark Mode…", () => changeWallpaper("dark")],
+                                ["Both Modes…", () => changeWallpaper("both")], "-",
                                 ["Dim Wallpaper", () => wallToggle("dim"), wallFx.dim], ["Blur Wallpaper", () => wallToggle("blur"), wallFx.blur],
                                 ["Theme Settings…", wallpaperSettings]];
   function wallpaperMenu(x, y) {                    // which mode's wallpaper (in the Launchpad, or over the desktop)
@@ -2512,16 +2479,18 @@
     const t = await modeThemes();
     const target = on ? t.dark : t.light;
     if (!target) return;
-    if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
+    // the same as the system's appearance: Vivaldi simply follows the system again (its own light / dark pair, the
+    // websites automatic); the other one: held until the system comes round to it
+    let sysDark = on; try { sysDark = await osDark(); } catch (e) {}
+    const follow = on === sysDark;
+    if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: follow ? { ...t.os, light: t.light, dark: t.dark } : { ...t.os, light: target, dark: target } });
     else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
     const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();
-    try {                                            // websites: their own dark (or light) look, live - never reloaded
-      if (await pref("vivaldi.appearance.force_dark_mode_theme")) await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });   // (Vivaldi's forced dark reloads every page)
-      await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: on ? 2 : 1 });   // 0 auto, 1 light, 2 dark
+    try {                                            // websites: their own dark (or light) look - nothing forced on them
+      if (await pref("vivaldi.appearance.force_dark_mode_theme")) await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });
+      await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: follow ? 0 : on ? 2 : 1 });   // 0 automatic (the system's), 1 light, 2 dark
       vstore.set("vosSchemeWas", null);
-      darkWeb = on;
-      await new Promise(r => setTimeout(r, 250));  // the sites that have a dark look have switched by now
-      darkPagesAll();                              // the rest: a dark style of ours (taken out again when off)
+      darkWeb = false; darkPagesAll();              // (a dark style of an earlier version: taken out)
     } catch (e) { console.warn("Bento OS: websites' dark mode", e); }
     setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
     return wantBg;                                  // (the dissolve waits for this colour)
@@ -2545,7 +2514,7 @@
     try { wv.executeScript({ code: darkWeb ? DARK_ON : DARK_OFF }, () => { void chrome.runtime.lastError; clearTimeout(darkPage.t); darkPage.t = setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 150); }); } catch (e) {}   // (the grabbers read the page's colour again)
   }
   const darkPagesAll = () => document.querySelectorAll("#webpage-stack webview").forEach(darkPage);
-  pref("vivaldi.PreferredColorScheme").then(v => { darkWeb = v === 2 && !!document.getElementById("browser"); if (darkWeb) setTimeout(darkPagesAll, 1500); }).catch(() => {});
+  setTimeout(() => { if (document.getElementById("browser")) darkPagesAll(); }, 2500);   // no forced dark on websites any more: an earlier one's style comes out
   (window.vosBeat || (f => setInterval(f, 2500)))(() => {      // new pages (a new window, a new tab) while it is on
     if (!darkWeb) return;
     document.querySelectorAll("#webpage-stack webview").forEach(wv => { if (!wv.__vosDarkHook) darkPage(wv); });
@@ -2578,6 +2547,7 @@
     if (d === lastOs) return;
     lastOs = d;
     if ((await isDarkNow()) !== d) window.vosAppearance.set(d);
+    else setDark(d).catch(() => {});                 // already that look (held): from now on it simply follows the system
   }
   setTimeout(followOs, 1200);
   try { vivaldi.prefs.onChanged.addListener(p => { if (/desktop_theme_color/.test(String(p?.path ?? p ?? ""))) setTimeout(followOs, 30); }); } catch (e) {}
@@ -2603,6 +2573,7 @@
         for (const other of [t.light, t.dark]) if (other && other !== themeId && src?.backgroundImage)
           await themeBg(other, { backgroundImage: src.backgroundImage, backgroundPosition: src.backgroundPosition, backgroundSource: "" });
       }
+      if (wallFx.dim || wallFx.blur) applyWall(true);              // Dim / Blur on: onto the new picture too
     } catch (e) {                                    // no picker here: Vivaldi's Themes settings instead
       console.warn("Bento OS: wallpaper", e);
       wallpaperSettings();

@@ -4370,7 +4370,7 @@ window.vosBeat = window.vosBeat || (() => {
   function swUnmove(list) {
     for (const el of list) { el.getAnimations().forEach(a => { if (a.effect?.getKeyframes?.().some(k => "--vos-dx" in k)) a.cancel(); }); el.style.removeProperty("--vos-dx"); el.style.removeProperty("--vos-in"); }
   }
-  const SW_QUIET = 1500, SW_HUSH = 220;                                // a finger resting is not a release: only the lift (or a long stop) lets go
+  const SW_QUIET = 700, SW_HUSH = 220;                                // a finger resting is not a release: only the lift (or a long stop) lets go
   let swHushAt = 0, swHushLast = 0, swLastEvt = 0;
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(".vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
@@ -4514,8 +4514,9 @@ window.vosBeat = window.vosBeat || (() => {
       s.out = out;
       s.b.setAttribute("data-vos-swipe", dir > 0 ? "next" : "prev");
       dotsMark(s.info.ds.findIndex(w => sameWs(w.id, t.id)));
-      if (s.max && !s.max.classList.contains("webpageview") && s.max.getAttribute("data-vos-swmax") !== "under")
-        await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 150))]);   // a split: out first (Vivaldi rebuilds it on the switch)
+      // (performance) the slide first, all of it, on the graphics card - then Vivaldi's switch, unseen: its work (pages and
+      // splits drawn again) never lands in the middle of the motion
+      await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 150))]);
       const t1 = Date.now();
       // that desktop shows its Launchpad (no window there): it slides in with its wallpaper - caught the moment
       // Vivaldi draws it, before it is ever seen in its place

@@ -1501,3 +1501,17 @@
   background-size: var(--browserBackgroundSize) !important; background-attachment: fixed !important; }
 #browser[data-vos-wallfade] #webpage-stack > .lp-layer.lp-desktop { background: transparent !important; }
 #browser #webpage-stack > .vos-wall-old { position: absolute !important; inset: 0 !important; z-index: 84 !important; pointer-events: none !important; background-attachment: fixed !important; }
+
+/* 1.0.157: the timer's time always fits inside its ring (longer times - an hour, or +2:20:27 - get smaller) */
+#browser .lp-tm-time { white-space: nowrap !important; display: grid !important; place-items: center !important; padding: 0 !important; }
+#browser .lp-tm-time[data-len="7"] { font-size: 21px !important; }
+#browser .lp-tm-time[data-len="8"] { font-size: 18px !important; }
+#browser .lp-tm-time[data-len="9"] { font-size: 16px !important; }
+#browser .lp-w-m .lp-tm-time[data-len="7"] { font-size: 26px !important; }
+#browser .lp-w-m .lp-tm-time[data-len="8"] { font-size: 22px !important; }
+#browser .lp-w-m .lp-tm-time[data-len="9"] { font-size: 20px !important; }
+
+/* 1.0.157: a submenu (macOS): its own small menu beside the item, the item stays lit while it is open */
+#browser .lp-menu > .lp-menu-side { z-index: 6 !important; min-width: 190px !important; }
+#browser .lp-menu .lp-menu-nest[data-open] { background: var(--colorHighlightBg, #0a84ff) !important; color: var(--colorHighlightFg, #fff) !important; }
+#browser .lp-menu .lp-menu-nest[data-open] .lp-menu-chev { opacity: 1 !important; }
