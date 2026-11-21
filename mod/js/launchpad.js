@@ -2425,7 +2425,7 @@
   function darkPage(wv) {
     if (typeof wv?.executeScript !== "function") return;
     if (!wv.__vosDarkHook) { wv.__vosDarkHook = true; wv.addEventListener("contentload", () => { if (darkWeb) setTimeout(() => darkPage(wv), 200); }); }
-    try { wv.executeScript({ code: darkWeb ? DARK_ON : DARK_OFF }, () => void chrome.runtime.lastError); } catch (e) {}
+    try { wv.executeScript({ code: darkWeb ? DARK_ON : DARK_OFF }, () => { void chrome.runtime.lastError; clearTimeout(darkPage.t); darkPage.t = setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 150); }); } catch (e) {}   // (the grabbers read the page's colour again)
   }
   const darkPagesAll = () => document.querySelectorAll("#webpage-stack webview").forEach(darkPage);
   pref("vivaldi.PreferredColorScheme").then(v => { darkWeb = v === 2 && !!document.getElementById("browser"); if (darkWeb) setTimeout(darkPagesAll, 1500); }).catch(() => {});

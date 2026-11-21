@@ -4219,7 +4219,7 @@ window.vosBeat = window.vosBeat || (() => {
      Let go: it settles - on the next desktop when pushed far or fast enough, else back. The rest
      of that flick is let go. One desktop per swipe; none that way: a little stretch. */
   try { CSS.registerProperty({ name: "--vos-dx", syntax: "<number>", inherits: true, initialValue: "0" }); } catch (e) {}
-  const SW_QUIET = 180, SW_HUSH = 220;                                 // no more scrolling for a moment: let go (no finger-lift signal comes)
+  const SW_QUIET = 1500, SW_HUSH = 220;                                // a finger resting is not a release: only the lift (or a long stop) lets go
   let swHushAt = 0, swHushLast = 0;
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
@@ -5196,8 +5196,9 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* SMART GRABBERS: the colour at the top of each page, read from the page now and then (and when it loads):
      its grabbers are white on a dark page, dark on a light one (CSS: data-vos-tone) */
-  const TONE_CODE = "(() => { let e = document.elementFromPoint(innerWidth / 2, 6), fg = ''; while (e) { const cs = getComputedStyle(e); if (!fg) fg = cs.color; const c = cs.backgroundColor; if (c && c !== 'transparent' && !/rgba\\(0, 0, 0, 0\\)/.test(c)) return [c, fg]; e = e.parentElement; } const r = getComputedStyle(document.documentElement), b = getComputedStyle(document.body || document.documentElement); const c = [b.backgroundColor, r.backgroundColor].find(x => x && x !== 'transparent' && !/rgba\\(0, 0, 0, 0\\)/.test(x)) || ''; return [c, fg || b.color, r.colorScheme]; })()";
-  const toneRead = new WeakMap();
+  const TONE_CODE = "(() => { if (document.getElementById('vos-dark')) return ['rgb(24, 24, 24)', '', 'dark']; const solid = c => { const m = /rgba?\\(([\\d.]+), ([\\d.]+), ([\\d.]+)(?:, ([\\d.]+))?/.exec(c || ''); return !!m && (m[4] == null || +m[4] >= 0.5); }; let e = document.elementFromPoint(innerWidth / 2, 6), fg = ''; while (e) { const cs = getComputedStyle(e); if (!fg) fg = cs.color; if (solid(cs.backgroundColor)) return [cs.backgroundColor, fg]; e = e.parentElement; } const r = getComputedStyle(document.documentElement), b = getComputedStyle(document.body || document.documentElement); const c = [b.backgroundColor, r.backgroundColor].find(solid) || ''; return [c, fg || b.color, r.colorScheme]; })()";   // see-through colours (a faint tint over the page) are skipped: the page's own colour counts
+  let toneRead = new WeakMap();
+  addEventListener("vos-appearance", () => { toneRead = new WeakMap(); setTimeout(queueRender, 400); setTimeout(queueRender, 1200); });   // dark / light changed: every page's colour read again
   const toneOf = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.2)) return "light"; return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light"; };
   function readTone(page) {
     const wv = page?.querySelector("webview");
