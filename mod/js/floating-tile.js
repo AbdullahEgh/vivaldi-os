@@ -458,7 +458,7 @@ window.vosBeat = window.vosBeat || (() => {
     window.__ftQuietTint = null;
     if (was === String(id)) window.dispatchEvent(new Event("ft-tint"));   // recolor now
   }
-  let wantActive = null;
+  let wantActive = null, closingPip = null;
   function activate(id, opts) {
     const t = tabIdOf(id);
     if (opts?.quiet) window.__ftQuietTint = String(id);
@@ -1515,13 +1515,15 @@ window.vosBeat = window.vosBeat || (() => {
 
     { const w = winOf(id);                                           // minimized or closed: no longer full view / in the corner
       if (w && action === "minimize" && pip.includes(w)) return holdAct("minimize", w);   // in the corner: back to normal
-      if (w && (action === "minimize" || action === "close")) { if (cover === w) cover = null; const ps = pip.filter(p => p !== w).map(p => targetOf(pageOf(p))); if (pipOff(w)) flip(ps, () => render()); } }
+      if (w && action === "close" && pip.includes(w)) closingPip = w;   // closed in the corner: it closes there, at its small size
+      else if (w && (action === "minimize" || action === "close")) { if (cover === w) cover = null; const ps = pip.filter(p => p !== w).map(p => targetOf(pageOf(p))); if (pipOff(w)) flip(ps, () => render()); } }
     busy.add(id);
     let fade = null;
     try {
       if (action === "close") {
         const wasFloating = floating.has(id);
         fade = await animateOut(el, "close");                       // stays invisible (fill) until removed
+        if (closingPip) { const w = closingPip; closingPip = null; const ps = pip.filter(p => p !== w).map(p => targetOf(pageOf(p))); if (pipOff(w)) flip(ps, () => render()); }   // gone: the others close up
         if (wasFloating) {
           // stay on the desktop: focus the next window before the tab goes away.
           // It stays a hidden floating window until removed, so it never flashes.

@@ -2301,6 +2301,7 @@
   }
   async function checkUpdate(manual) {
     if (!window.vosRepo || !window.vosVersion) return;
+    if (manual && tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, true); return; }   // known: Update Now at once (inside the click)
     try {
       lastCheck = Date.now();
       const tag = await latestTag();
@@ -2534,6 +2535,8 @@
       tagEl.addEventListener("click", async ev => {                // checks GitHub now, then installs the newest
         ev.stopPropagation();
         if (tagEl.dataset.busy) return;
+        // a newer version is known: Update Now at once, still inside your click (opening the updater needs the click)
+        if (tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, true); return; }
         tagEl.dataset.busy = "1"; tagEl.textContent = "Checking…";
         const t = await latestTag();
         delete tagEl.dataset.busy;
