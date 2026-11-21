@@ -1441,3 +1441,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser #webpage-stack .webpageview[data-vos-mc-held] { z-index: 95000 !important; transition: none !important; cursor: grabbing !important; }
 /* a split's tile dragged out: its app icon (made off-screen, drawn by the drag) */
 #browser .vos-mc-icon.vos-drag-img { position: fixed !important; left: -200px !important; top: -200px !important; z-index: -1 !important; pointer-events: none !important; }
+/* 1.0.124: a split's tile being dragged: its app icon under the pointer; the tile it came from dims */
+#browser .vos-mc-icon.vos-tile-ghost { position: fixed !important; left: 0 !important; top: 0 !important; z-index: 2147482000 !important; pointer-events: none !important; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(127, 127, 127, 0.35) !important; }
+#browser #webpage-stack .webpageview[data-vos-tile-lift] { opacity: 0.45 !important; transition: opacity 0.15s ease !important; }

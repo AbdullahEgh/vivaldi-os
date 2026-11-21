@@ -1631,12 +1631,10 @@ window.vosBeat = window.vosBeat || (() => {
     addEventListener("pointermove", onMove, true); addEventListener("pointerup", onUp, true); addEventListener("pointercancel", onUp, true);
   }
   let btnHold = null;
-  function pipZoom(id, on) {
-    webviewsOf(id).forEach(wv => {
-      const own = pageZoom[wv.closest(".webpageview")?.dataset.id];
-      setWebZoom(wv, (own ?? zoomOf[id] ?? 1) * (on ? PIP_Z : 1));
-    });
-  }
+  function pipZoom() {}                              // held small: the page keeps the scale you give it (never forced)
+  setTimeout(() => {                                 // once: a page an earlier version shrank in the corner gets its own scale back
+    for (const id of pip) webviewsOf(id).forEach(wv => { const own = pageZoom[wv.closest(".webpageview")?.dataset.id]; setWebZoom(wv, own ?? zoomOf[id] ?? 1); });
+  }, 4000);
   function pipOff(id) {
     const i = pip.indexOf(id);
     if (i < 0) return false;
@@ -1720,7 +1718,6 @@ window.vosBeat = window.vosBeat || (() => {
     for (const id of floating) webviewsOf(id).forEach(wv => {
       const own = pageZoom[wv.closest(".webpageview")?.dataset.id];
       let z = own ?? zoomOf[id];
-      if (pip.includes(id)) z = (z || 1) * PIP_Z;                    // in the corner stack
       if (z) setWebZoom(wv, z);
     });
   }
@@ -5008,11 +5005,64 @@ window.vosBeat = window.vosBeat || (() => {
     const bar = t.closest?.(".ft-titlebar") || t.closest?.(".mosaic-tile");
     const el = bar?.closest("[data-ft-float]");
     if (!el) return;
-    if (bar.classList.contains("mosaic-tile") && isSplitWindow(el)) return;   // tile drag (Vivaldi)
+    if (bar.classList.contains("mosaic-tile") && isSplitWindow(el)) return tileGesture(e, bar, el);   // a tile: its icon goes with the pointer
     if (bar.classList.contains("ft-titlebar") && pageOf(bar.dataset.ftPage) && doublePress(e, bar.dataset.ftPage)) return;
     startGesture(e, el, "move");
   }
 
+  /* A FLOATING SPLIT'S TILE, grabbed by its grabber: only its app icon follows the pointer (as in the
+     Launchpad and Mission Control); the window is not taken out until you let go -
+       on the desktop: it leaves the split and opens there as its own window
+       on another window: the half it would take shows; let go - it joins that window on that side
+       on its own window, or nothing moved: nothing happens */
+  function tileGesture(e, strip, win) {
+    const page = strip.closest(".webpageview[data-id]"), id = page?.dataset.id;
+    if (!id || e.button !== 0) return;
+    const src = win.dataset.ftFloat, pid = e.pointerId, sx = e.clientX, sy = e.clientY;
+    const url = page.querySelector("webview")?.getAttribute("src") || "";
+    let ghost = null, tgt = null, side = null;
+    const move = ev => {
+      if (ev.pointerId !== pid) return;
+      if (!ghost) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+        ghost = document.createElement("div"); ghost.className = "vos-mc-icon vos-tile-ghost";
+        const im = document.createElement("img"); im.alt = ""; im.src = favicon(url); ghost.appendChild(im);
+        (browserEl() || document.body).appendChild(ghost);
+        page.setAttribute("data-vos-tile-lift", "");
+        ghost.animate([{ scale: "0.5", opacity: 0 }, { scale: "1", opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+      }
+      ev.preventDefault();
+      ghost.style.translate = `${Math.round(ev.clientX - 22)}px ${Math.round(ev.clientY - 22)}px`;
+      const t = inRect(ev.clientX, ev.clientY, targetOf(pageOf(src))?.getBoundingClientRect()) ? null : splitTargetAt(src, ev.clientX, ev.clientY);   // over its own window: no target
+      tgt = t ? t.w : null;
+      side = tgt ? splitPreview(tgt, ev.clientX, ev.clientY, null, targetOf(pageOf(tgt))) : (splitPreview(null), null);
+    };
+    const up = ev => {
+      if (ev.pointerId !== pid) return;
+      removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+      if (!ghost) return;
+      const g = ghost; ghost = null;
+      splitPreview(null);
+      page.removeAttribute("data-vos-tile-lift");
+      g.animate([{ scale: "1", opacity: 1 }, { scale: "0.6", opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => g.remove());
+      setTimeout(() => g.remove(), 400);
+      if (ev.type !== "pointerup") return;
+      const x = ev.clientX, y = ev.clientY;
+      const own = targetOf(pageOf(src))?.getBoundingClientRect();
+      if (tgt && side) {                                            // onto another window: it joins it on that side
+        tileToDesktop({ id, src }, x, y);
+        const t1 = Date.now(), to = tgt, sd = side;
+        const wait = () => { if (!isTiled(pageOf(id))) return splitInto(id, to, sd); if (Date.now() - t1 < 2000) setTimeout(wait, 60); };
+        setTimeout(wait, 120);
+        return;
+      }
+      if (inRect(x, y, own) || !inRect(x, y, stackRect())) return;  // its own window, or outside: nothing
+      tileToDesktop({ id, src }, x, y);                              // the desktop: its own window, there
+      const f = frac[id];                                            // wholly on the screen
+      if (f) { f.x = Math.max(0.01, Math.min(0.99 - f.w, f.x)); f.y = Math.max(0.01, Math.min(0.99 - f.h, f.y)); }
+    };
+    addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+  }
   const isSplitWindow = el => !!el && !el.classList.contains("tile") && !el.classList.contains("webpageview");
   const inRect = (x, y, r) => !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
   function windowAt(x, y, except) {                 // the top-most floating window under a point
@@ -5063,7 +5113,7 @@ window.vosBeat = window.vosBeat || (() => {
   let dragIcon = null;                               // a tile's app icon, made when it is pressed (its picture loads before the drag)
   addEventListener("pointerdown", e => {
     const strip = e.button === 0 && e.target.closest?.(".mosaic-tile");
-    if (!strip) return;
+    if (!strip || strip.closest("[data-ft-float]")) return;          // (a floating split's tile: tileGesture)
     const page = strip.closest(".webpageview[data-id]"), url = page?.querySelector("webview")?.getAttribute("src") || "";
     if (!url) return;
     dragIcon?.remove();
@@ -5082,10 +5132,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (strip) {
       const win = strip.closest("[data-ft-float]");
       if (!win) return;                                             // a full-size split: Vivaldi's own
-      if (!isSplitWindow(win)) { e.preventDefault(); return; }       // a lone floating tile moves as a window
-      const id = strip.closest(".webpageview[data-id]")?.dataset.id;
-      if (id) drag = { kind: "tile", id, src: win.dataset.ftFloat, desktop: true, x: e.clientX, y: e.clientY, over: null };
-      return;
+      e.preventDefault(); return;                                   // a floating split's tile: the mod's own drag (tileGesture)
     }
     if (e.target.closest?.("[data-ft-float], .ft-lights")) { e.preventDefault(); return; }
     const id = tabIdAt(e.target);
