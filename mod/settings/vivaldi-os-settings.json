@@ -918,7 +918,7 @@
       {
         "id": "PanelWindow",
         "resizable": false,
-        "width": -1
+        "width": 355.35
       },
       {
         "id": "PanelTranslate",
@@ -957,9 +957,12 @@
       }
     ],
     "vivaldi.panels.position": 1,
-    "vivaldi.panels.window_defaults.barVisible": false,
-    "vivaldi.panels.window_defaults.contentVisible": false,
-    "vivaldi.panels.window_defaults.width": 260,
+    "vivaldi.panels.window_defaults": {
+      "barVisible": false,
+      "contentVisible": false,
+      "selectedPanel": "PanelWindow",
+      "width": 355.35
+    },
     "vivaldi.startpage": {
       "navigation": 2,
       "speed_dial": {

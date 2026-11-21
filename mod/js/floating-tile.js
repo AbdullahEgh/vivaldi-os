@@ -2671,7 +2671,7 @@ window.vosBeat = window.vosBeat || (() => {
       // on no toolbar (an installer reset the tab bar, or it was taken off): back after Workspaces
       const bars = ["navigation", "panel", "status", "tabbar_after", "tabbar_before"];
       const vals = await Promise.all(bars.map(b => prefGet("vivaldi.toolbars." + b)));
-      if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN)) && !(await vstore.get("vosBentoOff"))) {   // (not when you took it off in the Launchpad)
+      if (!vals.some(v => Array.isArray(v) && v.includes(BENTO_CHAIN)) && !(await vstore.get("vosBentoOff")) && !(await vstore.get("vosBentoChain2"))) {   // once only: taken off later, it stays off   // (not when you took it off in the Launchpad)
         const tb = Array.isArray(vals[4]) ? [...vals[4]] : [];
         const at = tb.indexOf("WorkspaceButton");
         tb.splice(at >= 0 ? at : 0, 0, BENTO_CHAIN);                  // Bento at the left, then the desktops

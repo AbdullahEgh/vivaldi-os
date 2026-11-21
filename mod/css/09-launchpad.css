@@ -1389,3 +1389,43 @@
 #browser .lp-menu .lp-menu-chev { position: absolute !important; right: 10px !important; top: 50% !important; width: 12px !important; height: 12px !important; translate: 0 -50% !important; opacity: 0.55 !important; }
 #browser .lp-menu .lp-menu-back { font-weight: 600 !important; }
 #browser .lp-menu .lp-menu-sub { display: contents !important; }
+
+/* 1.0.139 ---------- the widget gallery ---------- */
+/* a preview never jiggles (editing mode is for the grid) */
+#browser .lp-layer[data-editing] .lp-gal-cell .lp-widget, #browser .lp-gal-cell .lp-widget { animation: none !important; rotate: none !important; translate: none !important; }
+/* sections: Tab Bar, Desktop - a title and a line under it */
+#browser .lp-gal-head { margin: 18px 6px 2px !important; font: 700 21px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-text, inherit) !important; letter-spacing: -0.2px !important; }
+#browser .lp-gal-sub { margin: 0 6px 12px !important; font: 400 13px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-ios-sub) !important; }
+#browser .lp-gal-group { margin: 14px 8px 4px !important; font: 600 13px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; text-transform: uppercase !important; letter-spacing: 0.4px !important; color: var(--lp-ios-sub) !important; }
+/* each group: one row, scrolled sideways */
+#browser .lp-gal-row { flex-wrap: nowrap !important; overflow-x: auto !important; overflow-y: hidden !important; scroll-snap-type: x proximity !important; scrollbar-width: none !important; padding: 4px 4px 10px !important; gap: 14px !important; }
+#browser .lp-gal-row::-webkit-scrollbar { display: none !important; }
+#browser .lp-gal-row > * { flex: none !important; scroll-snap-align: start !important; }
+/* Tab Bar: a tile each - icon, name, On / Off */
+#browser .lp-tb-tile { width: 112px !important; height: 118px !important; padding: 12px 8px 10px !important; border: 0 !important; border-radius: 20px !important; cursor: pointer !important;
+  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 7px !important;
+  background: var(--lp-ios-group) !important; color: var(--lp-text, inherit) !important; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.16) !important; transition: transform 0.15s ease, box-shadow 0.15s ease !important; }
+#browser .lp-tb-tile:active { transform: scale(0.96) !important; }
+#browser .lp-tb-tile .lp-tb-ic { width: 44px !important; height: 44px !important; border-radius: 50% !important; display: grid !important; place-items: center !important; background: rgba(127, 127, 127, 0.16) !important; color: var(--lp-text, inherit) !important; transition: background 0.15s ease, color 0.15s ease !important; }
+#browser .lp-tb-tile .lp-tb-ic svg { width: 22px !important; height: 22px !important; }
+#browser .lp-tb-tile[data-on] .lp-tb-ic { background: var(--lp-blue, #0a84ff) !important; color: #fff !important; }
+#browser .lp-tb-tile[data-on] { box-shadow: inset 0 0 0 2px var(--lp-blue, #0a84ff) !important; }
+#browser .lp-tb-name { font: 600 13px/1.2 -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-tb-state { font: 500 11px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-ios-sub) !important; }
+#browser .lp-tb-tile[data-on] .lp-tb-state { color: var(--lp-blue, #0a84ff) !important; }
+#browser .lp-tb-segbox { display: flex !important; align-items: center !important; gap: 10px !important; margin: 0 6px 4px !important; }
+#browser .lp-tb-segbox .lp-tb-seg { flex: 1 !important; padding: 0 !important; max-width: 360px !important; }
+
+/* ---------- clock widgets: a medium one is balanced - the face and the time as one centred group ---------- */
+#browser .lp-w-m :is(.lp-wk-clock-num, .lp-wk-clock-pill, .lp-wk-clock-sq) { justify-content: center !important; gap: clamp(24px, 6%, 48px) !important; padding: 16px 28px !important; }
+#browser .lp-w-m :is(.lp-wk-clock-num, .lp-wk-clock-pill, .lp-wk-clock-sq) .lp-dclock { flex: 0 1 auto !important; }
+
+/* ---------- timer: eight times, four to a row ---------- */
+#browser .lp-tm-presets { grid-template-columns: repeat(4, 1fr) !important; gap: 6px !important; }
+#browser .lp-tm-chip { height: 26px !important; font-size: 12px !important; line-height: 26px !important; padding: 0 !important; }
+
+/* ---------- the tab bar's editing mode: one timer ring (the button you drag), not two ---------- */
+#browser.toolbar-edit-mode .vos-tm-mini { display: none !important; }
+
+/* ---------- Dark Mode: a slow dissolve ---------- */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.5s !important; animation-timing-function: ease !important; }

@@ -559,8 +559,8 @@
       m.appendChild(b);
     };
     add(lp.editing ? "Done Editing" : "Edit Home Screen", () => (lp.editing ? exitEdit() : enterEdit()));
-    add("Add Website…", () => { enterEdit(); siteGallery(); });
-    add("Add Widget…", () => { enterEdit(); widgetGallery(); });
+    add("Add Website…", () => { if (!lp.desktop) enterEdit(); siteGallery(); });   // the desktop: just the sheet, no editing
+    add("Add Widget…", () => { if (!lp.desktop) enterEdit(); widgetGallery(); });
     add("Bookmarks…", () => folderPicker());   // just the Bookmarks sheet (no editing)
     const sep = () => { const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d); };
     sep();
@@ -1584,15 +1584,9 @@
     let s = '<svg class="lp-clock" viewBox="0 0 100 100"><circle class="lp-face" cx="50" cy="50" r="49"/>';
     if (square) return clockSq();
     if (pills) {
-      // Apple's pill face: twelve equal grey pills (r 36.5 to 47), hands without a visible neck
+      // twelve pills spread to the edge of the face (r 38 to 48); the hands: the Numbers clock's
       for (let i = 0; i < 12; i++)
-        s += `<rect class="lp-pill" x="48.85" y="3" width="2.3" height="10.5" rx="1.15" transform="rotate(${i * 30} 50 50)"/>`;
-      s = s.replace('viewBox="0 0 100 100"', 'viewBox="-10 -10 120 120"');   // the face at 83% of the widget, as Apple's
-      return s + '<g class="lp-hh"><rect x="47.8" y="24.4" width="4.4" height="19.8" rx="2.2"/></g>' +
-                 '<g class="lp-mh"><rect x="47.8" y="9.3" width="4.4" height="34.9" rx="2.2"/></g>' +
-                 '<circle class="lp-hub" cx="50" cy="50" r="2.6"/>' +
-                 '<g class="lp-sh"><rect x="49.6" y="5.3" width="0.8" height="53.7" rx="0.4"/></g>' +
-                 '<circle class="lp-shub" cx="50" cy="50" r="1.9"/><circle class="lp-hub2" cx="50" cy="50" r="0.9"/></svg>';
+        s += `<rect class="lp-pill" x="48.7" y="2" width="2.6" height="10" rx="1.3" transform="rotate(${i * 30} 50 50)"/>`;
     } else {
       for (let i = 1; i <= 12; i++) {
         const a = i * Math.PI / 6;
@@ -1723,7 +1717,8 @@
   /* ---- the Timer: keeps running with the Launchpad closed; a chime at the end, then it
      counts up (+0:12) - grey for the first minute, red after - until you cancel it ---- */
   const TM_KEY = "vosLaunchpadTimer";
-  const PRESETS = [1, 3, 15, 30, 60];               // minutes: 1 and 3 are short (green), the rest orange
+  const PRESETS = [5, 10, 15, 20, 30, 45, 60, 120]; // minutes
+  const presetLabel = p => p >= 60 ? p / 60 + " h" : p + " min"
   let tm = { dur: 5 * 60000, end: 0, left: 0, rang: false, mini: false };   // running: end > 0; paused: left > 0; mini: the ring is shown
   const tmLeft = () => tm.end ? Math.max(0, tm.end - Date.now()) : (tm.left || tm.dur);
   const tmOver = () => tm.end ? Math.max(0, Date.now() - tm.end) : 0;
@@ -1768,7 +1763,7 @@
       '<circle class="lp-ring-fg" cx="50" cy="50" r="44" pathLength="100" transform="rotate(-90 50 50)"/></svg>' +
       '<button type="button" class="lp-wg-btn lp-tm-time" data-act="next" title="Change the time"></button></div>' +
       (w.s === "m" ? '<div class="lp-tm-side"><div class="lp-tm-presets">' +
-        PRESETS.map(p => `<button type="button" class="lp-wg-btn lp-tm-chip" data-act="set" data-arg="${p}"${p <= 3 ? " data-short-chip" : ""}>${p} min</button>`).join("") +
+        PRESETS.map(p => `<button type="button" class="lp-wg-btn lp-tm-chip" data-act="set" data-arg="${p}"${p <= 3 ? " data-short-chip" : ""}>${presetLabel(p)}</button>`).join("") +
         '</div><div class="lp-tm-btns">' + btn("lp-tm-cancel", "cancel", "Cancel") + btn("lp-tm-go", "go", "Start") + "</div></div>"
       : '<div class="lp-tm-btns">' + btn("lp-tm-cancel", "cancel", "Cancel") + btn("lp-tm-go", "go", "Start") + "</div>");
     card.addEventListener("pointerdown", ev => { if (ev.target.closest(".lp-wg-btn")) ev.stopPropagation(); });
@@ -1964,6 +1959,16 @@
     clkPop ? closeClkPop() : openClkPop(btn);
   }, true);
 
+  /* the popups by the tab bar follow their button when the Vivaldi window changes size */
+  function placeNear(pop, anchor, gap = 10) {
+    if (!pop?.isConnected || !anchor?.isConnected) return;
+    const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px";
+    pop.style.top = (r.top - h - gap >= 8 ? r.top - h - gap : r.bottom + gap) + "px";
+  }
+  addEventListener("resize", () => {
+    requestAnimationFrame(() => { placeNear(tmPop, tmMini); placeNear(clkPop, clkAt); placeNear(tmMenu, tmMini, 8); });
+  });
   /* right-click on the ring: another time (asks first while one is going), or remove it */
   let tmMenu = null;
   function openTmMenu() {
@@ -1979,7 +1984,7 @@
     };
     const head = document.createElement("div"); head.className = "lp-menu-head"; head.textContent = "Timer";
     m.appendChild(head);
-    for (const p of PRESETS) add(p + " min", () => tmChange(p), Math.round(tm.dur / 60000) === p ? "lp-menu-on" : "");
+    for (const p of PRESETS) add(presetLabel(p), () => tmChange(p), Math.round(tm.dur / 60000) === p ? "lp-menu-on" : "");
     const sep = document.createElement("div"); sep.className = "lp-menu-sep"; m.appendChild(sep);
     add("Remove Timer", tmRemove, "lp-danger");
     m.addEventListener("pointerdown", ev => ev.stopPropagation());
@@ -2097,21 +2102,26 @@
   }
 
   /* ---- the tab bar's widgets: Desktops, Bento, Timer - each on or off (a switch) ---- */
+  const galHead = (body, title, sub) => {
+    const h = document.createElement("div"); h.className = "lp-gal-head"; h.textContent = title;
+    const s = document.createElement("div"); s.className = "lp-gal-sub"; s.textContent = sub;
+    body.append(h, s);
+  };
   function tabbarSection(body) {
     const tbw = window.vosTabbarWidgets;
     if (!tbw) return;
-    const l = document.createElement("div"); l.className = "lp-ios-label"; l.textContent = "Tab Bar";
-    const g = document.createElement("div"); g.className = "lp-ios-group lp-tb-group";
-    body.append(l, g);
+    galHead(body, "Tab Bar", "Tap one to show or hide it in the tab bar");
+    const g = document.createElement("div"); g.className = "lp-gal-row lp-tb-tiles";
+    body.append(g);
     const items = [["bento", "Bento"], ["desktops", "Desktops"], ["dark", "Dark Mode"], ["timer", "Timer"], ["date", "Date"]];
     tbw.get().then(st => {
       for (const [k, name] of items) {
-        const row = document.createElement("div"); row.className = "lp-ios-row lp-tb-row";
-        const ic = document.createElement("span"); ic.className = "lp-ios-ficon lp-tb-ic"; ic.innerHTML = tbw.icons?.[k] || "";
-        const t = document.createElement("span"); t.className = "lp-ios-rtitle"; t.textContent = name;
-        const sw = document.createElement("button"); sw.type = "button"; sw.className = "lp-switch"; sw.setAttribute("role", "switch");
-        sw.setAttribute("aria-label", name + " in the tab bar");
-        const paint = () => sw.setAttribute("aria-checked", String(!!st[k]));
+        const row = document.createElement("button"); row.type = "button"; row.className = "lp-tb-tile";
+        row.setAttribute("role", "switch"); row.setAttribute("aria-label", name + " in the tab bar");
+        const ic = document.createElement("span"); ic.className = "lp-tb-ic"; ic.innerHTML = tbw.icons?.[k] || "";
+        const t = document.createElement("span"); t.className = "lp-tb-name"; t.textContent = name;
+        const sw = document.createElement("span"); sw.className = "lp-tb-state";
+        const paint = () => { row.toggleAttribute("data-on", !!st[k]); row.setAttribute("aria-checked", String(!!st[k])); sw.textContent = st[k] ? "On" : "Off"; };
         paint();
         row.addEventListener("click", ev => {
           ev.stopPropagation();
@@ -2121,7 +2131,7 @@
         row.append(ic, t, sw);
         g.appendChild(row);
         if (k === "date" && tbw.dateFmt) {                   // how it reads: Fri / Fri 20 / Fri 20 Nov
-          const seg = document.createElement("div"); seg.className = "lp-ios-row lp-tb-seg";
+          const seg = document.createElement("div"); seg.className = "lp-tb-seg";
           const paintSeg = () => seg.querySelectorAll("button").forEach(b => b.toggleAttribute("data-on", b.dataset.f === tbw.dateFmt()));
           for (const f of ["d", "dd", "ddm"]) {
             const b = document.createElement("button"); b.type = "button"; b.dataset.f = f; b.textContent = tbw.dateText(f);
@@ -2132,7 +2142,10 @@
             seg.appendChild(b);
           }
           paintSeg();
-          g.appendChild(seg);
+          const box = document.createElement("div"); box.className = "lp-tb-segbox";
+          const cap = document.createElement("span"); cap.className = "lp-gal-cap"; cap.textContent = "Date";
+          box.append(cap, seg);
+          g.after(box);
         }
       }
     }).catch(() => {});
@@ -2142,11 +2155,13 @@
     if (!lp) return;
     const body = sheetBox("lp-gallery", "Widgets");
     tabbarSection(body);
+    galHead(body, "Desktop", "Tap one to add it to the Launchpad");
+    requestAnimationFrame(() => body.querySelectorAll(".lp-gal-row").forEach(r => { r.scrollLeft = 0; }));   // each row from its first
     let section = "";
     for (const k of Object.keys(WG)) {
       if (WG[k].name !== section) {
         section = WG[k].name;
-        const l = document.createElement("div"); l.className = "lp-ios-label"; l.textContent = section;
+        const l = document.createElement("div"); l.className = "lp-gal-group"; l.textContent = section;
         body.appendChild(l);
         body.appendChild(Object.assign(document.createElement("div"), { className: "lp-gal-row" }));
       }
@@ -2166,7 +2181,7 @@
           const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
           widgets = [...widgets.map((x, i) => ({ ...x, pos: (x.pos ?? i) + 1 })), { id, k, s: size, pos: 0 }];
           saveWidgets(); closeSheet(); render(); ensureTick();
-          const el = [...lp.grid.querySelectorAll(".lp-widget")].find(e => e.__w?.id === id);
+          const el = lp && [...lp.grid.querySelectorAll(".lp-widget")].find(e => e.__w?.id === id);
           el?.animate([{ transform: "scale(0.6)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 360, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.1)" });
         });
         rowEl.appendChild(cell);
@@ -2372,7 +2387,17 @@
     } catch (e) { console.warn("Bento OS: websites' dark mode", e); }
     setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
   }
-  window.vosAppearance = { isDark: isDarkNow, set: setDark, async toggle() { await setDark(!(await isDarkNow())); } };
+  async function dissolve(fn) {                    // the old look fades into the new one (a snapshot cross-fade)
+    if (!document.startViewTransition) return fn();
+    const b = document.getElementById("browser"), was = b && getComputedStyle(b).getPropertyValue("--colorBg");
+    let vt; try { vt = document.startViewTransition(async () => {
+      await fn();
+      for (let i = 0; i < 30; i++) { if (!b || getComputedStyle(b).getPropertyValue("--colorBg") !== was) break; await new Promise(r => setTimeout(r, 40)); }
+      await new Promise(r => setTimeout(r, 60));
+    }); } catch (e) { return fn(); }                                 // no snapshot here: at once
+    try { await vt.finished; } catch (e) {}
+  }
+  window.vosAppearance = { isDark: isDarkNow, set: on => dissolve(() => setDark(on)), async toggle() { const d = await isDarkNow(); await dissolve(() => setDark(!d)); } };
   async function changeWallpaper(mode = "both") {
     if (lp && !lp.desktop) close(true, true); else close();
     try {
@@ -2612,8 +2637,8 @@
     const sep = () => { const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d); };
     const inLp = fn => () => { if (!lp) open(); if (lp) { enterEdit(); fn(); } };
     add("Open Launchpad", () => { if (!lp) open(); });
-    add("Add Website…", inLp(siteGallery));
-    add("Add Widget…", inLp(widgetGallery));
+    add("Add Website…", () => sheetOnly(siteGallery));
+    add("Add Widget…", () => sheetOnly(widgetGallery));
     add("Bookmarks…", () => sheetOnly(folderPicker));
     sep();
     nestedItem(m, "Wallpaper", wallpaperItems(), () => closeDesk());
