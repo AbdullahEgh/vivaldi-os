@@ -1636,11 +1636,10 @@ window.vosBeat = window.vosBeat || (() => {
       }
       if (/[lr]/.test(how)) {                       // the width: every window in this corner follows, each in its own shape
         const W = Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx)));
-        if (/[tb]/.test(how)) pipW.set(id, W); else for (const p of pip) if ((pipCorner.get(p) || "bl") === c) pipFit(p, c, W);
+        for (const p of pip) if ((pipCorner.get(p) || "bl") === c) pipW.set(p, W);   // a free resize: the corner's windows take the width, each keeps its height
       }
       if (/[tb]/.test(how)) {                       // the height: only this one (its shape changes)
         pipH.set(id, Math.max(100, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));
-        if (/[lr]/.test(how)) { const W = pipW.get(id); for (const p of pip) if (p !== id && (pipCorner.get(p) || "bl") === c) pipFit(p, c, W); }
         pipAspect.set(id, pipH.get(id) / Math.max(1, pipW.get(id)));
       }
       render();
@@ -4308,6 +4307,14 @@ window.vosBeat = window.vosBeat || (() => {
     s.stack.style.setProperty("--vos-dx", String(Math.round(shown)));
     clearTimeout(s.timer);
     if (Math.abs(s.acc) >= s.D) return swRelease();                  // all the way: there
+    // the fingers lifted: the trackpad's momentum follows - each step a little smaller than the one before,
+    // smoothly, the same way: settle now (on, or back), as natural scrolling does
+    if (d) {
+      (s.hist ||= []).push(d); if (s.hist.length > 6) s.hist.shift();
+      const h = s.hist;
+      if (h.length >= 5 && h.every(x => Math.sign(x) === Math.sign(h[0])) &&
+          h.slice(1).every((x, i) => Math.abs(x) <= Math.abs(h[i]) * 0.99 && Math.abs(x) >= Math.abs(h[i]) * 0.7)) return swRelease();
+    }
     // the desktop follows the fingers until they lift (macOS ends the gesture with an empty event); only a really fast
     // flick, well on its way, finishes by itself
     if (dir && swTarget(dir) && Math.abs(s.acc) > s.D * 0.3 && Math.max(0, ...s.vs.map(([, x]) => x * dir)) > 2.6) return swRelease();
