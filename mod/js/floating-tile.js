@@ -93,7 +93,7 @@ window.vosBeat = window.vosBeat || (() => {
   const PIP_K = 0.55, PIP_START_W = 300, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
   const pipZoomWas = new Map();     // page id -> its scale before it was held small (given back after)
   const pipAspect = new Map();      // id -> its height / width (its own shape, kept at any width)
-  const cornerW = (c, except) => { const o = pip.find(p => p !== except && (pipCorner.get(p) || "bl") === c && pipW.has(p)); return o ? pipW.get(o) : null; };   // one width per corner
+  const cornerW = (c, except) => { const o = pip.find(p => p !== except && (pipCorner.get(p) || "bl")[1] === c[1] && pipW.has(p)); return o ? pipW.get(o) : null; };   // one width per side (both corners of it)
   function pipFit(id, c, w) {                       // this one at that corner's width, its own shape
     const W = Math.max(160, Math.round(w)), a = pipAspect.get(id) || (pipH.get(id) && pipW.get(id) ? pipH.get(id) / pipW.get(id) : 0.75);
     pipW.set(id, W); pipH.set(id, Math.max(100, Math.round(W * a)));
@@ -1636,7 +1636,7 @@ window.vosBeat = window.vosBeat || (() => {
       }
       if (/[lr]/.test(how)) {                       // the width: every window in this corner follows, each in its own shape
         const W = Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx)));
-        for (const p of pip) if ((pipCorner.get(p) || "bl") === c) pipW.set(p, W);   // a free resize: the corner's windows take the width, each keeps its height
+        for (const p of pip) if ((pipCorner.get(p) || "bl")[1] === c[1]) pipW.set(p, W);   // a free resize: that side's windows (both corners) take the width, each keeps its height
       }
       if (/[tb]/.test(how)) {                       // the height: only this one (its shape changes)
         pipH.set(id, Math.max(100, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));
@@ -4217,15 +4217,33 @@ window.vosBeat = window.vosBeat || (() => {
      CSS moves every window, its frame, the Launchpad and the wallpapers by it (no per-window work).
      Let go: it settles - on the next desktop when pushed far or fast enough, else back. The rest
      of that flick is let go. One desktop per swipe; none that way: a little stretch. */
-  try { CSS.registerProperty({ name: "--vos-dx", syntax: "<number>", inherits: true, initialValue: "0" }); } catch (e) {}
+  try { CSS.registerProperty({ name: "--vos-dx", syntax: "<number>", inherits: false, initialValue: "0" }); } catch (e) {}
+  try { CSS.registerProperty({ name: "--vos-in", syntax: "<number>", inherits: false, initialValue: "0" }); } catch (e) {}
+  /* (performance) only what moves carries the swipe's numbers - each window, its frame, the wallpapers - and they
+     are written once per frame at most; the rest of the page area is never restyled while you swipe */
+  const SW_MOVERS = "#webpage-stack :is([data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away]), [data-vos-out], [data-vos-incoming], .ft-veil, [data-vos-swmax], [data-vos-swmax-in]), #webpage-stack > .lp-layer.lp-desktop, #webpage-stack > .vos-sw-scene > .vos-sw-wall";
+  function swMovers(s) {
+    s.movers = [...document.querySelectorAll(SW_MOVERS)];
+    for (const el of s.movers) { el.style.setProperty("--vos-in", String(s.inV || 0)); el.style.setProperty("--vos-dx", String(s.dxV || 0)); }
+  }
+  function swSetDx(s, v) {
+    s.dxV = v;
+    if (s.raf) return;
+    s.raf = requestAnimationFrame(() => { s.raf = 0; for (const el of s.movers || []) el.style.setProperty("--vos-dx", String(s.dxV)); });
+  }
+  function swUnmove(list) {
+    for (const el of list) { el.getAnimations().forEach(a => { if (a.effect?.getKeyframes?.().some(k => "--vos-dx" in k)) a.cancel(); }); el.style.removeProperty("--vos-dx"); el.style.removeProperty("--vos-in"); }
+  }
   const SW_QUIET = 1500, SW_HUSH = 220;                                // a finger resting is not a release: only the lift (or a long stop) lets go
-  let swHushAt = 0, swHushLast = 0;
+  let swHushAt = 0, swHushLast = 0, swLastEvt = 0;
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, dx = ev.deltaX * k, dy = ev.deltaY * k;
     const now = performance.now();
-    // what is left of a swipe (its momentum, fading) is let go; a NEW swipe - the scrolling picking up again - is a swipe
-    const fresh = !swiping && !(sw && sw.settling) && swHushAt && Math.abs(dx) > Math.max(6, swHushLast * 1.8);
+    // what is left of a swipe (its momentum, fading) is let go; a NEW swipe is one only once the momentum has stopped
+    // (the fingers touching again stop it: a gap) - or a clear new push, far stronger than the fading steps
+    const gap = now - swLastEvt; swLastEvt = now;
+    const fresh = !swiping && !(sw && sw.settling) && swHushAt && ((gap > 60 && Math.abs(dx) >= 3) || Math.abs(dx) > Math.max(14, swHushLast * 2.6));
     if (!fresh && (swiping || (sw && sw.settling) || (swHushAt && now - swHushAt < SW_HUSH))) {
       swHushAt = now; swHushLast = Math.abs(dx); if (Math.abs(dx) > Math.abs(dy)) ev.preventDefault(); return;
     }
@@ -4251,8 +4269,10 @@ window.vosBeat = window.vosBeat || (() => {
     if (apFull) { apFull.setAttribute("data-vos-swmax", ""); sw.max = apFull; if (sc) sc.children[0].style.visibility = "hidden"; }
     else if (upS?.hasAttribute("data-ft-under")) { upS.setAttribute("data-vos-swmax", "under"); sw.max = upS; if (sc) sc.children[0].style.visibility = "hidden"; }   // a full-screen page under the windows: it slides with them
     else if (cover && sc) sc.children[0].style.visibility = "hidden";   // a window in full view: the same
-    stack.style.setProperty("--vos-dx", "0");
+    swUnmove([...document.querySelectorAll("#webpage-stack [style*='--vos-dx'], #webpage-stack [style*='--vos-in']")]);   // nothing left from a swipe before
+    stack.style.removeProperty("--vos-dx"); stack.style.removeProperty("--vos-in");
     b.setAttribute("data-vos-dragdesk", "");
+    sw.dxV = 0; sw.inV = 0; swMovers(sw);
     deskDots(true);
     return true;
   }
@@ -4273,7 +4293,7 @@ window.vosBeat = window.vosBeat || (() => {
     swUnprep();
     sw.dir = dir;
     const t = swTarget(dir);
-    sw.stack.style.setProperty("--vos-in", String(dir * sw.D));
+    sw.inV = dir * sw.D;
     const sc = scene(); if (sc) sc.children[1].style.visibility = t && !isBentoT(t) ? "" : "hidden";
     if (!t || isBentoT(t)) return;                                   // Bento: the same windows, tiled - nothing comes in
     const fp = fullOf(sw.info?.front?.get(String(t.id)));            // that desktop shows a full-screen app: it comes in as it is
@@ -4302,9 +4322,9 @@ window.vosBeat = window.vosBeat || (() => {
     s.acc = Math.max(-s.D, Math.min(s.D, s.acc + d));
     if (d) { s.vs.push([now, d / Math.max(4, Math.min(60, now - (s.at || now - 16)))]); s.at = now; while (s.vs.length && now - s.vs[0][0] > 120) s.vs.shift(); }
     const dir = s.acc > 0 ? 1 : s.acc < 0 ? -1 : s.dir;
-    if (dir && dir !== s.dir && s.info) swPrep(dir);
+    if (dir && dir !== s.dir && s.info) { swPrep(dir); swMovers(s); }
     const tg = swTarget(dir), shown = isBentoT(tg) ? s.acc * 0.3 : tg ? s.acc : s.acc * 0.15;   // nothing that way: a little stretch; Bento: a pull
-    s.stack.style.setProperty("--vos-dx", String(Math.round(shown)));
+    swSetDx(s, Math.round(shown));
     clearTimeout(s.timer);
     if (Math.abs(s.acc) >= s.D) return swRelease();                  // all the way: there
     // the fingers lifted: the trackpad's momentum follows - each step a little smaller than the one before,
@@ -4329,20 +4349,23 @@ window.vosBeat = window.vosBeat || (() => {
     const v = Math.max(0, ...s.vs.map(([, x]) => x * dir));         // px per ms that way, just now
     if (isBentoT(t)) {                                               // Bento: the pull springs back as the windows tile (or untile)
       const goB = Math.abs(s.acc) > D * 0.18 || (v > 0.5 && Math.abs(s.acc) > 30);
-      const fromB = parseFloat(s.stack.style.getPropertyValue("--vos-dx")) || 0;
-      const a = s.stack.animate([{ "--vos-dx": String(fromB) }, { "--vos-dx": "0" }], { duration: 180, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)", fill: "forwards" });
+      if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
+      const fromB = s.dxV || 0;
+      const a = (s.movers || []).map(el => el.animate([{ "--vos-dx": String(fromB) }, { "--vos-dx": "0" }], { duration: 180, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)", fill: "forwards" }))[0] || { finished: Promise.resolve() };
       await Promise.race([a.finished.catch(() => {}), new Promise(r => setTimeout(r, 380))]);
       swClean(s);
       if (goB) bentoToggle(t.bento);
       return;
     }
     const go = !!t && (Math.abs(s.acc) > D * 0.4 || (v > 0.5 && Math.abs(s.acc) > 30));
-    const from = parseFloat(s.stack.style.getPropertyValue("--vos-dx")) || 0, to = go ? dir * D : 0;
+    if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
+    const from = s.dxV || 0, to = go ? dir * D : 0;
     const dist = Math.max(1, Math.abs(to - from));
     const ms = Math.round(go ? Math.max(180, Math.min(280, dist / Math.max(1.8, v * 1.2))) : Math.max(140, Math.min(240, dist / 1.6)));
     const y1 = Math.max(0.05, Math.min(1, 0.4 * Math.max(v, 0.2) * ms / dist));   // its first speed: the fingers' speed
     const ease = go ? `cubic-bezier(0.4, ${y1.toFixed(2)}, 0.2, 1)` : "cubic-bezier(0.25, 0.8, 0.3, 1)";
-    const anim = s.stack.animate([{ "--vos-dx": String(from) }, { "--vos-dx": String(to) }], { duration: ms, easing: ease, fill: "forwards" });
+    s.movers = (s.movers || []).filter(el => el.isConnected);
+    const anim = s.movers.map(el => el.animate([{ "--vos-dx": String(from) }, { "--vos-dx": String(to) }], { duration: ms, easing: ease, fill: "forwards" }))[0] || { finished: Promise.resolve(), cancel() {} };
     if (go) {
       swiping = true;
       const out = swItems().filter(el => !s.inc.includes(el));      // this desktop's windows: kept in sight while they slide out
@@ -4360,13 +4383,15 @@ window.vosBeat = window.vosBeat || (() => {
       } catch (e) { wsErr("swipe", e); }
     }
     await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 200))]);
-    s.stack.style.setProperty("--vos-dx", String(Math.round(to)));   // exactly at its place (no last little snap)
+    for (const el of s.movers || []) el.style.setProperty("--vos-dx", String(Math.round(to)));   // exactly at its place (no last little snap)
     await new Promise(r => requestAnimationFrame(r));
     swClean(s);
     if (go) { swiping = false; deskInfo = null; deskDots(true); arrive(t.id); }
   }
   function swClean(s) {                                              // all in one frame: everything where it really is
     s.b.removeAttribute("data-vos-dragdesk");
+    if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
+    swUnmove(s.movers || []); s.movers = [];
     s.stack.getAnimations().forEach(a => a.cancel());
     s.stack.style.removeProperty("--vos-dx"); s.stack.style.removeProperty("--vos-in");
     for (const el of s.out || []) { el.removeAttribute("data-vos-out"); el.removeAttribute("data-ft-ws-leave"); }

@@ -1729,8 +1729,8 @@
   /* ---- the Timer: keeps running with the Launchpad closed; a chime at the end, then it
      counts up (+0:12) - grey for the first minute, red after - until you cancel it ---- */
   const TM_KEY = "vosLaunchpadTimer";
-  const PRESETS = [5, 10, 15, 20, 30, 45, 60, 120]; // minutes
-  const presetLabel = p => p >= 60 ? p / 60 + " h" : p + " min"
+  const PRESETS = [5, 10, 15, 20, 30, 45, 60, 90, 120];   // minutes
+  const presetLabel = p => p >= 60 && p % 60 === 0 ? p / 60 + " h" : p + " min"
   let tm = { dur: 5 * 60000, end: 0, left: 0, rang: false, mini: false };   // running: end > 0; paused: left > 0; mini: the ring is shown
   const tmLeft = () => tm.end ? Math.max(0, tm.end - Date.now()) : (tm.left || tm.dur);
   const tmOver = () => tm.end ? Math.max(0, Date.now() - tm.end) : 0;

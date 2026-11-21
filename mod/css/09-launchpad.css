@@ -1483,3 +1483,7 @@
 
 /* 1.0.148: the tab bar clock's popup - wide enough for its calendar's spacing */
 #browser .vos-clk-pop { width: 420px !important; }
+
+/* 1.0.152: nine times (90 min too): five to a row */
+#browser .lp-tm-presets { grid-template-columns: repeat(5, 1fr) !important; gap: 5px !important; }
+#browser .lp-tm-chip { font-size: 11.5px !important; }
