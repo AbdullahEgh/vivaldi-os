@@ -1447,3 +1447,20 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.129: the window's grabber shows on hover only, as the tiles' do */
 #browser .vos-tile-ghost img { width: 30px !important; height: 30px !important; object-fit: contain !important; }
+
+/* 1.0.132: SMART GRABBERS - one colour each, see-through, no shadow: dark on a light page, white on a dark one
+   (floating-tile.js reads the colour at the top of each page: data-vos-tone) */
+#browser #webpage-stack .tile > .SlideBar::after,
+#browser .tiled[data-ft-float]:not(.webpageview) .webpageview .mosaic-tile::after,
+#browser .ft-frame[data-ft-grab] > .ft-grab::after,
+#browser #webpage-stack > .ft-max-grab::after,
+#browser .bento-grip {
+  background: rgba(0, 0, 0, 0.26) !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+#browser .tiled[data-ft-float]:not(.webpageview) .webpageview[data-vos-tone="dark"] .mosaic-tile::after,
+#browser .ft-frame[data-ft-grab][data-vos-tone="dark"] > .ft-grab::after,
+#browser[data-vos-maxtone="dark"] #webpage-stack > .ft-max-grab::after,
+#browser:not([data-ft-clock-tone="dark"]) .bento-grip { background: rgba(255, 255, 255, 0.34) !important; }
+#browser #webpage-stack .tile > .SlideBar::after { background: color-mix(in srgb, var(--colorFg) 30%, transparent) !important; }   /* the window's own frame colour */

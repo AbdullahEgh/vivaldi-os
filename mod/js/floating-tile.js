@@ -1303,6 +1303,9 @@ window.vosBeat = window.vosBeat || (() => {
     ensureClock();
 
     ensureLights($$("#webpage-stack .webpageview[data-id]"));
+    for (const { id, el } of windows) if (!awayWs(id)) for (const pg of (el.classList.contains("webpageview") ? [el] : $$(".webpageview[data-id]", el))) readTone(pg);   // (each page: every 4s at most)
+    if (b.hasAttribute("data-ft-maxpage")) readTone(activePage());
+    toneFrames();
   }
 
   /* ---------------- desktop clock: "Mon 16 Nov 3:41" at the top center ---------------- */
@@ -1664,13 +1667,34 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* hold the green button: a new desktop, the window moves there and fills it (a full-screen app, as in macOS) */
   async function fullOnNewDesk(win) {
+    if (fullOnNewDesk.busy) return;
+    fullOnNewDesk.busy = true;
     try {
-      await toNewDeskNow(win, (await prefGet("vivaldi.workspaces.list")) || []);
-      for (let i = 0; i < 20 && swiping; i++) await new Promise(r => setTimeout(r, 60));
-      await new Promise(r => setTimeout(r, 200));
-      const pg = pageOf(splitFocus.get(win) || win);
-      if (pg && floating.has(win)) act("zoom", pg);
+      const page = pageOf(splitFocus.get(win) || win);
+      if (!page) return;
+      // 1. it grows to fill the screen, here (the green button's own animation: a full-screen page now)
+      const ids = [...new Set([String(page.dataset.id), ...(isTiled(page) && groupFloat.has(win) ? membersOf(page) : [])])];
+      await act("zoom", page);
+      await new Promise(r => setTimeout(r, 420));                     // (it has grown)
+      // 3. a new desktop, the page moves into it, and you go with it (it stays on the screen all the way)
+      const list = (await prefGet("vivaldi.workspaces.list")) || [];
+      const ws = await newDesk(list, true);
+      if (ws == null) return;
+      deskInfo = null;
+      let fresh = list;
+      for (let i = 0; i < 30; i++) { fresh = (await prefGet("vivaldi.workspaces.list")) || list; if (fresh.some(w => sameWs(w.id, ws))) break; await new Promise(r => setTimeout(r, 50)); }
+      const cur = curWs();
+      pend(ids, ws);
+      await tpMove(ids, ws);
+      if (!(await arrivedAt(ids, ws, 1500))) { await tpMove(ids, ws); await arrivedAt(ids, ws, 1200); }
+      await switchWs({ id: ws, name: fresh.find(w => sameWs(w.id, ws))?.name || "Desktop" }, fresh);
+      chrome.tabs.update(Number(ids[0]), { active: true }, () => void chrome.runtime.lastError);
+      for (const i of ids) { floating.delete(i); persist(i); }       // a full-screen app there: never a window again by itself
+      deskInfo = null; deskIndicatorNow();
+      if (wsStrip) openWsStripNow({ refresh: true });                 // the desktops panel shows the new one
+      queueRender();
     } catch (e) { wsErr("full screen on a new desktop", e); }
+    finally { fullOnNewDesk.busy = false; }
   }
   function holdAct(what, win) {
     const el = targetOf(pageOf(win));
@@ -5104,6 +5128,37 @@ window.vosBeat = window.vosBeat || (() => {
       if (f) { f.x = Math.max(0.01, Math.min(0.99 - f.w, f.x)); f.y = Math.max(0.01, Math.min(0.99 - f.h, f.y)); }
     };
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+  }
+  /* SMART GRABBERS: the colour at the top of each page, read from the page now and then (and when it loads):
+     its grabbers are white on a dark page, dark on a light one (CSS: data-vos-tone) */
+  const TONE_CODE = "(() => { let e = document.elementFromPoint(innerWidth / 2, 6); while (e) { const c = getComputedStyle(e).backgroundColor; if (c && c !== 'transparent' && !/rgba\\(0, 0, 0, 0\\)/.test(c)) return c; e = e.parentElement; } return getComputedStyle(document.documentElement).backgroundColor || ''; })()";
+  const toneRead = new WeakMap();
+  const toneOf = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.2)) return "light"; return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light"; };
+  function readTone(page) {
+    const wv = page?.querySelector("webview");
+    if (!wv || typeof wv.executeScript !== "function" || Date.now() - (toneRead.get(wv) || 0) < 4000) return;
+    toneRead.set(wv, Date.now());
+    if (!wv.__vosTone) { wv.__vosTone = true; wv.addEventListener("loadstop", () => { toneRead.delete(wv); setTimeout(() => readTone(page), 400); }); }
+    try {
+      wv.executeScript({ code: TONE_CODE }, x => {
+        void chrome.runtime.lastError;
+        const t = toneOf(Array.isArray(x) ? x[0] : x);
+        if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); }
+      });
+    } catch (e) {}
+  }
+  function toneFrames() {                            // a split's own grabber: the tone of the page at its top centre
+    for (const [id, f] of frames) {
+      if (!f.hasAttribute("data-ft-grab")) continue;
+      const el = targetOf(pageOf(id)), r = el?.getBoundingClientRect();
+      if (!r) continue;
+      const cx = r.left + r.width / 2;
+      const pg = $$(".webpageview[data-id]", el).find(p => { const q = p.getBoundingClientRect(); return cx >= q.left && cx <= q.right && q.top - r.top < 40; });
+      const t = pg?.dataset.vosTone || "light";
+      if (f.dataset.vosTone !== t) f.dataset.vosTone = t;
+    }
+    const b = browserEl(), t = activePage()?.dataset.vosTone || "light";
+    if (b && b.dataset.vosMaxtone !== t) b.dataset.vosMaxtone = t;
   }
   const isSplitWindow = el => !!el && !el.classList.contains("tile") && !el.classList.contains("webpageview");
   const inRect = (x, y, r) => !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
