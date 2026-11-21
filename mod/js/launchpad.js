@@ -2390,23 +2390,55 @@
     if (fx.dim) { x.fillStyle = "rgba(0, 0, 0, 0.25)"; x.fillRect(0, 0, w, h); }
     return c;
   }
-  async function storeWall(src, fx) {               // the picture with its effects, kept by Vivaldi: its address
-    const img = await loadImg(src);
-    if (!img) return null;
-    const blob = await new Promise(r => { try { drawWall(img, fx).toBlob(r, "image/jpeg", 0.92); } catch (e) { r(null); } });
+  // the picture itself, kept here (Vivaldi forgets a picture as soon as no theme shows it - while Dim or Blur is on,
+  // the themes show the copy): the picture comes back from this when both are off
+  const picDb = (() => {
+    let dbp = null;
+    const open = () => dbp || (dbp = new Promise((res, rej) => { const r = indexedDB.open("vosWallpaper", 1); r.onupgradeneeded = () => r.result.createObjectStore("pics"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }));
+    const run = (mode, f) => open().then(db => new Promise(res => { try { const tx = db.transaction("pics", mode), q = f(tx.objectStore("pics")); tx.oncomplete = () => res(mode === "readonly" ? (q?.result instanceof Blob ? q.result : null) : true); tx.onerror = () => res(null); } catch (e) { res(null); } })).catch(() => null);
+    return { get: k => run("readonly", st => st.get(k)), set: (k, v) => run("readwrite", st => st.put(v, k)) };
+  })();
+  const toBlob = (c, type = "image/jpeg", q = 0.92) => new Promise(r => { try { c.toBlob(r, type, q); } catch (e) { r(null); } });
+  async function picOf(rec) {                       // the picture's own bytes: kept here, else read now (and kept)
+    let blob = await picDb.get(rec.base);
+    wlog("kept here", blob ? blob.size : "no");
+    if (blob) return blob;
+    try { const r = await fetch(rec.base); if (r.ok) blob = await r.blob(); } catch (e) {}
+    if (!blob || !blob.size) {
+      const img = await loadImg(rec.base);
+      if (img) blob = await toBlob(drawWall(img, {}, 8000), "image/png");
+      else if (rec.made && rec.fx === "d") {        // the picture already forgotten: Dim is 25% black, so it comes back from the dimmed copy
+        const m = await loadImg(rec.made);
+        if (m) {
+          const c = drawWall(m, {}, 8000), x = c.getContext("2d"), d = x.getImageData(0, 0, c.width, c.height), px = d.data;
+          for (let i = 0; i < px.length; i += 4) { px[i] = Math.min(255, px[i] / 0.75); px[i + 1] = Math.min(255, px[i + 1] / 0.75); px[i + 2] = Math.min(255, px[i + 2] / 0.75); }
+          x.putImageData(d, 0, 0);
+          blob = await toBlob(c, "image/jpeg", 0.95);
+        }
+      }
+    }
+    if (blob && blob.size) { await picDb.set(rec.base, blob); return blob; }
+    return null;
+  }
+  const storeBlob = async blob => {                 // a picture kept by Vivaldi: its address (never as a theme's own: Vivaldi would delete the picture it replaces)
     if (!blob || !vivaldi?.utilities?.storeImage) return null;
     const data = await blob.arrayBuffer();
-    return await new Promise(r => { try { vivaldi.utilities.storeImage({ data, mimeType: "image/jpeg" }, u => { void chrome.runtime.lastError; r(u || null); }); } catch (e) { r(null); } });
+    return await new Promise(r => { try { vivaldi.utilities.storeImage({ data, mimeType: blob.type || "image/jpeg" }, u => { void chrome.runtime.lastError; r(u || null); }); } catch (e) { r(null); } });
+  };
+  async function storeWall(blob, fx) {              // the picture with its effects, kept by Vivaldi: its address
+    const u = URL.createObjectURL(blob), img = await loadImg(u);
+    URL.revokeObjectURL(u);
+    return img ? storeBlob(await toBlob(drawWall(img, fx))) : null;
   }
   function wallFade() {                             // the wallpaper seen now, on a layer that fades once the new one is drawn
     const b = document.getElementById("browser"), stack = document.getElementById("webpage-stack");
-    if (!b || !stack || document.hidden) return async () => {};
+    if (!b || !stack || document.hidden) return Object.assign(async () => {}, { cancel() {} });
     const cs = getComputedStyle(b), was = cs.getPropertyValue("--browserBackgroundImage"), old = document.createElement("div");
     old.className = "vos-wall-old";
     for (const [k, v] of [["background-color", "--browserBackgroundColor"], ["background-image", "--browserBackgroundImage"], ["background-size", "--browserBackgroundSize"],
                           ["background-position", "--browserBackgroundPosition"], ["background-repeat", "--browserBackgroundRepeat"]]) old.style.setProperty(k, cs.getPropertyValue(v), "important");
     stack.appendChild(old); b.setAttribute("data-vos-wallfade", "");
-    return async () => {
+    const fin = async () => {
       for (let i = 0; i < 50 && getComputedStyle(b).getPropertyValue("--browserBackgroundImage") === was; i++) await new Promise(r => setTimeout(r, 40));
       const u = /url\(["']?([^"')]+)/.exec(getComputedStyle(b).getPropertyValue("--browserBackgroundImage"))?.[1];
       if (u) { const im = new Image(); im.src = u; try { await im.decode(); } catch (e) {} }   // drawn before the old one goes: no empty moment
@@ -2414,12 +2446,17 @@
       old.remove();
       if (!document.querySelector(".vos-wall-old")) b.removeAttribute("data-vos-wallfade");
     };
+    fin.cancel = () => { old.remove(); if (!document.querySelector(".vos-wall-old")) b.removeAttribute("data-vos-wallfade"); };
+    return fin;
   }
-  function applyWall(fade) { return (wallBusy = wallBusy.then(() => applyWallNow(fade)).catch(e => console.warn("Bento OS: wallpaper", e))); }
+  const wallLog = [], wlog = (...a) => { wallLog.push(a.map(x => typeof x === "string" ? x.slice(-48) : x).join(" ")); if (wallLog.length > 30) wallLog.shift(); };
+  function applyWall(fade) { return (wallBusy = wallBusy.then(() => applyWallNow(fade)).catch(e => { wlog("error", String(e)); console.warn("Bento OS: wallpaper", e); })); }
   async function applyWallNow(fade) {
     const t = await modeThemes(), ids = [...new Set([t.light, t.dark].filter(Boolean))];
+    const b = document.getElementById("browser"), was = b ? getComputedStyle(b).getPropertyValue("--browserBackgroundImage") : "";
+    const done = fade ? wallFade() : null;           // (the wallpaper seen now, ready to fade)
     let bases = {}; try { bases = JSON.parse((await vstore.get(WALL_BASE_KEY)) || "{}") || {}; } catch (e) {}
-    const want = [];
+    const want = [], fxs = (wallFx.dim ? "d" : "") + (wallFx.blur ? "b" : ""), madeNow = new Map();
     for (const id of ids) {
       const th = await themeBg(id);
       if (!th) continue;
@@ -2428,21 +2465,43 @@
       if (!rec || (cur && cur !== rec.made && cur !== rec.base)) rec = { base: cur, made: "", fx: "" };   // a picture chosen since: that one is the picture now
       bases[id] = rec;
       if (!rec.base) continue;
-      const fxs = (wallFx.dim ? "d" : "") + (wallFx.blur ? "b" : "");
-      if (fxs && (rec.fx !== fxs || !rec.made)) { const u = await storeWall(rec.base, wallFx); if (u) { rec.made = u; rec.fx = fxs; } }
-      const to = fxs && rec.made ? rec.made : rec.base;
-      if (to !== cur) want.push([id, to]);
+      if (fxs) {
+        if (rec.made && rec.fx === fxs && (await loadImg(rec.made))) { await picOf(rec); if (cur !== rec.made) want.push([id, rec.made]); continue; }   // (Vivaldi clears unused copies now and then; the picture itself kept here meanwhile)
+        const blob = await picOf(rec);
+        if (!blob) continue;
+        const key = rec.base + "|" + fxs;
+        const u = madeNow.get(key) || await storeWall(blob, wallFx);   // (light and dark with one picture: one copy)
+        if (!u) continue;
+        madeNow.set(key, u); rec.made = u; rec.fx = fxs;
+        if (cur !== u) want.push([id, u]);
+      } else {
+        wlog("off", id, "cur", cur, "base", rec.base);
+        if (cur === rec.base && (await loadImg(rec.base))) continue;
+        if (await loadImg(rec.base)) { want.push([id, rec.base]); continue; }
+        const blob = await picOf(rec);           // the picture forgotten by Vivaldi: kept again (from its bytes kept here)
+        wlog("picture bytes", blob ? blob.size : "none");
+        if (!blob) continue;
+        const key = rec.base + "|";
+        const u = madeNow.get(key) || await storeBlob(blob);
+        if (!u) continue;
+        madeNow.set(key, u); await picDb.set(u, blob);
+        rec.base = u; rec.made = ""; rec.fx = "";
+        want.push([id, u]);
+      }
     }
     vstore.set(WALL_BASE_KEY, JSON.stringify(bases));
-    if (!want.length) return;
-    const done = fade ? wallFade() : null;
     for (const [id, to] of want) await themeBg(id, { backgroundImage: to });
-    if (done) await done();
+    if (!done) return;
+    if (!want.length && (b ? getComputedStyle(b).getPropertyValue("--browserBackgroundImage") : "") === was) { done.cancel(); return; }   // nothing changed: no fade
+    await done();
   }
   function wallToggle(k) { wallFx = { ...wallFx, [k]: !wallFx[k] }; vstore.set(WALL_FX_KEY, wallFx); applyWall(true); }
-  window.vosWallpaper = { apply: applyWall, toggle: wallToggle, state: () => ({ fx: wallFx }) };
+  window.vosWallpaper = { apply: applyWall, toggle: wallToggle, state: () => ({ fx: wallFx, log: wallLog.slice(-12) }) };
   try { chrome.storage.local.get(null, all => { void chrome.runtime.lastError; const old = Object.keys(all || {}).filter(k => /^vosWall(:|Fx$|Fx:)/.test(k)); if (old.length) chrome.storage.local.remove(old); }); } catch (e) {}   // (1.0.153's wallpapers per window: gone)
-  vstore.get(WALL_FX_KEY).then(fx => { if (fx && typeof fx === "object") wallFx = { dim: !!fx.dim, blur: !!fx.blur }; });
+  vstore.get(WALL_FX_KEY).then(fx => {
+    if (fx && typeof fx === "object") wallFx = { dim: !!fx.dim, blur: !!fx.blur };
+    if (document.getElementById("browser")) setTimeout(() => applyWall(true), 600);   // at start: the wallpaper as it should be (a cleared copy made again)
+  });
   try { chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch[WALL_FX_KEY]) { const v = ch[WALL_FX_KEY].newValue; wallFx = { dim: !!v?.dim, blur: !!v?.blur }; } }); } catch (e) {}
   const wallpaperItems = () => [["Light Mode…", () => changeWallpaper("light")], ["Dark Mode…", () => changeWallpaper("dark")],
                                 ["Both Modes…", () => changeWallpaper("both")], "-",

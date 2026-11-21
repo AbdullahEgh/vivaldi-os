@@ -4422,7 +4422,11 @@ window.vosBeat = window.vosBeat || (() => {
   }
   const isBentoT = t => !!t && "bento" in t;
   function swUnprep() {
-    for (const el of sw.inc) { if (el.classList.contains("vos-lp-ghost")) el.remove(); else { el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-swmax-in"); } }
+    for (const el of sw.inc) {
+      if (el.classList.contains("vos-lp-ghost")) { el.remove(); continue; }
+      el.removeAttribute("data-vos-incoming"); el.removeAttribute("data-ft-ws-leave"); el.removeAttribute("data-vos-swmax-in");
+      if (el.__vosPlaced) { el.__vosPlaced = false; if (!floating.has(el.dataset.id)) unplace(el); }   // a pane laid out for the slide: Vivaldi's own place again
+    }
     sw.inc = [];
   }
   function swPrep(dir) {                                             // the desktop that way, beside this one: its windows, or its Launchpad
@@ -4432,11 +4436,14 @@ window.vosBeat = window.vosBeat || (() => {
     sw.inV = dir * sw.D;
     const sc = scene(); if (sc) sc.children[1].style.visibility = t && !isBentoT(t) ? "" : "hidden";
     if (!t || isBentoT(t)) return;                                   // Bento: the same windows, tiled - nothing comes in
-    const fp = fullOf(sw.info?.front?.get(String(t.id)));            // that desktop shows a full-screen app: it comes in as it is
+    const ft = sw.info?.front?.get(String(t.id)), fp = fullOf(ft);  // that desktop shows a full-screen app: it comes in as it is
     if (fp) {
-      fp.setAttribute("data-vos-incoming", ""); fp.setAttribute("data-vos-swmax-in", "");
+      // a split full screen there (Vivaldi draws it only on the desktop shown): its panes, laid out as it is seen
+      const ss = stackRect(), parts = fp.classList.contains("webpageview") && !isTiled(fp) ? splitParts(String(ft.id), ss) : null;
+      const els = parts ? parts.map(({ id: pid, r }) => { const pg = pageOf(pid); if (pg) { place(pg, r, ss); pg.__vosPlaced = true; } return pg; }).filter(Boolean) : [fp];
+      for (const el of els) { el.setAttribute("data-vos-incoming", ""); el.setAttribute("data-vos-swmax-in", ""); }
       if (sc) sc.children[1].style.visibility = "hidden";
-      sw.inc = [fp];
+      sw.inc = els;
       return;
     }
     const els = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), t.id))
@@ -5059,10 +5066,11 @@ window.vosBeat = window.vosBeat || (() => {
       const up = b.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) ? pageOf(underId) : null;
       return up?.hasAttribute("data-ft-under") ? up : null;
     })();
-    let fullIn = null;
+    let fullIn = null, frIn = null;
     if (sp.id != null && !(sp.incoming || []).length) {
       try {
         const fr = deskInfo?.front && Date.now() - deskInfo.at < 30000 ? deskInfo.front : deskFronts(await tabsQuery({ currentWindow: true }));
+        frIn = fr;
         fullIn = fullOf(fr.get(String(sp.id)));
       } catch (e) {}
       if (fullIn === fullOut) fullIn = null;
@@ -5075,7 +5083,11 @@ window.vosBeat = window.vosBeat || (() => {
     }
     const fullAnims = [];
     if (fullOut) { fullOut.setAttribute("data-vos-swo", fullOut.hasAttribute("data-ft-under") ? "under" : ""); fullAnims.push([fullOut, fullOut.animate([{ translate: "0px 0px" }, { translate: `${-dir * D}px 0px` }], { duration: ms, easing: ease, fill: "forwards" })]); }
-    if (fullIn) { fullIn.setAttribute("data-vos-swi", ""); fullAnims.push([fullIn, fullIn.animate([{ translate: `${dir * D}px 0px` }, { translate: "0px 0px" }], { duration: ms, easing: ease, fill: "forwards" })]); }
+    if (fullIn) {                                                    // (a split full screen there: all its panes, laid out as it is seen)
+      const ss0 = stackRect(), ftIn = frIn?.get?.(String(sp.id)), parts = fullIn.classList.contains("webpageview") && !isTiled(fullIn) && ftIn ? splitParts(String(ftIn.id), ss0) : null;
+      const ins = parts ? parts.map(({ id: pid, r }) => { const pg = pageOf(pid); if (pg) { place(pg, r, ss0); pg.__vosPlaced = true; } return pg; }).filter(Boolean) : [fullIn];
+      for (const el of ins) { el.setAttribute("data-vos-swi", ""); fullAnims.push([el, el.animate([{ translate: `${dir * D}px 0px` }, { translate: "0px 0px" }], { duration: ms, easing: ease, fill: "forwards" })]); }
+    }
     { const sc = scene();                                            // the wallpapers slide too: this one out, the other in
       if (sc && sc.children[1].style.visibility === "hidden") sceneAt(parseFloat(sc.children[0].style.translate) || 0, dir * D);
       sceneGo(-dir * D, 0, ms, ease);
@@ -5113,7 +5125,7 @@ window.vosBeat = window.vosBeat || (() => {
       const lpOut = leaving.filter(el => el.classList.contains("lp-layer"));   // the Launchpad stays slid out until it is put aside
       leaving.forEach(el => { if (lpOut.includes(el)) return; el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
       setTimeout(() => {                                             // once the last window has slid in
-        for (const [el, a] of fullAnims) { el.removeAttribute("data-vos-swo"); el.removeAttribute("data-vos-swi"); a.cancel(); }
+        for (const [el, a] of fullAnims) { el.removeAttribute("data-vos-swo"); el.removeAttribute("data-vos-swi"); a.cancel(); if (el.__vosPlaced) { el.__vosPlaced = false; if (!floating.has(el.dataset.id)) unplace(el); } }
         for (const el of sp.incoming || []) { if (el.classList?.contains("vos-lp-ghost")) el.remove(); else el.removeAttribute("data-vos-incoming"); }
         if (gen === swipeGen) { b.removeAttribute("data-vos-swipe"); b.removeAttribute("data-vos-lp-ghost"); }   // (the Launchpad is put aside first, then shown again if wanted)
         lpOut.forEach(el => { el.removeAttribute("data-ft-swipe-out"); el.removeAttribute("data-ft-ws-leave"); el.style.removeProperty("translate"); });
