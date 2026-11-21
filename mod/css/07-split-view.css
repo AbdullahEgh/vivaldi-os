@@ -1492,3 +1492,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.144: floating windows - the soft light outline around them again (outside the window, see-through) */
 #browser #main [data-ft-float]:not([data-ft-pip]), #browser #main .webpageview[data-ft-float]:not([data-ft-pip]) { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 8px 22px rgba(0, 0, 0, 0.22) !important; }
 #browser #main [data-ft-float][data-ft-front]:not([data-ft-pip]), #browser #main .webpageview[data-ft-float][data-ft-front]:not([data-ft-pip]) { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 28px 72px rgba(0, 0, 0, 0.46), 0 10px 24px rgba(0, 0, 0, 0.28) !important; }
+/* 1.0.147: the tab bar's date sits close to the clock */
+#browser .vos-chain-vosdate button { padding: 0 1px 0 6px !important; }
+#browser .vos-chain-vosdate { margin-right: -5px !important; }

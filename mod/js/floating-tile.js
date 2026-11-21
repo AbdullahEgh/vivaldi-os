@@ -459,7 +459,7 @@ window.vosBeat = window.vosBeat || (() => {
     window.__ftQuietTint = null;
     if (was === String(id)) window.dispatchEvent(new Event("ft-tint"));   // recolor now
   }
-  let wantActive = null, closingPip = null;
+  let wantActive = null, closingPip = null, restoreGuard = null;
   function activate(id, opts) {
     const t = tabIdOf(id);
     if (opts?.quiet) window.__ftQuietTint = String(id);
@@ -5065,7 +5065,10 @@ window.vosBeat = window.vosBeat || (() => {
       // a minimized window comes back — also when its tab is already active
       // (a single tab), where Vivaldi reports no tab switch
       const w = winOf(tabId);
-      if (w && minimized.has(w)) setTimeout(() => restore(w), 0);
+      if (w && minimized.has(w)) {
+        restoreGuard = { id: String(tabId), w, until: Date.now() + 900 };   // (Vivaldi's own click on the active tab may switch to the tab before it)
+        setTimeout(() => restore(w), 0);
+      }
       return;
     }
     if (t.closest?.(".ft-max-grab")) return startMaxDrag(e);        // a full-screen page: drag it out
@@ -5691,6 +5694,11 @@ window.vosBeat = window.vosBeat || (() => {
     chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
       if (!mine(windowId)) return;
       const id = String(tabId);
+      if (restoreGuard && Date.now() < restoreGuard.until && id !== restoreGuard.id && winOf(restoreGuard.id) === restoreGuard.w) {   // a window just brought back by its tab: it stays in front
+        const g = restoreGuard; restoreGuard = null;
+        setTimeout(() => { activate(g.id); raise(g.w); render(); }, 0);
+        return;
+      }
       if (hover && hover.id === id && !hover.landed) hover.landed = Date.now();   // the hover's switch landed
       pendingActive = null; clearTimeout(pendingTimer);             // any activation ends the wait
       if (window.__ftQuietTint != null && window.__ftQuietTint !== id) window.__ftQuietTint = null;

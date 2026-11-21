@@ -1476,3 +1476,7 @@
 #browser .lp-w-m .lp-wk-clock-sq > .lp-dclock { justify-self: center !important; }
 /* the month's name lines up with the left of its days (the first day column's letters) */
 #browser .lp-cal-mon .lp-cal-month, #browser .lp-w-m .lp-cal-mon .lp-cal-month, #browser .lp-wk-clockcal .lp-cal-month { text-align: left !important; padding-left: calc((100% / 7 - 0.62em) / 2) !important; }
+
+/* 1.0.147: [ X | calendar ] - more room around the month (its right edge clear of the card's), the left part as it was */
+#browser .lp-w-m :is(.lp-wk-cal, .lp-wk-clockcal) .lp-cal-mon { padding: 8px 18px 8px 10px !important; }
+#browser .lp-w-m .lp-wk-cal { padding-right: 14px !important; }
