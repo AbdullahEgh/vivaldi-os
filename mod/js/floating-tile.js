@@ -5264,7 +5264,9 @@ window.vosBeat = window.vosBeat || (() => {
     const d = dragIcon; dragIcon = null; setTimeout(() => d.remove(), 0);
   });
   addEventListener("pointerup", () => { if (dragIcon) { dragIcon.remove(); dragIcon = null; } }, true);
+  const tbEditing = () => !!document.querySelector("#browser.toolbar-edit-mode");   // Vivaldi's toolbar editor: its drags are its own (dropped outside: removed)
   function onDragStart(e) {
+    if (tbEditing()) return;
     const strip = e.target.closest?.(".mosaic-tile");
     if (strip) {
       const win = strip.closest("[data-ft-float]");
@@ -5283,6 +5285,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
 
   function onDragOver(e) {
+    if (tbEditing()) return;
     if (!e.isTrusted || !(e.clientX || e.clientY)) return;
     if (!drag) {                                                    // its dragstart never reached us
       // a tab dragged out of the tab bar (Vivaldi starts those drags itself):
@@ -5359,6 +5362,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
 
   function onDrop(e) {
+    if (tbEditing()) return;
     if (!e.isTrusted) return;                                       // our own "handled" signal
     const d = drag;
     if (!d) return;
