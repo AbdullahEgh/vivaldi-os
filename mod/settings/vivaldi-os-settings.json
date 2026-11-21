@@ -957,9 +957,11 @@
       }
     ],
     "vivaldi.panels.position": 1,
-    "vivaldi.panels.window_defaults.barVisible": true,
-    "vivaldi.panels.window_defaults.contentVisible": false,
-    "vivaldi.panels.window_defaults.width": 360,
+    "vivaldi.panels.window_defaults": {
+      "barVisible": false,
+      "contentVisible": false,
+      "width": 360
+    },
     "vivaldi.startpage": {
       "navigation": 2,
       "speed_dial": {
@@ -995,7 +997,13 @@
       "visible": true
     },
     "vivaldi.theme": {
-      "dim_blurred": false
+      "dim_blurred": false,
+      "schedule": {
+        "o_s": {
+          "dark": "Vivaldi2",
+          "light": "Vivaldi2"
+        }
+      }
     },
     "vivaldi.themes.current": "Vivaldi1",
     "vivaldi.toolbars.navigation": [
@@ -1033,13 +1041,15 @@
       "PanelToggle"
     ],
     "vivaldi.toolbars.tabbar_before": [
-      "WorkspaceButton",
       "FlexibleSpacer",
       "Back",
       "AddressField"
     ],
     "vivaldi.webpages": {
       "tab_focuses_links": true
+    },
+    "vivaldi.workspaces.button": {
+      "show_name": false
     },
     "account_values.vivaldi.address_bar": {
       "autocomplete": {

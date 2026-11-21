@@ -1487,3 +1487,9 @@
 /* 1.0.152: nine times (90 min too): five to a row */
 #browser .lp-tm-presets { grid-template-columns: repeat(5, 1fr) !important; gap: 5px !important; }
 #browser .lp-tm-chip { font-size: 11.5px !important; }
+
+/* 1.0.153: time's up - the ring breathes (a slow, soft swell), in the tab bar, the popup and the widget, until you cancel or restart */
+@keyframes vos-tm-breathe { 0%, 100% { opacity: 1; scale: 1; } 50% { opacity: 0.45; scale: 0.9; } }
+#browser .lp-wk-timer[data-over] .lp-ring,
+#browser .vos-tm-mini[data-over] svg { transform-origin: 50% 50% !important; animation: vos-tm-breathe 2.4s ease-in-out infinite !important; }
+@media (prefers-reduced-motion: reduce) { #browser .lp-wk-timer[data-over] .lp-ring, #browser .vos-tm-mini[data-over] svg { animation-duration: 4.8s !important; scale: 1 !important; } }

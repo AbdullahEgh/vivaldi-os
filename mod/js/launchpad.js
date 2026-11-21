@@ -925,7 +925,9 @@
     [/^light mode/i, MI('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>')],
     [/^dark mode/i, MI('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor" stroke="none"/>')],   // macOS: a circle, its left half dark
     [/^both modes/i, MI('<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M20 4v12.5a3.5 3.5 0 0 1-3.5 3.5H4z" fill="currentColor" stroke="none"/>')],
-    [/^themes settings/i, MI('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.1 0 1.7-.9 1.4-1.8-.4-1 .3-2.2 1.4-2.2H17a3.5 3.5 0 0 0 3.5-3.5c0-5.2-3.8-9.5-8.5-9.5z"/><circle cx="7.8" cy="11" r="1.1"/><circle cx="10.5" cy="7.3" r="1.1"/><circle cx="15" cy="7.8" r="1.1"/>')],
+    [/^dim wallpaper/i, MI('<circle cx="12" cy="12" r="7.5"/><path d="M12 4.5a7.5 7.5 0 0 1 0 15z" fill="currentColor" stroke="none" opacity="0.55"/>')],
+    [/^blur wallpaper/i, MI('<circle cx="8" cy="9" r="3" opacity="0.5"/><circle cx="15.5" cy="10.5" r="4" opacity="0.75"/><circle cx="10" cy="16" r="3.2"/>')],
+    [/^themes? settings/i, MI('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.1 0 1.7-.9 1.4-1.8-.4-1 .3-2.2 1.4-2.2H17a3.5 3.5 0 0 0 3.5-3.5c0-5.2-3.8-9.5-8.5-9.5z"/><circle cx="7.8" cy="11" r="1.1"/><circle cx="10.5" cy="7.3" r="1.1"/><circle cx="15" cy="7.8" r="1.1"/>')],
     [/^back$/i, MI('<path d="M14.5 6l-6 6 6 6"/>')],
     [/^open in new|new tab|new window/i, MI('<rect x="3.5" y="5" width="13" height="12" rx="2.5"/><path d="M19.5 9v9a2.5 2.5 0 0 1-2.5 2.5H8"/><path d="M10 9v4M8 11h4"/>')],
     [/^open launchpad/i, MI('<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/>')],
@@ -2335,8 +2337,10 @@
       });
       sub.appendChild(back);
       const sep = document.createElement("div"); sep.className = "lp-menu-sep"; sub.appendChild(sep);
-      for (const [l, fn] of items) {
-        const it = document.createElement("button"); it.type = "button"; it.className = "lp-menu-item"; menuLabel(it, l);
+      for (const item of items) {
+        if (item === "-") { const sp = document.createElement("div"); sp.className = "lp-menu-sep"; sub.appendChild(sp); continue; }
+        const [l, fn, on] = item;
+        const it = document.createElement("button"); it.type = "button"; it.className = "lp-menu-item" + (on ? " lp-menu-on" : ""); menuLabel(it, l);
         it.addEventListener("click", e => { e.stopPropagation(); done(); fn(); });
         sub.appendChild(it);
       }
@@ -2349,8 +2353,101 @@
     m.appendChild(b);
     return b;
   }
-  const wallpaperItems = () => [["Light Mode…", () => changeWallpaper("light")], ["Dark Mode…", () => changeWallpaper("dark")],
-                                ["Both Modes…", () => changeWallpaper("both")], ["Themes Settings…", wallpaperSettings]];
+  /* WALLPAPER PER WINDOW: a picture chosen here is this Vivaldi window's own (for Light Mode, Dark Mode, or both);
+     the theme's wallpaper shows where a window has none. Dim (15% black) and Blur (strong) are baked into the picture
+     once - no live filter on the screen - over this window's own picture or the theme's. */
+  const WALL_FX_KEY = "vosWallFx";
+  let wallFx = { dim: false, blur: false }, wallWin = null, wallOwn = null, wallStyle = null, wallSeq = 0, wallTheme = "";
+  const wallMade = new Map();                      // picture + effects -> its blob url (the last few)
+  const wallKey = () => (wallWin ? "vosWall:" + wallWin : null);
+  const winKeyNow = () => new Promise(r => chrome.windows.getCurrent(w => {     // this window, also after a restart (Vivaldi's own id for it)
+    void chrome.runtime.lastError; let k = null;
+    try { k = JSON.parse(w?.vivExtData || "{}").ext_id; } catch (e) {}
+    r(k || (w ? "id" + w.id : null));
+  }));
+  const loadImg = src => new Promise(r => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+  function drawWall(img, fx, max = 2560) {
+    const k = Math.min(1, max / Math.max(1, img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d");
+    if (fx.blur) {                                  // strong: its edges drawn past the frame, so they stay full
+      const r = Math.round(Math.max(w, h) / 40);
+      x.filter = `blur(${r}px)`; x.drawImage(img, -2 * r, -2 * r, w + 4 * r, h + 4 * r); x.filter = "none";
+    } else x.drawImage(img, 0, 0, w, h);
+    if (fx.dim) { x.fillStyle = "rgba(0, 0, 0, 0.15)"; x.fillRect(0, 0, w, h); }
+    return c;
+  }
+  async function bakeWall(src, fx) {
+    const key = src.length > 200 ? src.slice(0, 80) + src.length + src.slice(-80) : src;
+    const k = key + "|" + !!fx.dim + !!fx.blur;
+    if (wallMade.has(k)) return wallMade.get(k);
+    const img = await loadImg(src);
+    if (!img) return null;
+    const blob = await new Promise(r => { try { drawWall(img, fx).toBlob(r, "image/jpeg", 0.9); } catch (e) { r(null); } });
+    if (!blob) return null;
+    const url = URL.createObjectURL(blob);
+    wallMade.set(k, url);
+    while (wallMade.size > 4) { const [k0, u0] = wallMade.entries().next().value; wallMade.delete(k0); setTimeout(() => URL.revokeObjectURL(u0), 3000); }
+    return url;
+  }
+  async function applyWall() {
+    const seq = ++wallSeq, b = document.getElementById("browser");
+    if (!b) return;
+    let dark = false; try { dark = await isDarkNow(); } catch (e) {}
+    const own = wallOwn ? (dark ? wallOwn.dark || wallOwn.both : wallOwn.light || wallOwn.both) || null : null;
+    wallTheme = b.style.getPropertyValue("--browserBackgroundImage") || "";
+    const theme = /url\(["']?([^"')]+)/.exec(wallTheme)?.[1] || null;
+    const src = own || theme;
+    const url = src && (own || wallFx.dim || wallFx.blur) ? await bakeWall(src, own && !wallFx.dim && !wallFx.blur ? {} : wallFx) : null;
+    if (seq !== wallSeq) return;
+    if (!url) { wallStyle?.remove(); wallStyle = null; return; }
+    if (!wallStyle) { wallStyle = document.createElement("style"); wallStyle.id = "vos-wall"; }
+    if (!wallStyle.isConnected) document.head.appendChild(wallStyle);
+    const css = `#browser#browser { --browserBackgroundImage: url("${url}") !important;${own ? " --browserBackgroundSize: cover !important; --browserBackgroundPosition: center !important; --browserBackgroundRepeat: no-repeat !important;" : ""} }`;
+    if (wallStyle.textContent !== css) wallStyle.textContent = css;
+  }
+  function pickWallpaper(mode) {                   // a picture from the computer: this window's own
+    if (lp && !lp.desktop) close(true, true); else if (lp) close();
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+    inp.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
+    document.body.appendChild(inp);
+    inp.addEventListener("change", async () => {
+      const f = inp.files?.[0]; inp.remove();
+      if (!f) return;
+      const raw = URL.createObjectURL(f), img = await loadImg(raw);
+      URL.revokeObjectURL(raw);
+      if (!img) return;
+      let data = null; try { data = drawWall(img, {}).toDataURL("image/jpeg", 0.88); } catch (e) {}   // kept at 2560 at most
+      if (!data) return;
+      wallWin = wallWin || await winKeyNow();
+      const o = { ...(wallOwn || {}) };
+      if (mode === "both") { delete o.light; delete o.dark; o.both = data; } else o[mode] = data;
+      wallOwn = o; if (wallKey()) vstore.set(wallKey(), o);
+      applyWall();
+    });
+    inp.click();
+    setTimeout(() => inp.remove(), 120000);
+  }
+  window.vosWallpaper = { apply: applyWall, pick: pickWallpaper, toggle: wallToggle, state: () => ({ win: wallWin, fx: wallFx, own: wallOwn ? Object.keys(wallOwn) : null, style: wallStyle?.textContent?.slice(0, 120) || null }) };
+  function themeWallpaper() { wallOwn = null; if (wallKey()) vstore.del(wallKey()); applyWall(); }   // this window: the theme's wallpaper again
+  function wallToggle(k) { wallFx = { ...wallFx, [k]: !wallFx[k] }; vstore.set(WALL_FX_KEY, wallFx); applyWall(); }
+  (async () => {
+    wallWin = await winKeyNow();
+    const [o, fx] = await Promise.all([wallKey() ? vstore.get(wallKey()) : null, vstore.get(WALL_FX_KEY)]);
+    if (o && typeof o === "object") wallOwn = o;
+    if (fx && typeof fx === "object") wallFx = { dim: !!fx.dim, blur: !!fx.blur };
+    for (let i = 0; i < 100 && !document.getElementById("browser")?.style.getPropertyValue("--browserBackgroundImage"); i++) await new Promise(r => setTimeout(r, 150));   // Vivaldi's window drawn, its wallpaper set
+    applyWall();
+    const b = document.getElementById("browser");     // the theme's wallpaper changed (another theme, a new picture): again
+    if (b) new MutationObserver(() => { if ((b.style.getPropertyValue("--browserBackgroundImage") || "") !== wallTheme) applyWall(); }).observe(b, { attributes: true, attributeFilter: ["style"] });
+    addEventListener("vos-appearance", () => setTimeout(applyWall, 200));
+    try { chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch[WALL_FX_KEY]) { const v = ch[WALL_FX_KEY].newValue; wallFx = { dim: !!v?.dim, blur: !!v?.blur }; applyWall(); } }); } catch (e) {}
+  })();
+  const wallpaperItems = () => [["Light Mode…", () => pickWallpaper("light")], ["Dark Mode…", () => pickWallpaper("dark")],
+                                ["Both Modes…", () => pickWallpaper("both")], ...(wallOwn ? [["Theme Wallpaper", themeWallpaper]] : []), "-",
+                                ["Dim Wallpaper", () => wallToggle("dim"), wallFx.dim], ["Blur Wallpaper", () => wallToggle("blur"), wallFx.blur],
+                                ["Theme Settings…", wallpaperSettings]];
   function wallpaperMenu(x, y) {                    // which mode's wallpaper (in the Launchpad, or over the desktop)
     const host = lp?.layer;
     if (host) closeMenu();
@@ -2363,11 +2460,11 @@
       b.addEventListener("click", ev => { ev.stopPropagation(); closeMenu(); fn(); });
       m.appendChild(b);
     };
-    add("Light Mode…", () => changeWallpaper("light"));
-    add("Dark Mode…", () => changeWallpaper("dark"));
-    add("Both Modes…", () => changeWallpaper("both"));
-    const sep = document.createElement("div"); sep.className = "lp-menu-sep"; m.appendChild(sep);
-    add("Themes Settings…", wallpaperSettings);
+    for (const item of wallpaperItems()) {
+      if (item === "-") { const sep = document.createElement("div"); sep.className = "lp-menu-sep"; m.appendChild(sep); continue; }
+      add(item[0], item[1]);
+      if (item[2]) m.lastElementChild.classList.add("lp-menu-on");
+    }
     m.addEventListener("click", ev => ev.stopPropagation());
     m.addEventListener("pointerdown", ev => ev.stopPropagation());
     if (host) { host.appendChild(m); lp.menu = m; host.setAttribute("data-raised", ""); }

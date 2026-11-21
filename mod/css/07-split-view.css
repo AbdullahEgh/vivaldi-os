@@ -1495,3 +1495,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.147: the tab bar's date sits close to the clock */
 #browser .vos-chain-vosdate button { padding: 0 1px 0 6px !important; }
 #browser .vos-chain-vosdate { margin-right: -5px !important; }
+
+/* 1.0.153: a pane held (dragged by its strip): no page takes the pointer, so it moves over every pane and window */
+#browser[data-vos-tiledrag] #webpage-stack webview, #browser[data-vos-tiledrag] #webpage-stack .webpageview { pointer-events: none !important; }
+#browser[data-vos-tiledrag], #browser[data-vos-tiledrag] * { cursor: grabbing !important; }
+
+/* 1.0.153: the Desktops widget is its own (OS · Desktops): the dots, this desktop a short line - Vivaldi's Workspaces button keeps its own icon */
+#browser .vos-chain-vosmission button > .vos-desks-ic { display: flex !important; align-items: center !important; justify-content: center !important; height: 100% !important; }
+#browser .vos-chain-vosmission button > .vos-desks-ic svg { display: block !important; }
+#browser .vos-chain-vosmission .ToolbarButton-Button:has(> .vos-desks-ic) { width: auto !important; min-width: 30px !important; padding: 0 6px !important; }
