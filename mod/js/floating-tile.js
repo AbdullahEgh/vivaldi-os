@@ -256,6 +256,8 @@ window.vosBeat = window.vosBeat || (() => {
       try {
         const wid = await winId(), pages = api.store.getTiles(wid, g), tree = await treeOf(g, all);
         if (pages && pages.size === all.length && tree && api.setLayout) {
+          const uncover = coverPanes(wsOfTab.get(String(id)));       // (its panes held by their photos while Vivaldi draws it)
+          setTimeout(() => uncover(), 0);
           api.dispatch({ actionType: "PAGE_TILE_PAGES", windowId: wid, pages, id: g });
           api.setLayout(wid, tree, g);                                // (that message clears the split's layout first: its own tree, put straight back)
           queueRender(); return;
@@ -4510,16 +4512,22 @@ window.vosBeat = window.vosBeat || (() => {
     for (const el of list) { el.getAnimations().forEach(a => { if (a.effect?.getKeyframes?.().some(k => "--vos-dx" in k)) a.cancel(); }); el.style.removeProperty("--vos-dx"); el.style.removeProperty("--vos-in"); }
   }
   const SW_QUIET = 700, SW_HUSH = 220, SW_QUIET_AFTER = 280, SW_FLICK = 1.8;   // SW_FLICK: px per ms - faster than a hand guiding it
-  let swQuietUntil = 0;                                // a finger resting is not a release: only the lift (or a long stop) lets go
+  let swQuietUntil = 0, swAfter = [], swLastDir = 0;            // swAfter: the last steps after a swipe; swLastDir: its way                                // a finger resting is not a release: only the lift (or a long stop) lets go
   let swHushAt = 0, swHushLast = 0, swLastEvt = 0;
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(".vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, dx = ev.deltaX * k, dy = ev.deltaY * k;
     const now = performance.now();
-    // ONE RULE after a swipe: nothing more until the trackpad is quiet (its momentum over) - no extra swipe on arrival
+    // after a swipe: what the trackpad still sends (its momentum - only ever fading) is not a swipe; a NEW swipe is:
+    // steps growing (fingers pushing again), the other way, or after a pause - so you can swipe on and on, at once
+    const gap = now - swLastEvt; swLastEvt = now;
     if (swiping || (sw && sw.settling) || now < swQuietUntil) {
-      swQuietUntil = Math.max(swQuietUntil, now + SW_QUIET_AFTER);
-      if (Math.abs(dx) >= Math.abs(dy)) ev.preventDefault(); return;
+      const h = swAfter; h.push(dx); if (h.length > 4) h.shift();
+      const growing = h.length >= 3 && Math.abs(h[h.length - 1]) >= 6 && Math.abs(h[h.length - 1]) > Math.abs(h[h.length - 2]) * 1.15 && Math.abs(h[h.length - 2]) > Math.abs(h[h.length - 3]) * 1.15 && Math.sign(h[h.length - 1]) === Math.sign(h[h.length - 2]);
+      const other = swLastDir && Math.sign(dx) === -swLastDir && Math.abs(dx) >= 4;
+      const fresh = !swiping && !(sw && sw.settling) && Math.abs(dx) > Math.abs(dy) && (growing || other || (gap > 150 && Math.abs(dx) >= 2));
+      if (!fresh) { swQuietUntil = Math.max(swQuietUntil, now + SW_QUIET_AFTER); if (Math.abs(dx) >= Math.abs(dy)) ev.preventDefault(); return; }
+      swQuietUntil = 0; swAfter = [];
     }
     if (sw && !dx && !dy) { ev.preventDefault(); return swRelease(); }   // the end of the gesture (macOS sends an empty one): the fingers let go
     if (!sw && Math.abs(dx) <= Math.abs(dy)) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }   // up / down: nothing (no tab switching here)
@@ -4531,6 +4539,7 @@ window.vosBeat = window.vosBeat || (() => {
   function swStart() {
     const stack = document.getElementById("webpage-stack"), b = browserEl();
     if (!stack || !b) return false;
+    try { shootPanes(curWs()); } catch (e) {}                       // (this desktop's split panes, photographed while they are drawn)
     if (wsStrip) closeWsStrip(false, !!mission);
     const info = deskInfo && sameWs(deskInfo.ws, curWs()) ? deskInfo : null;
     sw = { stack, b, info, acc: 0, vs: [], dir: 0, inc: [], D: swDist(), timer: 0 };
@@ -4706,6 +4715,7 @@ window.vosBeat = window.vosBeat || (() => {
   function swClean(s) {                                              // all in one frame: everything where it really is
     s.cleaned = true; s.watch?.disconnect();
     swQuietUntil = Math.max(swQuietUntil, performance.now() + SW_QUIET_AFTER);   // (what the trackpad still sends: not a new swipe)
+    swAfter = []; swLastDir = s.dir || 0;
     s.b.removeAttribute("data-vos-dragdesk");
     if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
     swUnmove(s.movers || []); s.movers = [];
@@ -5274,7 +5284,50 @@ window.vosBeat = window.vosBeat || (() => {
       }, Math.max(0, (shownAt || Date.now()) + ms - Date.now()) + 40);
     }
   }
+  /* NO BLINK: Vivaldi draws a desktop's splits only once you are on it, and moving their pages into the split leaves
+     each page empty for a moment. Leaving a desktop, its split panes are photographed; arriving, each pane holds its
+     photo on top until the page has drawn itself again, then the photo fades. */
+  const paneShots = new Map();                     // tab -> { url, at }
+  const splitPanesOn = ws => [...floating].filter(id => groupFloat.has(id) && !minimized.has(id) && sameWs(wsOfTab.get(String(id)), ws))
+    .flatMap(id => { const g = splitOfTab.get(String(id)); return g ? [...splitOfTab].filter(([k, v]) => v === g).map(([k]) => k) : []; });
+  function shootPanes(ws) {
+    const cap = vivaldi?.thumbnails?.captureTab;
+    if (!cap) return;
+    for (const pid of splitPanesOn(ws)) {
+      const r = pageOf(pid)?.getBoundingClientRect();
+      if (!r || r.width < 40) continue;
+      const k = Math.min(2, devicePixelRatio || 1), W = Math.round(Math.min(1600, r.width * k)), H = Math.round(W * r.height / r.width);
+      try {
+        const done = d => { void chrome.runtime.lastError; const url = typeof d === "string" ? d : d?.image || d?.dataUrl || ""; if (url) paneShots.set(pid, { url, at: Date.now() }); };
+        const q = cap.call(vivaldi.thumbnails, Number(pid), { encodeFormat: "jpg", encodeQuality: 85, fullPage: false, width: W, height: H }, done);
+        if (q && typeof q.then === "function") q.then(done, () => {});
+      } catch (e) {}
+    }
+  }
+  function coverPanes(ws) {
+    const out = [], host = stack(), ss = stackRect();
+    if (!host || (swiping && !sw)) return () => {};                 // (a desktop sliding in as a whole: its panes move - no still photo)
+    for (const pid of splitPanesOn(ws)) {
+      const pg = pageOf(pid), sh = paneShots.get(pid), r = pg?.getBoundingClientRect();
+      if (!pg || !sh || !r || r.width < 20 || Date.now() - sh.at > 10 * 60000) continue;
+      const win = pg.closest("[data-ft-float]") || pg, cs = getComputedStyle(pg);
+      const c = document.createElement("div"); c.className = "vos-pane-cover";
+      c.style.setProperty("background-image", `url("${sh.url}")`, "important");
+      c.style.setProperty("border-radius", cs.borderTopLeftRadius, "important");
+      host.appendChild(c);
+      place(c, { x: r.left - ss.left, y: r.top - ss.top, w: r.width, h: r.height }, ss);
+      c.style.setProperty("z-index", getComputedStyle(win).zIndex || "100", "important");   // just over its window (after it), under the windows in front
+      out.push(c);
+    }
+    return () => setTimeout(() => out.forEach(c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove())), 420);
+  }
   async function switchWs(sp, list) {
+    const was = curWs();
+    shootPanes(was);                                                 // (the desktop left: its split panes, as they are)
+    const uncover = sp.id != null ? coverPanes(sp.id) : null;       // (the one coming: its split panes held by their photos)
+    try { return await switchWsNow(sp, list); } finally { uncover?.(); }
+  }
+  async function switchWsNow(sp, list) {
     const was = curWs();
     if (sp.id != null) {
       const tabs = await tabsQuery({ currentWindow: true });
@@ -5317,7 +5370,7 @@ window.vosBeat = window.vosBeat || (() => {
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
       vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
-      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act, get perf() { return perf; },
+      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act, get perf() { return perf; }, paneShots, splitPanesOn, shootPanes,
     } });
   } catch (e) {}
   async function wsByTab(sp) {

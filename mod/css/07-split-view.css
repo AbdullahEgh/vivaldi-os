@@ -1544,3 +1544,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser:not([data-ft-desktop]):not([data-vos-dragdesk]):not([data-vos-swipe]) #webpage-stack > .vos-vsplit-shell { visibility: hidden !important; }
 #browser #main #webpage-stack .webpageview[data-vos-vsplit][data-ft-float] { box-shadow: none !important; border: 0 !important;
   border-radius: calc(var(--ft-radius) - var(--ft-frame)) !important; clip-path: inset(0 round calc(var(--ft-radius) - var(--ft-frame))) !important; }
+
+/* 1.0.167: a split pane's photo, on top while Vivaldi draws the split again (arriving on its desktop) - no empty flash */
+#browser #webpage-stack > .vos-pane-cover { pointer-events: none !important; background-size: cover !important; background-position: top center !important; background-repeat: no-repeat !important; overflow: hidden !important; }
