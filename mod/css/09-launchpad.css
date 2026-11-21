@@ -1480,3 +1480,6 @@
 /* 1.0.147: [ X | calendar ] - more room around the month (its right edge clear of the card's), the left part as it was */
 #browser .lp-w-m :is(.lp-wk-cal, .lp-wk-clockcal) .lp-cal-mon { padding: 8px 18px 8px 10px !important; }
 #browser .lp-w-m .lp-wk-cal { padding-right: 14px !important; }
+
+/* 1.0.148: the tab bar clock's popup - wide enough for its calendar's spacing */
+#browser .vos-clk-pop { width: 420px !important; }

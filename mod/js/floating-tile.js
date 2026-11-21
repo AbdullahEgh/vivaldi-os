@@ -90,8 +90,9 @@ window.vosBeat = window.vosBeat || (() => {
   const noTitle = new Set();        // floating windows with the title bar hidden
   let cover = null;                 // the window held to full view (over the tab bar and Vivaldi's buttons)
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
-  const PIP_K = 0.55, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
+  const PIP_K = 0.55, PIP_START_W = 400, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
   const pipZoomWas = new Map();     // page id -> its scale before it was held small (given back after)
+  const pipUserZoom = new Map();    // id -> the scale you chose with its scale button while held small
   const pipCorner = new Map();      // id -> "bl" | "br" | "tl" | "tr"
   const pipW = new Map();           // id -> its width (55% of the window it was: its own shape)
   const pipH = new Map();           // id -> its own height
@@ -1495,6 +1496,13 @@ window.vosBeat = window.vosBeat || (() => {
 
     if (action === "res") {                        // more room for the site: the page renders smaller
       if (!floating.has(id)) return;
+      if (pip.includes(id)) {                        // held small: its own scale steps (kept while it is small)
+        const steps = [0.4, 0.55, 0.7, 0.85, 1], now = pipUserZoom.get(id) ?? (pipZoomWas.get(id) ?? 1) * PIP_K;
+        const i = steps.findIndex(z => Math.abs(z - now) < 0.02), z = steps[(i + 1) % steps.length];
+        pipUserZoom.set(id, z);
+        webviewsOf(id).forEach(wv => { zoomSet.delete(wv); setWebZoom(wv, z); });
+        return;
+      }
       const steps = [1, 0.85, 0.7, 0.55], now = zoomOf[id] || 1;
       const i = steps.findIndex(z => Math.abs(z - now) < 0.02);
       const z = steps[(i + 1) % steps.length] ?? 1;                // any other scale: back to 100%
@@ -1656,7 +1664,7 @@ window.vosBeat = window.vosBeat || (() => {
         const put = z => { const was = Number(z) > 0 ? Number(z) : (own ?? 1); if (!pipZoomWas.has(pid)) pipZoomWas.set(pid, was); setWebZoom(wv, pipZoomWas.get(pid) * PIP_K); };
         try { wv.getZoom(put); } catch (_) { put(own ?? 1); }
       } else {
-        const was = pipZoomWas.get(pid); pipZoomWas.delete(pid);
+        const was = pipZoomWas.get(pid); pipZoomWas.delete(pid); pipUserZoom.delete(id);
         zoomSet.delete(wv); setWebZoom(wv, was ?? own ?? 1);
       }
     });
@@ -1720,7 +1728,8 @@ window.vosBeat = window.vosBeat || (() => {
         if (!pipOff(win)) {
           if (cover === win) cover = null;
           const c = "bl";
-          pipW.set(win, Math.max(160, Math.round(r.width * PIP_K))); pipH.set(win, Math.max(100, Math.round(r.height * PIP_K)));   // 55% of it, its own shape
+          { const W = Math.min(PIP_START_W, r.width), H = Math.round(W * r.height / Math.max(1, r.width));   // a fixed starting width, the window's own shape (resizable after)
+            pipW.set(win, Math.max(160, Math.round(W))); pipH.set(win, Math.max(100, H)); }
           pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
           persist(win);
         }
@@ -1786,7 +1795,7 @@ window.vosBeat = window.vosBeat || (() => {
     for (const id of floating) webviewsOf(id).forEach(wv => {
       const own = pageZoom[wv.closest(".webpageview")?.dataset.id];
       let z = own ?? zoomOf[id];
-      if (pip.includes(id)) { const was = pipZoomWas.get(wv.closest(".webpageview")?.dataset.id || id); if (was != null) z = was * PIP_K; }   // held small: still small after a new page loads
+      if (pip.includes(id)) { const was = pipZoomWas.get(wv.closest(".webpageview")?.dataset.id || id); if (pipUserZoom.has(id)) z = pipUserZoom.get(id); else if (was != null) z = was * PIP_K; }   // held small: still small after a new page loads (at the scale you chose)
       if (z) setWebZoom(wv, z);
     });
   }
@@ -4196,16 +4205,18 @@ window.vosBeat = window.vosBeat || (() => {
      Let go: it settles - on the next desktop when pushed far or fast enough, else back. The rest
      of that flick is let go. One desktop per swipe; none that way: a little stretch. */
   try { CSS.registerProperty({ name: "--vos-dx", syntax: "<number>", inherits: true, initialValue: "0" }); } catch (e) {}
-  const SW_QUIET = 700, SW_HUSH = 220;                                 // a pause is not a release: it waits (the fingers may only rest)
-  let swHushAt = 0;
+  const SW_QUIET = 180, SW_HUSH = 220;                                 // no more scrolling for a moment: let go (no finger-lift signal comes)
+  let swHushAt = 0, swHushLast = 0;
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(WS_BTN + ", .vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, dx = ev.deltaX * k, dy = ev.deltaY * k;
     const now = performance.now();
-    if (swiping || (sw && sw.settling) || (swHushAt && now - swHushAt < SW_HUSH)) {   // settling, or what is left of that flick
-      swHushAt = now; if (Math.abs(dx) > Math.abs(dy)) ev.preventDefault(); return;
+    // what is left of a swipe (its momentum, fading) is let go; a NEW swipe - the scrolling picking up again - is a swipe
+    const fresh = !swiping && !(sw && sw.settling) && swHushAt && Math.abs(dx) > Math.max(6, swHushLast * 1.8);
+    if (!fresh && (swiping || (sw && sw.settling) || (swHushAt && now - swHushAt < SW_HUSH))) {
+      swHushAt = now; swHushLast = Math.abs(dx); if (Math.abs(dx) > Math.abs(dy)) ev.preventDefault(); return;
     }
-    swHushAt = 0;
+    swHushAt = 0; swHushLast = 0;
     if (sw && !dx && !dy) { ev.preventDefault(); return swRelease(); }   // the end of the gesture (macOS sends an empty one): the fingers let go
     if (!sw && Math.abs(dx) <= Math.abs(dy)) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }   // up / down: nothing (no tab switching here)
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
@@ -5171,7 +5182,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* SMART GRABBERS: the colour at the top of each page, read from the page now and then (and when it loads):
      its grabbers are white on a dark page, dark on a light one (CSS: data-vos-tone) */
-  const TONE_CODE = "(() => { let e = document.elementFromPoint(innerWidth / 2, 6); while (e) { const c = getComputedStyle(e).backgroundColor; if (c && c !== 'transparent' && !/rgba\\(0, 0, 0, 0\\)/.test(c)) return c; e = e.parentElement; } return getComputedStyle(document.documentElement).backgroundColor || ''; })()";
+  const TONE_CODE = "(() => { let e = document.elementFromPoint(innerWidth / 2, 6), fg = ''; while (e) { const cs = getComputedStyle(e); if (!fg) fg = cs.color; const c = cs.backgroundColor; if (c && c !== 'transparent' && !/rgba\\(0, 0, 0, 0\\)/.test(c)) return [c, fg]; e = e.parentElement; } const r = getComputedStyle(document.documentElement), b = getComputedStyle(document.body || document.documentElement); const c = [b.backgroundColor, r.backgroundColor].find(x => x && x !== 'transparent' && !/rgba\\(0, 0, 0, 0\\)/.test(x)) || ''; return [c, fg || b.color, r.colorScheme]; })()";
   const toneRead = new WeakMap();
   const toneOf = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.2)) return "light"; return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light"; };
   function readTone(page) {
@@ -5182,7 +5193,9 @@ window.vosBeat = window.vosBeat || (() => {
     try {
       wv.executeScript({ code: TONE_CODE }, x => {
         void chrome.runtime.lastError;
-        const t = toneOf(Array.isArray(x) ? x[0] : x);
+        const v = Array.isArray(x) ? x[0] : x, [bg, fg, scheme] = Array.isArray(v) ? v : [v];
+        const lum = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c || ""); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : null; };
+        const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
         if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); }
       });
     } catch (e) {}
