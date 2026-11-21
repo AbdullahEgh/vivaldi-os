@@ -90,7 +90,7 @@ window.vosBeat = window.vosBeat || (() => {
   const noTitle = new Set();        // floating windows with the title bar hidden
   let cover = null;                 // the window held to full view (over the tab bar and Vivaldi's buttons)
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
-  const PIP_K = 0.25, PIP_Z = 0.3, PIP_GAP = 8;   // their size (a quarter of what they were), the page's zoom in them, the space between them
+  const PIP_K = 0.55, PIP_GAP = 8;   // their size: 55% of the Vivaldi window's page area (until you resize one), and the space between them
   const pipCorner = new Map();      // id -> "bl" | "br" | "tl" | "tr"
   const pipW = new Map();           // corner -> the width of every window there
   const pipH = new Map();           // id -> its own height
@@ -668,12 +668,12 @@ window.vosBeat = window.vosBeat || (() => {
      away from it (no overlap); one width per corner, a height per window */
   function pipRect(id, s) {
     const c = pipCorner.get(id) || "bl", bottom = c[0] === "b";
-    const W = Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(c) || 240));
+    const W = Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(c) || s.width * PIP_K));
     const x = c[1] === "r" ? s.width - MARGIN - W : MARGIN;
     let edge = bottom ? s.height - MARGIN : MARGIN;
     for (const p of [...pip].reverse()) {
       if ((pipCorner.get(p) || "bl") !== c) continue;
-      const h = Math.max(100, Math.min(s.height - 2 * MARGIN, pipH.get(p) || 150));
+      const h = Math.max(100, Math.min(s.height - 2 * MARGIN, pipH.get(p) || s.height * PIP_K));
       const y = bottom ? edge - h : edge;
       if (p === id) return { x, y: Math.max(0, Math.min(s.height - h, y)), w: W, h };
       if (!awayWs(p) && !minimized.has(p)) edge = bottom ? y - PIP_GAP : y + h + PIP_GAP;   // only the ones on this desktop take room
@@ -1638,6 +1638,13 @@ window.vosBeat = window.vosBeat || (() => {
     addEventListener("pointermove", onMove, true); addEventListener("pointerup", onUp, true); addEventListener("pointercancel", onUp, true);
   }
   let btnHold = null;
+  let pipVw = innerWidth, pipVh = innerHeight;
+  addEventListener("resize", () => {                 // the Vivaldi window resized or maximized: held-small windows back to 55% of it
+    if (innerWidth === pipVw && innerHeight === pipVh) return;
+    pipVw = innerWidth; pipVh = innerHeight;
+    if (!pip.length) return;
+    pipW.clear(); pipH.clear(); pip.forEach(persist); queueRender();
+  });
   function pipZoom() {}                              // held small: the page keeps the scale you give it (never forced)
   setTimeout(() => {                                 // once: a page an earlier version shrank in the corner gets its own scale back
     for (const id of pip) webviewsOf(id).forEach(wv => { const own = pageZoom[wv.closest(".webpageview")?.dataset.id]; setWebZoom(wv, own ?? zoomOf[id] ?? 1); });
@@ -1656,13 +1663,13 @@ window.vosBeat = window.vosBeat || (() => {
     const others = [...floating].filter(p => p !== win && !minimized.has(p) && !awayWs(p)).map(p => targetOf(pageOf(p)));   // the stack, and Bento closing / opening the gap, glide too
     if (what === "zoom") flip([el, ...others], () => { if (cover === win) cover = null; else { pipOff(win); cover = win; } render(); });
     else {
-      const r = el.getBoundingClientRect();                          // a quarter of the size it has on the screen now
+      const r = el.getBoundingClientRect();                          // (55% of the Vivaldi window: pipRect)
       flip([el, ...others], () => {
         if (!pipOff(win)) {
           if (cover === win) cover = null;
           const c = "bl";
-          if (!pip.some(p => (pipCorner.get(p) || "bl") === c)) pipW.set(c, Math.max(160, r.width * PIP_K));   // a corner in use keeps its width
-          pipH.set(win, Math.max(100, r.height * PIP_K));
+          if (!pip.some(p => (pipCorner.get(p) || "bl") === c)) pipW.delete(c);   // a corner in use keeps its width; else 55% of Vivaldi
+          pipH.delete(win);
           pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
           persist(win);
         }
