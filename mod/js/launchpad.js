@@ -2437,16 +2437,17 @@
     old.className = "vos-wall-old";
     for (const [k, v] of [["background-color", "--browserBackgroundColor"], ["background-image", "--browserBackgroundImage"], ["background-size", "--browserBackgroundSize"],
                           ["background-position", "--browserBackgroundPosition"], ["background-repeat", "--browserBackgroundRepeat"]]) old.style.setProperty(k, cs.getPropertyValue(v), "important");
-    stack.appendChild(old); b.setAttribute("data-vos-wallfade", "");
+    // on the Launchpad: inside it, under its icons (nothing under the Launchpad is ever shown); else just over the wallpaper
+    const lpL = [...stack.querySelectorAll(":scope > .lp-layer.lp-desktop:not(.vos-lp-ghost)")].find(x => x.offsetWidth && getComputedStyle(x).visibility !== "hidden");
+    if (lpL) { old.classList.add("vos-wall-old-in"); lpL.insertBefore(old, lpL.firstChild); } else stack.appendChild(old);
     const fin = async () => {
       for (let i = 0; i < 50 && getComputedStyle(b).getPropertyValue("--browserBackgroundImage") === was; i++) await new Promise(r => setTimeout(r, 40));
       const u = /url\(["']?([^"')]+)/.exec(getComputedStyle(b).getPropertyValue("--browserBackgroundImage"))?.[1];
       if (u) { const im = new Image(); im.src = u; try { await im.decode(); } catch (e) {} }   // drawn before the old one goes: no empty moment
       await old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 520, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }).finished.catch(() => {});
       old.remove();
-      if (!document.querySelector(".vos-wall-old")) b.removeAttribute("data-vos-wallfade");
     };
-    fin.cancel = () => { old.remove(); if (!document.querySelector(".vos-wall-old")) b.removeAttribute("data-vos-wallfade"); };
+    fin.cancel = () => old.remove();
     return fin;
   }
   const wallLog = [], wlog = (...a) => { wallLog.push(a.map(x => typeof x === "string" ? x.slice(-48) : x).join(" ")); if (wallLog.length > 30) wallLog.shift(); };

@@ -1496,10 +1496,6 @@
 
 /* 1.0.154: the wallpaper changing (a picture, Dim, Blur): the old one, on its own layer over the new one, fades away -
    the new one shows under it on the page area itself (the Launchpad's own copy of it stays clear meanwhile) */
-#browser[data-vos-wallfade] #webpage-stack { background-color: var(--browserBackgroundColor) !important; background-image: var(--browserBackgroundImage) !important;
-  background-position: var(--browserBackgroundPosition) !important; background-repeat: var(--browserBackgroundRepeat) !important;
-  background-size: var(--browserBackgroundSize) !important; background-attachment: fixed !important; }
-#browser[data-vos-wallfade] #webpage-stack > .lp-layer.lp-desktop { background: transparent !important; }
 #browser #webpage-stack > .vos-wall-old { position: absolute !important; inset: 0 !important; z-index: 84 !important; pointer-events: none !important; background-attachment: fixed !important; }
 
 /* 1.0.157: the timer's time always fits inside its ring (longer times - an hour, or +2:20:27 - get smaller) */
@@ -1515,3 +1511,6 @@
 #browser .lp-menu.lp-menu-side { min-width: 190px !important; }   /* (its own menu, beside the other: the same blur and look) */
 #browser .lp-menu .lp-menu-nest[data-open] { background: var(--colorHighlightBg, #0a84ff) !important; color: var(--colorHighlightFg, #fff) !important; }
 #browser .lp-menu .lp-menu-nest[data-open] .lp-menu-chev { opacity: 1 !important; }
+
+/* 1.0.160: on the Launchpad the old wallpaper fades inside it, under its icons (its own picture is never cleared) */
+#browser #webpage-stack > .lp-layer > .vos-wall-old.vos-wall-old-in { position: absolute !important; inset: 0 !important; z-index: -1 !important; pointer-events: none !important; background-attachment: fixed !important; }
