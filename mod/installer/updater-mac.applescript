@@ -3,6 +3,13 @@
 -- latest official release of github.com/AbdullahEgh/vivaldi-os, after you confirm,
 -- and only if it carries the signature of Bento OS's release key.
 on open location theURL
+	-- Bento OS's Dark Mode: the system's own appearance (light / dark); nothing else is read from the link
+	if theURL starts with "vivaldios://appearance/" then
+		set wantDark to (theURL is "vivaldios://appearance/dark")
+		if theURL is not "vivaldios://appearance/dark" and theURL is not "vivaldios://appearance/light" then return
+		tell application "System Events" to tell appearance preferences to set dark mode to wantDark
+		return
+	end if
 	if theURL does not start with "vivaldios://update" then return
 	try
 		display dialog "Update Bento OS now?" & return & return & "Vivaldi will close, update and reopen with your tabs." buttons {"Cancel", "Update"} default button "Update" cancel button "Cancel" with title "Bento OS" with icon note

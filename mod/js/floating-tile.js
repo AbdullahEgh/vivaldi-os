@@ -2702,7 +2702,7 @@ window.vosBeat = window.vosBeat || (() => {
   const chainButton = () => osChainButtons().vosbento || null;
   const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="1.5" y="7" width="7" height="4" rx="2"/><circle cx="12" cy="9" r="2"/><circle cx="16" cy="9" r="1.6" opacity="0.55"/></svg>';   // Ubuntu: this desktop a line, the others dots
   const TIMER_ICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none" stroke-width="2.6" stroke-linecap="round"><circle cx="10" cy="10" r="7.5" stroke="currentColor" opacity="0.3"/><path d="M10 2.5a7.5 7.5 0 1 1-7.13 5.18" stroke="#ff9f0a"/></svg>';   // only the ring
-  const DARK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.5"/><path d="M12 4.5a7.5 7.5 0 0 1 0 15z" fill="currentColor" stroke="none"/></svg>';   // half dark: light / dark
+  const DARK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="7.8"/><path d="M12 4.2a7.8 7.8 0 0 0 0 15.6z" fill="currentColor" stroke="none"/></svg>';   // macOS Dark Mode: a circle, its left half dark
   const DATE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M4 10h16M8.5 3.5v3M15.5 3.5v3"/></svg>';
   /* THE DATE by the tab bar clock: Fri / Fri 20 / Fri 20 Nov */
   let dateFmt = "dd";
@@ -2794,6 +2794,10 @@ window.vosBeat = window.vosBeat || (() => {
     },
   };
   function osWidgets() {                            // Mission Control and Timer: their drawing and click
+    for (const b of document.querySelectorAll("#tabs-tabbar-container .button-toolbar:not([data-vos-back])")) {   // the Back button: always the bold arrow (its title changes)
+      const t = (b.getAttribute("title") || b.querySelector("button")?.getAttribute("title") || b.querySelector("button")?.getAttribute("aria-label") || "").trim();
+      if (/^(previous page|go to previous page|back)\b/i.test(t)) b.setAttribute("data-vos-back", "");
+    }
     const found = osChainButtons();
     for (const [key, icon, act] of [["vosmission", MC_ICON, () => openWsStrip()], ["vostimer", TIMER_ICON, b => window.vosTimer?.toggle(b)],
                                     ["vosdate", '<span class="vos-date-tx"></span>', b => window.vosClockPop?.(b)],

@@ -1384,3 +1384,8 @@
 #browser .lp-layer[data-sheet-only]::before, #browser .lp-layer[data-sheet-only]::after { display: none !important; }
 /* a Bento OS menu over the desktop (the wallpaper's modes) */
 #browser > .lp-menu.vos-desk-menu { position: fixed !important; z-index: 2147482000 !important; }
+/* 1.0.137: an iOS nested menu item: a chevron at the end; its list opens in place, with a row back */
+#browser .lp-menu .lp-menu-nest { position: relative !important; padding-right: 30px !important; }
+#browser .lp-menu .lp-menu-chev { position: absolute !important; right: 10px !important; top: 50% !important; width: 12px !important; height: 12px !important; translate: 0 -50% !important; opacity: 0.55 !important; }
+#browser .lp-menu .lp-menu-back { font-weight: 600 !important; }
+#browser .lp-menu .lp-menu-sub { display: contents !important; }

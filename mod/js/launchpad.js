@@ -564,9 +564,9 @@
     add("Bookmarks…", () => folderPicker());   // just the Bookmarks sheet (no editing)
     const sep = () => { const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d); };
     sep();
-    add("Change Wallpaper…", () => setTimeout(() => wallpaperMenu(x, y), 0));
+    nestedItem(m, "Wallpaper", wallpaperItems(), closeMenu);
     add("Dark Mode", () => window.vosAppearance.toggle());
-    isDarkNow().then(d => { const b = [...m.querySelectorAll(".lp-menu-item")].find(e => /Dark Mode/.test(e.textContent)); b?.classList.toggle("lp-menu-on", d); });
+    isDarkNow().then(d => { const b = [...m.querySelectorAll(".lp-menu-item")].find(e => /^Dark Mode$/.test(e.textContent.trim())); b?.classList.toggle("lp-menu-on", d); });
     sep();
     add("Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), () => checkUpdate(true));
     add("Settings…", openSettings);
@@ -922,6 +922,11 @@
   /* right-click menus: an icon on the left of every item (like macOS / iOS menus) */
   const MI = (d, fill) => `<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const MENU_ICONS = [                              // one thin line weight (as Vivaldi's own icons)
+    [/^light mode/i, MI('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>')],
+    [/^dark mode/i, MI('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor" stroke="none"/>')],   // macOS: a circle, its left half dark
+    [/^both modes/i, MI('<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M20 4v12.5a3.5 3.5 0 0 1-3.5 3.5H4z" fill="currentColor" stroke="none"/>')],
+    [/^themes settings/i, MI('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.1 0 1.7-.9 1.4-1.8-.4-1 .3-2.2 1.4-2.2H17a3.5 3.5 0 0 0 3.5-3.5c0-5.2-3.8-9.5-8.5-9.5z"/><circle cx="7.8" cy="11" r="1.1"/><circle cx="10.5" cy="7.3" r="1.1"/><circle cx="15" cy="7.8" r="1.1"/>')],
+    [/^back$/i, MI('<path d="M14.5 6l-6 6 6 6"/>')],
     [/^open in new|new tab|new window/i, MI('<rect x="3.5" y="5" width="13" height="12" rx="2.5"/><path d="M19.5 9v9a2.5 2.5 0 0 1-2.5 2.5H8"/><path d="M10 9v4M8 11h4"/>')],
     [/^open launchpad/i, MI('<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/>')],
     [/^open/i, MI('<path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>')],
@@ -2273,6 +2278,40 @@
     }
     return null;
   }
+  /* AN iOS NESTED MENU: an item with a chevron opens its list in the same menu, in place; its header row goes back */
+  function nestedItem(m, label, items, done) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "lp-menu-item lp-menu-nest"; menuLabel(b, label);
+    b.insertAdjacentHTML("beforeend", '<svg class="lp-menu-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5L8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    b.addEventListener("click", ev => {
+      ev.stopPropagation();
+      const main = [...m.children], top0 = m.getBoundingClientRect().top;
+      const sub = document.createElement("div"); sub.className = "lp-menu-sub";
+      const back = document.createElement("button"); back.type = "button"; back.className = "lp-menu-item lp-menu-back";
+      back.innerHTML = '<svg class="lp-mi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></svg>';
+      const t = document.createElement("span"); t.textContent = label; back.appendChild(t);
+      back.addEventListener("click", e => {
+        e.stopPropagation(); sub.remove(); main.forEach(c => c.style.removeProperty("display"));
+        m.animate([{ opacity: 0.6, transform: "translateX(-8px)" }, { opacity: 1, transform: "none" }], { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+      });
+      sub.appendChild(back);
+      const sep = document.createElement("div"); sep.className = "lp-menu-sep"; sub.appendChild(sep);
+      for (const [l, fn] of items) {
+        const it = document.createElement("button"); it.type = "button"; it.className = "lp-menu-item"; menuLabel(it, l);
+        it.addEventListener("click", e => { e.stopPropagation(); done(); fn(); });
+        sub.appendChild(it);
+      }
+      main.forEach(c => c.style.setProperty("display", "none", "important"));
+      m.appendChild(sub);
+      const r = m.getBoundingClientRect();                         // still on the screen, where it was
+      if (r.bottom > innerHeight - 8) m.style.top = Math.max(8, innerHeight - 8 - r.height) + "px"; else m.style.top = Math.round(top0) + "px";
+      sub.animate([{ opacity: 0, transform: "translateX(10px)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    });
+    m.appendChild(b);
+    return b;
+  }
+  const wallpaperItems = () => [["Light Mode…", () => changeWallpaper("light")], ["Dark Mode…", () => changeWallpaper("dark")],
+                                ["Both Modes…", () => changeWallpaper("both")], ["Themes Settings…", wallpaperSettings]];
   function wallpaperMenu(x, y) {                    // which mode's wallpaper (in the Launchpad, or over the desktop)
     const host = lp?.layer;
     if (host) closeMenu();
@@ -2311,12 +2350,27 @@
     const all = [...((await pref("vivaldi.themes.system")) || []), ...((await pref("vivaldi.themes.user")) || [])];
     return darkTheme(all.find(t => t?.id === cur));
   }
-  async function setDark(on) {                     // Vivaldi follows the system's appearance: both appearances point at the dark (or the light) theme
+  /* the system's own Dark Mode (macOS / Windows), through Bento OS's helper (the updater app on a Mac, a small
+     handler on Windows): Vivaldi follows the system with its light and dark themes. Without the helper (or when
+     you decline it): Vivaldi alone goes dark / light. */
+  function openHelper(url) {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
+      const t = tabs?.[0], go = () => void chrome.runtime.lastError;
+      if (t) chrome.tabs.update(t.id, { url }, go); else chrome.tabs.create({ url, active: false }, go);
+    });
+  }
+  async function setDark(on) {
     const t = await modeThemes();
-    const target = on ? t.dark : t.light;
-    if (!target) return;
-    if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
-    else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
+    if (!t.light || !t.dark) return;
+    // Vivaldi follows the system again, with its real light / dark themes
+    await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: t.light, dark: t.dark } });
+    if (!t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.enabled", value: typeof t.en === "number" ? 1 : "system" });
+    openHelper("vivaldios://appearance/" + (on ? "dark" : "light"));   // the system's Dark Mode
+    setTimeout(async () => {                                         // no helper (or declined): Vivaldi alone
+      if ((await isDarkNow()) === on) return;
+      const target = on ? t.dark : t.light;
+      await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
+    }, 6000);
     setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
   }
   window.vosAppearance = { isDark: isDarkNow, set: setDark, async toggle() { await setDark(!(await isDarkNow())); } };
@@ -2563,9 +2617,9 @@
     add("Add Widget…", inLp(widgetGallery));
     add("Bookmarks…", () => sheetOnly(folderPicker));
     sep();
-    add("Change Wallpaper…", () => setTimeout(() => wallpaperMenu(x, y), 0));
+    nestedItem(m, "Wallpaper", wallpaperItems(), () => closeDesk());
     add("Dark Mode", () => window.vosAppearance.toggle());
-    isDarkNow().then(d => { const b = [...m.querySelectorAll(".lp-menu-item")].find(e => /Dark Mode/.test(e.textContent)); b?.classList.toggle("lp-menu-on", d); });
+    isDarkNow().then(d => { const b = [...m.querySelectorAll(".lp-menu-item")].find(e => /^Dark Mode$/.test(e.textContent.trim())); b?.classList.toggle("lp-menu-on", d); });
     sep();
     add("Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), () => checkUpdate(true));
     add("Settings…", openSettings);
