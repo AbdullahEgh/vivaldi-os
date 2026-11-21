@@ -191,7 +191,7 @@
     return t;
   }
 
-  let justDragged = false;
+  let justDragged = false, appOpenedAt = 0;
   function app(n, onOpen) {
     const a = document.createElement("button");
     a.type = "button"; a.className = "lp-app"; a.title = n.url || nameOf(n);
@@ -201,8 +201,10 @@
     l.className = "lp-name"; l.textContent = nameOf(n);
     a.appendChild(l);
     a.appendChild(delBadge(() => askDelete(n)));
+    a.__open = onOpen;
     a.addEventListener("click", ev => {
       ev.stopPropagation();
+      if (Date.now() - appOpenedAt < 600) return;                   // opened already on the release (onDown)
       if (lp?.swallow) { lp.swallow = false; return; }
       if (lp?.menuJustClosed) { lp.menuJustClosed = false; return; }
       if (lp?.editing && !isFolder(n)) return;      // editing: a tap opens nothing (folders still open)
@@ -467,7 +469,13 @@
       removeEventListener("pointermove", move, true);
       removeEventListener("pointerup", up, true);
       removeEventListener("pointercancel", up, true);
-      if (st.on) dragEnd(st, e.type === "pointerup");
+      if (st.on) return dragEnd(st, e.type === "pointerup");
+      // a plain press and release on an app: it opens now - never lost when the grid redraws in between
+      // (an icon still loading, a refresh), which sent the click to the background instead
+      if (e.type !== "pointerup" || !lp || lp.swallow || lp.menuJustClosed || justDragged || (lp.editing && !isFolder(st.node))) return;
+      if (Math.hypot(e.clientX - st.x, e.clientY - st.y) > 6 || !st.el.__open) return;
+      appOpenedAt = Date.now();
+      st.el.__open(st.node, e);
     };
     addEventListener("pointermove", move, true);
     addEventListener("pointerup", up, true);
@@ -656,6 +664,7 @@
       else closeMenu();
     });
     layer.addEventListener("click", ev => {          // the empty space: a folder closes first, then the Launchpad
+      if (Date.now() - appOpenedAt < 600) return;                  // the release opened an app: its click is not the background's
       if (lp?.swallow) { lp.swallow = false; return; }
       if (lp?.menuJustClosed) { lp.menuJustClosed = false; return; }
       if (justDragged || ev.target.closest(".lp-searchbar, .lp-suggest")) return;
