@@ -1454,3 +1454,11 @@
 /* 1.0.142: Clock & Calendar - its clock the same size as the Pills clock widget on its own (same frame, no extra scale) */
 #browser .lp-wk-clockcal { padding: 14px !important; }
 #browser .lp-wk-clockcal .lp-clock { transform: none !important; height: 100% !important; }
+
+/* 1.0.143: a sheet's scroll bar shows only while scrolling, over the content - which goes edge to edge under it */
+#browser .lp-ios { position: relative !important; }
+#browser .lp-ios-body { scrollbar-width: none !important; }
+#browser .lp-ios-body::-webkit-scrollbar { display: none !important; width: 0 !important; }
+#browser .lp-ios-thumb { position: absolute !important; right: 3px !important; top: 0; width: 6px !important; border-radius: 3px !important; background: rgba(127, 127, 127, 0.55) !important;
+  opacity: 0 !important; pointer-events: none !important; z-index: 6 !important; transition: opacity 0.35s ease !important; }
+#browser .lp-ios-thumb[data-on] { opacity: 1 !important; transition: opacity 0.12s ease !important; }

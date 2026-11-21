@@ -1005,6 +1005,18 @@
     }
     const body = document.createElement("div"); body.className = "lp-ios-body";
     box.append(head, body);
+    { // a scroll bar only while scrolling, over the content (the content goes edge to edge under it)
+      const thumb = document.createElement("div"); thumb.className = "lp-ios-thumb"; box.appendChild(thumb);
+      body.addEventListener("scroll", () => {
+        const h = body.clientHeight, sh = body.scrollHeight;
+        if (sh <= h + 1) return;
+        const th = Math.max(32, h * h / sh);
+        thumb.style.height = Math.round(th) + "px";
+        thumb.style.top = Math.round(body.offsetTop + 3 + (h - th - 6) * body.scrollTop / (sh - h)) + "px";
+        thumb.setAttribute("data-on", "");
+        clearTimeout(thumb.__t); thumb.__t = setTimeout(() => thumb.removeAttribute("data-on"), 900);
+      }, { passive: true });
+    }
     sheet.appendChild(box);
     sheet.addEventListener("click", ev => { ev.stopPropagation(); if (ev.target === sheet) closeSheet(); });
     sheet.addEventListener("pointerdown", ev => ev.stopPropagation());
