@@ -2130,22 +2130,29 @@
         });
         row.append(ic, t, sw);
         g.appendChild(row);
-        if (k === "date" && tbw.dateFmt) {                   // how it reads: Fri / Fri 20 / Fri 20 Nov
-          const seg = document.createElement("div"); seg.className = "lp-tb-seg";
-          const paintSeg = () => seg.querySelectorAll("button").forEach(b => b.toggleAttribute("data-on", b.dataset.f === tbw.dateFmt()));
-          for (const f of ["d", "dd", "ddm"]) {
-            const b = document.createElement("button"); b.type = "button"; b.dataset.f = f; b.textContent = tbw.dateText(f);
-            b.addEventListener("click", ev => {
-              ev.stopPropagation(); tbw.setDateFmt(f); paintSeg();
-              if (!st.date) { st.date = true; paint(); Promise.resolve(tbw.set("date", true)).catch(() => {}); }   // choosing one shows it
-            });
-            seg.appendChild(b);
-          }
-          paintSeg();
-          const box = document.createElement("div"); box.className = "lp-tb-segbox";
-          const cap = document.createElement("span"); cap.className = "lp-gal-cap"; cap.textContent = "Date";
-          box.append(cap, seg);
-          g.after(box);
+        if (k === "date" && tbw.dateFmt) {                   // how it reads (Fri / Fri 20 / Fri 20 Nov): its gear
+          const gear = document.createElement("span"); gear.className = "lp-tb-gear"; gear.setAttribute("role", "button"); gear.title = "How the date reads";
+          gear.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3h3.4l.5 2.4c.7.2 1.3.6 1.9 1l2.3-.8 1.7 2.9-1.8 1.6c.1.7.1 1.5 0 2.2l1.8 1.6-1.7 2.9-2.3-.8c-.6.4-1.2.8-1.9 1l-.5 2.4h-3.4l-.5-2.4c-.7-.2-1.3-.6-1.9-1l-2.3.8-1.7-2.9 1.8-1.6a7 7 0 0 1 0-2.2L3.6 8.5l1.7-2.9 2.3.8c.6-.4 1.2-.8 1.9-1z"/><circle cx="12" cy="12" r="2.8"/></svg>';
+          gear.addEventListener("click", ev => {
+            ev.stopPropagation();
+            document.querySelector(".lp-tb-fmt")?.remove();
+            const m = document.createElement("div"); m.className = "lp-menu lp-tb-fmt";
+            const head = document.createElement("div"); head.className = "lp-menu-head"; head.textContent = "Date"; m.appendChild(head);
+            for (const f of ["d", "dd", "ddm"]) {
+              const b = document.createElement("button"); b.type = "button"; b.className = "lp-menu-item" + (tbw.dateFmt() === f ? " lp-menu-on" : ""); b.textContent = tbw.dateText(f);
+              b.addEventListener("click", e => {
+                e.stopPropagation(); tbw.setDateFmt(f); m.remove();
+                if (!st.date) { st.date = true; paint(); Promise.resolve(tbw.set("date", true)).catch(() => {}); }   // choosing one shows it
+              });
+              m.appendChild(b);
+            }
+            m.addEventListener("pointerdown", e => e.stopPropagation());
+            (row.closest(".lp-ios") || document.body).appendChild(m);
+            const r = gear.getBoundingClientRect(), host = m.offsetParent?.getBoundingClientRect() || { left: 0, top: 0 };
+            m.style.position = "absolute"; m.style.left = Math.round(r.left - host.left) + "px"; m.style.top = Math.round(r.bottom - host.top + 6) + "px";
+            setTimeout(() => addEventListener("pointerdown", function off(e2) { if (!m.contains(e2.target)) { m.remove(); removeEventListener("pointerdown", off, true); } }, true));
+          });
+          row.appendChild(gear);
         }
       }
     }).catch(() => {});
@@ -2373,6 +2380,7 @@
     if (!target) return;
     if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
     else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
+    const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();
     try {
       if (on) {
         if ((await vstore.get("vosSchemeWas")) == null) vstore.set("vosSchemeWas", JSON.stringify({ scheme: (await pref("vivaldi.PreferredColorScheme")) ?? 0, force: !!(await pref("vivaldi.appearance.force_dark_mode_theme")) }));
@@ -2386,16 +2394,26 @@
       }
     } catch (e) { console.warn("Bento OS: websites' dark mode", e); }
     setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
+    return wantBg;                                  // (the dissolve waits for this colour)
   }
+  let dissolving = false;
   async function dissolve(fn) {                    // the old look fades into the new one (a snapshot cross-fade)
-    if (!document.startViewTransition) return fn();
-    const b = document.getElementById("browser"), was = b && getComputedStyle(b).getPropertyValue("--colorBg");
-    let vt; try { vt = document.startViewTransition(async () => {
-      await fn();
-      for (let i = 0; i < 30; i++) { if (!b || getComputedStyle(b).getPropertyValue("--colorBg") !== was) break; await new Promise(r => setTimeout(r, 40)); }
-      await new Promise(r => setTimeout(r, 60));
-    }); } catch (e) { return fn(); }                                 // no snapshot here: at once
-    try { await vt.finished; } catch (e) {}
+    if (dissolving) return;
+    dissolving = true;
+    try {
+      const b = document.getElementById("browser"), bg = () => (b ? getComputedStyle(b).getPropertyValue("--colorBg").trim().toLowerCase() : "");
+      const settle = async want => {                 // the new theme in place: its colour, the same for 200ms
+        let same = 0, last = "";
+        for (let i = 0; i < 60 && same < 5; i++) {
+          await new Promise(r => setTimeout(r, 40));
+          const now = bg();
+          same = now === last && (!want || now === want || i > 25) ? same + 1 : 0; last = now;
+        }
+      };
+      if (!document.startViewTransition) { await settle(await fn()); return; }
+      let vt; try { vt = document.startViewTransition(async () => { await settle(await fn()); }); } catch (e) { await fn(); return; }
+      try { await vt.finished; } catch (e) {}
+    } finally { dissolving = false; }
   }
   window.vosAppearance = { isDark: isDarkNow, set: on => dissolve(() => setDark(on)), async toggle() { const d = await isDarkNow(); await dissolve(() => setDark(!d)); } };
   async function changeWallpaper(mode = "both") {

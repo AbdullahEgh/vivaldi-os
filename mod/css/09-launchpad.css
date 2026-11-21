@@ -1429,3 +1429,25 @@
 
 /* ---------- Dark Mode: a slow dissolve ---------- */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.5s !important; animation-timing-function: ease !important; }
+
+/* 1.0.140 ---------- the widget gallery, again ---------- */
+/* rows scroll from edge to edge of the sheet */
+#browser .lp-gallery .lp-gal-row { margin-left: -16px !important; margin-right: -16px !important; padding-left: 16px !important; padding-right: 16px !important; scroll-padding-left: 16px !important; }
+/* the Tab Bar tiles: no border - on shows in the icon (blue) and the word */
+#browser .lp-tb-tile, #browser .lp-tb-tile[data-on] { box-shadow: none !important; position: relative !important; }
+#browser .lp-tb-gear { position: absolute !important; top: 7px !important; right: 7px !important; width: 24px !important; height: 24px !important; border-radius: 50% !important; display: grid !important; place-items: center !important; color: var(--lp-ios-sub) !important; cursor: pointer !important; }
+#browser .lp-tb-gear:hover { background: rgba(127, 127, 127, 0.16) !important; color: var(--lp-text, inherit) !important; }
+#browser .lp-tb-gear svg { width: 16px !important; height: 16px !important; }
+#browser .lp-menu.lp-tb-fmt { z-index: 30 !important; min-width: 170px !important; }
+
+/* a medium clock: left and right - the face centred in the left half, the time centred in the right half */
+#browser .lp-w-m :is(.lp-wk-clock-num, .lp-wk-clock-pill, .lp-wk-clock-sq) { display: grid !important; grid-template-columns: 1fr 1fr !important; grid-template-rows: 100% !important; align-items: center !important; justify-items: center !important; gap: 0 !important; padding: 14px !important; }
+#browser .lp-w-m :is(.lp-wk-clock-num, .lp-wk-clock-pill, .lp-wk-clock-sq) > .lp-clock { height: 100% !important; justify-self: center !important; }
+#browser .lp-w-m :is(.lp-wk-clock-num, .lp-wk-clock-pill, .lp-wk-clock-sq) > .lp-dclock { justify-self: center !important; }
+
+/* the single Pills clock: a bigger face (less frame around it) */
+#browser .lp-w-s .lp-wk-clock-pill { padding: 5px !important; }
+
+/* the medium calendar: today's number bigger, in the middle of its column */
+#browser .lp-w-m .lp-cal-left { display: flex !important; flex-direction: column !important; }
+#browser .lp-w-m .lp-cal-big { flex: 1 !important; display: flex !important; align-items: center !important; margin: 0 !important; font-size: 112px !important; letter-spacing: -3px !important; }
