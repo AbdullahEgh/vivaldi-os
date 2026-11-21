@@ -248,12 +248,17 @@ window.vosBeat = window.vosBeat || (() => {
   async function vsRetile(id) {
     const v = vSplit(id), api = vivTile();
     if (!v || !api) return;
+    const g = splitOfTab.get(String(id)), all = [...splitOfTab].filter(([k, x]) => x === g).map(([k]) => k);
+    if (v.pages.length !== all.length) { vsFixAt.delete(id); return; }   // every pane there first (one left out would leave the split)
     try {
       const nums = v.pages.map(p => Number(p.dataset.id)), wid = await winId();
       const list = api.store.getPages(wid)?.filter?.(pg => nums.includes(pg.id))?.sortBy?.(pg => nums.indexOf(pg.id));
       if (!list || list.size !== nums.length) return;
       dropInfo = { target: String(id), dragged: null, src: String(id), kind: "window", t: Date.now() };   // the window keeps its place
-      await api.tile(list, v.layout);
+      const tree = tileTrees[splitOfTab.get(String(id))];
+      const sorted = list.sortBy(pg => tileMeta.get(String(pg.id))?.index ?? 0);   // (in its own order: the tree's numbers stay right)
+      const nid = await api.tile(sorted, v.layout);
+      if (tree && nid && api.setLayout) { api.setLayout(await winId(), tree, nid); setTimeout(readTiling, 300); }   // as it was: nested, its sizes
       queueRender();
     } catch (e) { LOG("split again", e); }
   }
@@ -267,6 +272,8 @@ window.vosBeat = window.vosBeat || (() => {
     if (!g) return null;
     const ids = [...splitOfTab].filter(([k, v]) => v === g).map(([k]) => k).sort((x, y) => (tileMeta.get(x)?.index || 0) - (tileMeta.get(y)?.index || 0));
     if (ids.length < 2) return null;
+    const tb = splitBoxes(g, { x: 6, y: 6, w: ss.width - 12, h: ss.height - 12 }, 6);
+    if (tb) return tb;
     const row = (tileMeta.get(String(id))?.layout || "row") !== "column", n = ids.length, G = 6;
     const each = ((row ? ss.width : ss.height) - G * (n + 1)) / n;
     return ids.map((m, i) => ({ id: m, r: row ? { x: G + i * (each + G), y: G, w: each, h: ss.height - 2 * G } : { x: G, y: G + i * (each + G), w: ss.width - 2 * G, h: each } }));
@@ -323,6 +330,37 @@ window.vosBeat = window.vosBeat || (() => {
     return x?.tiling?.id ? String(x.tiling.id) : "";
   };
   const tileMeta = new Map();                       // tab id -> { index, layout } in its split (Vivaldi's tab data)
+  let tileTrees = {};                               // split id -> its tree (the window's own data)
+  const readTrees = () => new Promise(r => chrome.windows.getCurrent(w => { void chrome.runtime.lastError; try { tileTrees = JSON.parse(w?.vivExtData || "{}").tiles || {}; } catch (e) {} r(tileTrees); }));
+  async function treeOf(g, ids) {                   // a split's tree: Vivaldi's own (read now), or the flat one it makes (first | (second | third))
+    if (!tileTrees[g]) await readTrees();
+    if (tileTrees[g]) return tileTrees[g];
+    const idx = ids.map(k => tileMeta.get(String(k))?.index).filter(i => i != null).sort((x, y) => x - y);
+    if (idx.length < 2) return null;
+    const dir = (tileMeta.get(String(ids[0]))?.layout || "row") === "column" ? "column" : "row";
+    const build = i => i === idx.length - 1 ? idx[i] : { direction: dir, first: idx[i], second: build(i + 1), splitPercentage: 100 / (idx.length - i) };
+    return build(0);
+  }
+  /* a split's tree laid out in a box: pane index -> its rect (gap g between panes; sizes as Vivaldi keeps them) */
+  function treeRects(node, box, g, out = new Map()) {
+    if (node == null) return out;
+    if (typeof node === "number") { out.set(node, box); return out; }
+    const row = node.direction !== "column", pct = Math.max(5, Math.min(95, node.splitPercentage ?? 50)) / 100;
+    const size = (row ? box.w : box.h) - g, a = size * pct;
+    const A = row ? { x: box.x, y: box.y, w: a, h: box.h } : { x: box.x, y: box.y, w: box.w, h: a };
+    const B = row ? { x: box.x + a + g, y: box.y, w: size - a, h: box.h } : { x: box.x, y: box.y + a + g, w: box.w, h: size - a };
+    treeRects(node.first, A, g, out); treeRects(node.second, B, g, out);
+    return out;
+  }
+  /* the panes of split g, by its tree (null: no tree known) - [{ id, r }] in a box */
+  function splitBoxes(g, box, gap) {
+    const tree = tileTrees[g];
+    if (!tree) return null;
+    const byIndex = new Map([...splitOfTab].filter(([k, v]) => v === g).map(([k]) => [tileMeta.get(k)?.index, k]));
+    const out = [];
+    for (const [i, r] of treeRects(tree, box, gap)) if (byIndex.has(i)) out.push({ id: byIndex.get(i), r });
+    return out.length === byIndex.size && out.length > 1 ? out : null;
+  }
   /* workspaces: the desktop shows only the windows of the current workspace */
   const wsOfTab = new Map();                        // tab id -> its workspace (null: none)
   const panelTabs = new Set();                        // tabs that are a side panel's page (never windows)
@@ -384,6 +422,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (wsChanged) queueRender();
         for (const k of [...splitOfTab.keys()]) if (!live.has(k)) { splitOfTab.delete(k); changed = true; }
         tilingRead = true;
+        readTrees();
         if (changed) markPills();
       });
     }, 30);
@@ -1310,7 +1349,9 @@ window.vosBeat = window.vosBeat || (() => {
         sh.toggleAttribute("data-ft-away", awayWs(id));
         place(sh, r, s, o);
         const each = ((row ? r.w : r.h) - 2 * I - G * (n - 1)) / n;
-        vs.pages.forEach((mp, i) => place(mp, row ? { x: r.x + I + i * (each + G), y: r.y + I, w: each, h: r.h - 2 * I }
+        const boxes = splitBoxes(splitOfTab.get(String(id)), { x: r.x + I, y: r.y + I, w: r.w - 2 * I, h: r.h - 2 * I }, G);   // as Vivaldi keeps it (nested, its sizes)
+        if (boxes) for (const { id: pid, r: pr } of boxes) { const mp = pageOf(pid); if (mp) place(mp, pr, s, fixedOrigin(mp.parentElement)); }
+        else vs.pages.forEach((mp, i) => place(mp, row ? { x: r.x + I + i * (each + G), y: r.y + I, w: each, h: r.h - 2 * I }
                                                   : { x: r.x + I, y: r.y + I + i * (each + G), w: r.w - 2 * I, h: each }, s, fixedOrigin(mp.parentElement)));
       } else place(el, r, s, o);
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
@@ -1332,9 +1373,10 @@ window.vosBeat = window.vosBeat || (() => {
     if (focusSet.size) focusLift = new Set(focusSet);
     // a split on this desktop that Vivaldi has not drawn again (back from another desktop): split it again, as it was
     for (const { id } of windows) {
-      if (!vSplit(id) || awayWs(id) || swiping || sw || mission) { vsSince.delete(id); continue; }
-      if (!vsSince.has(id)) { vsSince.set(id, Date.now()); setTimeout(queueRender, 900); continue; }
-      if (Date.now() - vsSince.get(id) < 800) { setTimeout(queueRender, 300); continue; }
+      if (!vSplit(id) || awayWs(id) || swiping || sw) { vsSince.delete(id); continue; }   // (Mission Control and Bento too: the whole split)
+      const now = !!mission || !!bento.on;                           // Mission Control / Bento: the whole split at once
+      if (!vsSince.has(id)) { vsSince.set(id, Date.now()); if (!now) { setTimeout(queueRender, 900); continue; } }
+      if (!now && Date.now() - vsSince.get(id) < 800) { setTimeout(queueRender, 300); continue; }
       if (Date.now() - (vsFixAt.get(id) || 0) < 4000) continue;
       vsFixAt.set(id, Date.now()); vsRetile(id);
     }
@@ -3479,7 +3521,7 @@ window.vosBeat = window.vosBeat || (() => {
       try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
       const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
       if (!ch?.push) return null;
-      let req = null, tile = null, store = null;
+      let req = null, tile = null, store = null, setLayout = null;
       ch.push([["vos-tile-" + Date.now()], {}, r => { req = r; }]);
       for (const mid of Object.keys(req?.m || {})) {
         let src = "";
@@ -3490,12 +3532,12 @@ window.vosBeat = window.vosBeat || (() => {
         let ex; try { ex = req(mid); } catch (e) { continue; }
         for (const k of Object.keys(ex || {})) {
           let v; try { v = ex[k]; } catch (e) { continue; }
-          if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; }
+          if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; if (fs.includes('actionType:"TILE_SET_LAYOUT"')) setLayout = v; }
           if (wantStore && v && typeof v.getPageInWindow === "function" && typeof v.getPages === "function") store = v;
         }
-        if (tile && store) break;
+        if (tile && store && setLayout) break;
       }
-      if (tile && store) tileApi = { tile, store };
+      if (tile && store) tileApi = { tile, store, setLayout };
     } catch (e) { LOG("tile: Vivaldi's split not found", e); }
     return tileApi;
   }
@@ -3505,6 +3547,24 @@ window.vosBeat = window.vosBeat || (() => {
     const api = vivTile();
     if (!api) return false;
     try {
+      const g = splitOfTab.get(String(id)), ix = tileMeta.get(String(id))?.index, iy = tileMeta.get(String(to))?.index;
+      const tree = g ? await treeOf(g, [...splitOfTab].filter(([k, v]) => v === g).map(([k]) => k)) : null;
+      if (tree && api.setLayout && ix != null && iy != null && splitOfTab.get(String(to)) === g) {
+        const cut = n => {                                           // the pane out of its place (its neighbour takes the room)
+          if (typeof n === "number") return n === ix ? null : n;
+          const a = cut(n.first), b = cut(n.second);
+          return a == null ? b : b == null ? a : { ...n, first: a, second: b };
+        };
+        const into = n => typeof n === "number"                       // the other pane split in two: the dropped one on that side
+          ? (n === iy ? { direction: side === "left" || side === "right" ? "row" : "column", first: side === "left" || side === "top" ? ix : iy, second: side === "left" || side === "top" ? iy : ix, splitPercentage: 50 } : n)
+          : { ...n, first: into(n.first), second: into(n.second) };
+        const next = into(cut(tree));
+        if (!full) dropInfo = { target: String(win), dragged: String(id), src: String(win), kind: "window", t: Date.now() };
+        api.setLayout(await winId(), next, g);
+        tileTrees = { ...tileTrees, [g]: next }; setTimeout(readTiling, 600);
+        activate(id); queueRender();
+        return true;
+      }
       const order = membersOf(pageOf(win)).filter(m => m !== String(id));
       const at = order.indexOf(String(to));
       if (at < 0) return false;
