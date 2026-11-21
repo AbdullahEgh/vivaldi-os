@@ -4125,11 +4125,12 @@ window.vosBeat = window.vosBeat || (() => {
     }
     return front;
   }
-  function fullOf(t) {                                               // that tab, shown full screen (not a window, not the Launchpad)? its page
+  const shownEl = pg => !pg ? null : isTiled(pg) ? (rootOf(pg) || tileOf(pg)?.parentElement || null) : pg;   // a page, or its whole split
+  function fullOf(t) {                                               // that tab, shown full screen (not a window, not the Launchpad)? what shows: its page or its split
     const id = t && String(t.id);
     if (!id || winOf(id) || minimized.has(id) || /startpage/.test(t.url || t.pendingUrl || "")) return null;
     const pg = pageOf(id);
-    return pg && !isTiled(pg) && !isStart(pg) ? pg : null;
+    return pg && !isStart(pg) ? shownEl(pg) : null;
   }
   /* SCROLL BETWEEN DESKTOPS: two fingers sideways (or a mouse's side wheel) over the Mission Control
      (Workspaces) button. One gesture, one desktop: a short push turns to the next desktop at once (the
@@ -4213,7 +4214,8 @@ window.vosBeat = window.vosBeat || (() => {
     const sc = scene();
     const ap = activePage(), apId = ap?.dataset.id;                  // a full-screen page: it slides as it is, on black (no wallpaper)
     const upS = !mcMax && b.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) ? pageOf(underId) : null;
-    if (ap && b.hasAttribute("data-ft-maxpage") && !winOf(apId) && !isTiled(ap) && !isStart(ap)) { ap.setAttribute("data-vos-swmax", ""); sw.max = ap; if (sc) sc.children[0].style.visibility = "hidden"; }
+    const apFull = ap && !winOf(apId) && !isStart(ap) && (b.hasAttribute("data-ft-maxpage") || isTiled(ap)) ? shownEl(ap) : null;   // a full-screen page, or a full-screen split
+    if (apFull) { apFull.setAttribute("data-vos-swmax", ""); sw.max = apFull; if (sc) sc.children[0].style.visibility = "hidden"; }
     else if (upS?.hasAttribute("data-ft-under")) { upS.setAttribute("data-vos-swmax", "under"); sw.max = upS; if (sc) sc.children[0].style.visibility = "hidden"; }   // a full-screen page under the windows: it slides with them
     else if (cover && sc) sc.children[0].style.visibility = "hidden";   // a window in full view: the same
     stack.style.setProperty("--vos-dx", "0");
@@ -4227,9 +4229,7 @@ window.vosBeat = window.vosBeat || (() => {
   function swTarget(dir) {
     const i = sw?.info;
     if (!i || i.i < 0) return null;
-    if (bento.on) return dir > 0 ? BENTO_OUT : null;
-    if (dir < 0 && i.i === 0) return BENTO_IN;
-    return i.ds[i.i + dir] || null;
+    return i.ds[i.i + dir] || null;                                  // Bento is each desktop's own: a swipe only changes the desktop
   }
   const isBentoT = t => !!t && "bento" in t;
   function swUnprep() {
@@ -4307,6 +4307,8 @@ window.vosBeat = window.vosBeat || (() => {
       s.out = out;
       s.b.setAttribute("data-vos-swipe", dir > 0 ? "next" : "prev");
       dotsMark(s.info.ds.findIndex(w => sameWs(w.id, t.id)));
+      if (s.max && !s.max.classList.contains("webpageview") && s.max.getAttribute("data-vos-swmax") !== "under")
+        await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 150))]);   // a split: out first (Vivaldi rebuilds it on the switch)
       const t1 = Date.now();
       try {
         await Promise.race([switchWs({ id: t.id, name: t.name }, s.info.list), new Promise(r => setTimeout(r, 2000))]);
@@ -4598,7 +4600,7 @@ window.vosBeat = window.vosBeat || (() => {
       // its windows, where they are (the front ones on top)
       const bE = browserEl(), here = same(sp.id, cur);
       const fullId = here ? (bE.hasAttribute("data-ft-maxpage") ? activePage()?.dataset.id : bE.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) && pageOf(underId)?.hasAttribute("data-ft-under") ? underId : null)
-                          : fullOf(fronts.get(String(sp.id)))?.dataset.id;
+                          : (fullOf(fronts.get(String(sp.id))) ? String(fronts.get(String(sp.id)).id) : null);
       const onlyFull = !!fullId && (!here || bE.hasAttribute("data-ft-maxpage"));   // a full-screen app in front: only it
       if (fullId) {
         const w = document.createElement("div");
@@ -4801,7 +4803,7 @@ window.vosBeat = window.vosBeat || (() => {
     // full-screen apps slide as they are seen: this desktop's out, the other desktop's in (never its bare wallpaper first)
     const fullOut = (() => {
       const ap = activePage();
-      if (b.hasAttribute("data-ft-maxpage") && ap && !winOf(ap.dataset.id) && !isTiled(ap) && !isStart(ap)) return ap;
+      if (ap && !winOf(ap.dataset.id) && !isStart(ap) && (b.hasAttribute("data-ft-maxpage") || isTiled(ap))) return shownEl(ap);
       const up = b.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) ? pageOf(underId) : null;
       return up?.hasAttribute("data-ft-under") ? up : null;
     })();
@@ -4812,6 +4814,12 @@ window.vosBeat = window.vosBeat || (() => {
         fullIn = fullOf(fr.get(String(sp.id)));
       } catch (e) {}
       if (fullIn === fullOut) fullIn = null;
+    }
+    const holdSwitch = !!fullOut && !fullOut.classList.contains("webpageview") && sp.id != null;   // a split: it slides out first, then the switch
+    if (holdSwitch && !fullIn && !(sp.incoming || []).length) {     // that desktop's windows come in with it, from the side
+      const inc = [...floating].filter(id => !minimized.has(id) && sameWs(wsOfTab.get(String(id)), sp.id)).flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
+      inc.forEach(el => { el.setAttribute("data-vos-incoming", ""); el.setAttribute("data-ft-ws-leave", ""); el.style.translate = `${dir * D}px 0px`; });
+      sp.incoming = inc;
     }
     const fullAnims = [];
     if (fullOut) { fullOut.setAttribute("data-vos-swo", fullOut.hasAttribute("data-ft-under") ? "under" : ""); fullAnims.push([fullOut, fullOut.animate([{ translate: "0px 0px" }, { translate: `${-dir * D}px 0px` }], { duration: ms, easing: ease, fill: "forwards" })]); }
@@ -4841,10 +4849,11 @@ window.vosBeat = window.vosBeat || (() => {
     const t1 = Date.now();
     let shownAt = 0;
     try {
+      if (holdSwitch) await new Promise(r => setTimeout(r, ms));      // the split has slid out (it would vanish on the switch)
       const made = await Promise.race([sp.go ? sp.go() : switchWs(sp, list), new Promise(r => setTimeout(r, 2000))]);   // at once: both desktops move together (never stuck half-way)
       if (sp.id == null && made != null) sp.id = made;                // a desktop made just now
       while (Date.now() - t1 < 1500) { wsNowAt = 0; if (sameWs(curWs(), sp.id)) break; await new Promise(r => setTimeout(r, 20)); }
-      render(); shownAt = Date.now();                                 // the new desktop's other windows slide in from now
+      render(); shownAt = holdSwitch ? Date.now() - ms : Date.now();  // the new desktop's other windows slide in from now (already in, after a split)
       await new Promise(r => setTimeout(r, Math.max(0, ms - (Date.now() - t1))));
     } catch (e) { wsErr("swipe", e); }
     finally {                                                        // whatever happened: nothing stays half-done
