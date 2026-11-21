@@ -90,9 +90,10 @@ window.vosBeat = window.vosBeat || (() => {
   const noTitle = new Set();        // floating windows with the title bar hidden
   let cover = null;                 // the window held to full view (over the tab bar and Vivaldi's buttons)
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
-  const PIP_K = 0.55, PIP_GAP = 8;   // their size: 55% of the Vivaldi window's page area (until you resize one), and the space between them
+  const PIP_K = 0.55, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
+  const pipZoomWas = new Map();     // page id -> its scale before it was held small (given back after)
   const pipCorner = new Map();      // id -> "bl" | "br" | "tl" | "tr"
-  const pipW = new Map();           // corner -> the width of every window there
+  const pipW = new Map();           // id -> its width (55% of the window it was: its own shape)
   const pipH = new Map();           // id -> its own height
   let btnHeldAt = 0;                // a button was held: the click that follows is not a click
   let coverWas = null, coverTill = 0;
@@ -554,7 +555,7 @@ window.vosBeat = window.vosBeat || (() => {
         const pc = pip.includes(id) ? (pipCorner.get(id) || "bl") : null;
         const want = floating.has(id) ? { r: frac[id] || bento.pre[id], nt: noTitle.has(id), g: groupFloat.has(id) || undefined,
                                           z: zoomOf[id] ? +zoomOf[id].toFixed(3) : undefined,
-                                          h: pc ? { c: pc, h: Math.round(pipH.get(id) || 240), w: Math.round(pipW.get(pc) || 360) } : undefined,   // held small: its corner and size
+                                          h: pc ? { c: pc, h: Math.round(pipH.get(id) || 240), w: Math.round(pipW.get(id) || 360) } : undefined,   // held small: its corner and size
  } : undefined;
         if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want)) return;
         if (want) ext[EXT_KEY] = want; else delete ext[EXT_KEY];
@@ -598,7 +599,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (f.r) frac[id] = f.r;
         if (f.h && !pip.includes(id)) {                               // held small before the restart: so again
           const c = /^[tb][lr]$/.test(f.h.c) ? f.h.c : "bl";
-          pipCorner.set(id, c); if (f.h.h) pipH.set(id, f.h.h); if (f.h.w && !pipW.has(c)) pipW.set(c, f.h.w);
+          pipCorner.set(id, c); if (f.h.h) pipH.set(id, f.h.h); if (f.h.w) pipW.set(id, f.h.w);
           pip.push(id);
         }
         noTitle.add(id);                                          // floating windows never show a title bar
@@ -668,7 +669,7 @@ window.vosBeat = window.vosBeat || (() => {
      away from it (no overlap); one width per corner, a height per window */
   function pipRect(id, s) {
     const c = pipCorner.get(id) || "bl", bottom = c[0] === "b";
-    const W = Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(c) || s.width * PIP_K));
+    const W = Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(id) || 360));
     const x = c[1] === "r" ? s.width - MARGIN - W : MARGIN;
     let edge = bottom ? s.height - MARGIN : MARGIN;
     for (const p of [...pip].reverse()) {
@@ -1463,7 +1464,7 @@ window.vosBeat = window.vosBeat || (() => {
 
     if (action === "zoom") {
       const win = winOf(id);
-      if (win && (cover === win || pip.includes(win))) return holdAct(cover === win ? "zoom" : "minimize", win);   // back as it was
+      if (win && pip.includes(win)) return holdAct("minimize", win);   // held small: back as it was
       if (win && floating.has(win)) {                               // back to its place
         if (bento.on && bento.root && bWins(bento.root).some(l => l.win === win)) bento.memo.set(win, bento.root);   // Bento: its layout, kept for its return
         quiet();                                                    // only this window animates
@@ -1612,7 +1613,7 @@ window.vosBeat = window.vosBeat || (() => {
         el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
         return;
       }
-      if (/[lr]/.test(how)) pipW.set(c, Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx))));   // every window in this corner
+      if (/[lr]/.test(how)) pipW.set(id, Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx))));   // only this one
       if (/[tb]/.test(how)) pipH.set(id, Math.max(100, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));   // only this one
       render();
     };
@@ -1630,7 +1631,6 @@ window.vosBeat = window.vosBeat || (() => {
       const els = pip.map(p => targetOf(pageOf(p)));
       flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
         clear();
-        if (!pip.some(p => p !== id && (pipCorner.get(p) || "bl") === to)) pipW.set(to, pipW.get(c) || w0);   // an empty corner takes its width
         pipCorner.set(id, to); persist(id);
         pip.splice(pip.indexOf(id), 1); pip.push(id);
         render();
@@ -1640,17 +1640,21 @@ window.vosBeat = window.vosBeat || (() => {
     addEventListener("pointermove", onMove, true); addEventListener("pointerup", onUp, true); addEventListener("pointercancel", onUp, true);
   }
   let btnHold = null;
-  let pipVw = innerWidth, pipVh = innerHeight;
-  addEventListener("resize", () => {                 // the Vivaldi window resized or maximized: held-small windows back to 55% of it
-    if (innerWidth === pipVw && innerHeight === pipVh) return;
-    pipVw = innerWidth; pipVh = innerHeight;
-    if (!pip.length) return;
-    pipW.clear(); pipH.clear(); pip.forEach(persist); queueRender();
-  });
-  function pipZoom() {}                              // held small: the page keeps the scale you give it (never forced)
-  setTimeout(() => {                                 // once: a page an earlier version shrank in the corner gets its own scale back
-    for (const id of pip) webviewsOf(id).forEach(wv => { const own = pageZoom[wv.closest(".webpageview")?.dataset.id]; setWebZoom(wv, own ?? zoomOf[id] ?? 1); });
-  }, 4000);
+  /* held small: the page gets smaller with its window (55%, 1:1); back to normal, it gets its own scale back
+     (100%, or whatever it was). In between you can change it - it is not forced. */
+  function pipZoom(id, on) {
+    webviewsOf(id).forEach(wv => {
+      const pid = wv.closest(".webpageview")?.dataset.id || id, own = pageZoom[pid] ?? zoomOf[id];
+      if (on) {
+        const put = z => { const was = Number(z) > 0 ? Number(z) : (own ?? 1); if (!pipZoomWas.has(pid)) pipZoomWas.set(pid, was); setWebZoom(wv, pipZoomWas.get(pid) * PIP_K); };
+        try { wv.getZoom(put); } catch (_) { put(own ?? 1); }
+      } else {
+        const was = pipZoomWas.get(pid); pipZoomWas.delete(pid);
+        zoomSet.delete(wv); setWebZoom(wv, was ?? own ?? 1);
+      }
+    });
+  }
+  setTimeout(() => { for (const id of pip) pipZoom(id, true); }, 4000);   // held small before a restart: its page small again
   function pipOff(id) {
     const i = pip.indexOf(id);
     if (i < 0) return false;
@@ -1658,20 +1662,29 @@ window.vosBeat = window.vosBeat || (() => {
     persist(id);
     return true;
   }
+  /* hold the green button: a new desktop, the window moves there and fills it (a full-screen app, as in macOS) */
+  async function fullOnNewDesk(win) {
+    try {
+      await toNewDeskNow(win, (await prefGet("vivaldi.workspaces.list")) || []);
+      for (let i = 0; i < 20 && swiping; i++) await new Promise(r => setTimeout(r, 60));
+      await new Promise(r => setTimeout(r, 200));
+      const pg = pageOf(splitFocus.get(win) || win);
+      if (pg && floating.has(win)) act("zoom", pg);
+    } catch (e) { wsErr("full screen on a new desktop", e); }
+  }
   function holdAct(what, win) {
     const el = targetOf(pageOf(win));
     if (!el || !floating.has(win)) return;
     raise(win); activate(splitFocus.get(win) || win);
     const others = [...floating].filter(p => p !== win && !minimized.has(p) && !awayWs(p)).map(p => targetOf(pageOf(p)));   // the stack, and Bento closing / opening the gap, glide too
-    if (what === "zoom") flip([el, ...others], () => { if (cover === win) cover = null; else { pipOff(win); cover = win; } render(); });
+    if (what === "zoom") { pipOff(win); cover = null; fullOnNewDesk(win); return; }   // held: a desktop of its own, the app full screen there
     else {
       const r = el.getBoundingClientRect();                          // (55% of the Vivaldi window: pipRect)
       flip([el, ...others], () => {
         if (!pipOff(win)) {
           if (cover === win) cover = null;
           const c = "bl";
-          if (!pip.some(p => (pipCorner.get(p) || "bl") === c)) pipW.delete(c);   // a corner in use keeps its width; else 55% of Vivaldi
-          pipH.delete(win);
+          pipW.set(win, Math.max(160, Math.round(r.width * PIP_K))); pipH.set(win, Math.max(100, Math.round(r.height * PIP_K)));   // 55% of it, its own shape
           pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
           persist(win);
         }
@@ -1734,6 +1747,7 @@ window.vosBeat = window.vosBeat || (() => {
     for (const id of floating) webviewsOf(id).forEach(wv => {
       const own = pageZoom[wv.closest(".webpageview")?.dataset.id];
       let z = own ?? zoomOf[id];
+      if (pip.includes(id)) { const was = pipZoomWas.get(wv.closest(".webpageview")?.dataset.id || id); if (was != null) z = was * PIP_K; }   // held small: still small after a new page loads
       if (z) setWebZoom(wv, z);
     });
   }
@@ -4962,7 +4976,7 @@ window.vosBeat = window.vosBeat || (() => {
     lastPress = null;
     e.preventDefault(); e.stopPropagation();
     const w = winOf(key);
-    if (w && (cover === w || pip.includes(w))) { holdAct(cover === w ? "zoom" : "minimize", w); return true; }   // back as it was
+    if (w && pip.includes(w)) { holdAct("minimize", w); return true; }   // held small: back as it was
     toggleFocus(key);
     return true;
   }
