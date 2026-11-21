@@ -1442,8 +1442,9 @@ window.vosBeat = window.vosBeat || (() => {
 
   /* ---------------- actions ---------------- */
   async function previousTab(exceptId) {
-    const tabs = await tabsQuery({ currentWindow: true });
-    const others = tabs.filter(t => t.id !== tabIdOf(exceptId) && !minimized.has(String(t.id)));
+    const tabs = await tabsQuery({ currentWindow: true }), cw = curWs();
+    const others = tabs.filter(t => t.id !== tabIdOf(exceptId) && !t.pinned && !minimized.has(String(t.id)) &&
+                                    (cw === undefined || sameWs(wsOfTab.get(String(t.id)) ?? extOf(t)?.workspaceId ?? null, cw)));   // this desktop's only
     if (!others.length) return null;
     return others.filter(t => t.lastAccessed).sort((a, b) => b.lastAccessed - a.lastAccessed)[0] || others[others.length - 1];
   }
@@ -1576,8 +1577,11 @@ window.vosBeat = window.vosBeat || (() => {
           // maximized page: go back to the previous tab; if it is the only tab,
           // keep it minimized on the desktop (wallpaper). Its tab brings it back.
           const t = await previousTab(id);
-          if (t) activate(t.id);
-          else { minimized.add(id); minKind.set(id, "max"); }
+          if (t) activate(String(t.id));
+          else {                                                    // the only one here: minimized, and this desktop's Launchpad shows
+            minimized.add(id); minKind.set(id, "max");
+            await new Promise(r => chrome.tabs.create({ url: "chrome://vivaldi-webui/startpage", active: true }, () => { void chrome.runtime.lastError; r(); }));
+          }
         }
         render();
         const f = fade;
@@ -1665,6 +1669,14 @@ window.vosBeat = window.vosBeat || (() => {
     persist(id);
     return true;
   }
+  /* hold the yellow button of a full-screen page: it becomes a window again, then held small (55%) */
+  async function holdSmallFromFull(id) {
+    const page = pageOf(id);
+    if (!page || floating.has(id)) return;
+    await act("zoom", page);                                         // a window on this desktop (the green button's way back)
+    await new Promise(r => setTimeout(r, 380));
+    if (floating.has(id) && !pip.includes(id)) holdAct("minimize", id);
+  }
   /* hold the green button: a new desktop, the window moves there and fills it (a full-screen app, as in macOS) */
   async function fullOnNewDesk(win) {
     if (fullOnNewDesk.busy) return;
@@ -1720,15 +1732,18 @@ window.vosBeat = window.vosBeat || (() => {
     btnHeldAt = 0;                                                   // a new press: the last hold's click is long gone
     if (btnHold) { clearTimeout(btnHold.t); btnHold.btn.removeAttribute("data-ft-holding"); btnHold = null; }
     if (ev.button !== 0) return;
-    const btn = ev.target?.closest?.('.ft-titlebar .ft-light[data-act="zoom"], .ft-titlebar .ft-light[data-act="minimize"]');
-    const win = btn && winOf(btn.closest(".ft-titlebar")?.dataset.ftPage);
-    if (!win || !floating.has(win) || minimized.has(win)) return;
+    const btn = ev.target?.closest?.('.ft-titlebar .ft-light[data-act="zoom"], .ft-titlebar .ft-light[data-act="minimize"], .ft-lights .ft-light[data-act="minimize"]');
+    let win = btn && winOf(btn.closest(".ft-titlebar")?.dataset.ftPage);
+    const maxPg = !win && btn?.closest(".ft-lights") ? btn.closest(".webpageview[data-id]") : null;   // a full-screen page's own buttons
+    if (maxPg) { if (winOf(maxPg.dataset.id) || isTiled(maxPg) || isStart(maxPg)) return; win = maxPg.dataset.id; }
+    else if (!win || !floating.has(win) || minimized.has(win)) return;
     const hold = { btn, x: ev.clientX, y: ev.clientY, pid: ev.pointerId };
     btn.setAttribute("data-ft-holding", "");
     hold.t = setTimeout(() => {
       btn.removeAttribute("data-ft-holding");
       if (btnHold === hold) btnHold = null;
       btnHeldAt = Date.now();                                        // the click on letting go is not a click
+      if (maxPg) return holdSmallFromFull(win);
       holdAct(btn.dataset.act, win);
     }, BTN_HOLD);
     btnHold = hold;
