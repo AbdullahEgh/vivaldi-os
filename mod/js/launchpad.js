@@ -2386,23 +2386,41 @@
     if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
     else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
     const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();
-    try {
-      if (on) {
-        if ((await vstore.get("vosSchemeWas")) == null) vstore.set("vosSchemeWas", JSON.stringify({ scheme: (await pref("vivaldi.PreferredColorScheme")) ?? 0, force: !!(await pref("vivaldi.appearance.force_dark_mode_theme")) }));
-        await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: 2 });          // websites: dark (0 auto, 1 light, 2 dark)
-        await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: true });   // and the ones with no dark look of their own
-      } else {
-        let was = null; try { was = JSON.parse((await vstore.get("vosSchemeWas")) || "null"); } catch (e) {}
-        await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });
-        await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: 1 });          // websites light, as Vivaldi is now
-        vstore.set("vosSchemeWas", null);
-      }
+    try {                                            // websites: their own dark (or light) look, live - never reloaded
+      if (await pref("vivaldi.appearance.force_dark_mode_theme")) await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });   // (Vivaldi's forced dark reloads every page)
+      await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: on ? 2 : 1 });   // 0 auto, 1 light, 2 dark
+      vstore.set("vosSchemeWas", null);
+      darkWeb = on;
+      await new Promise(r => setTimeout(r, 250));  // the sites that have a dark look have switched by now
+      darkPagesAll();                              // the rest: a dark style of ours (taken out again when off)
     } catch (e) { console.warn("Bento OS: websites' dark mode", e); }
     setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
     return wantBg;                                  // (the dissolve waits for this colour)
   }
-  /* the switch, smoothly: the web pages fade out to the window's colour, Vivaldi's colours glide to the new
-     look, and once the pages have redrawn in it (dark or light) they fade back in - no snapshot, no flash */
+  /* the switch, smoothly: Vivaldi's colours glide to the new look; the pages stay in sight and change in place
+     (a page's own dark look, or our dark style easing in) - nothing hidden, nothing reloaded */
+  /* a website with no dark look of its own: a dark style put into the page (its colours turned, pictures
+     kept as they are) - added and taken out live, the page is never reloaded */
+  let darkWeb = false;
+  const DARK_CSS = "html:root:root{filter:invert(.92) hue-rotate(180deg);background:#fff!important;animation:vos-dark-in .4s ease}@keyframes vos-dark-in{from{filter:invert(0) hue-rotate(0deg)}}img,video,picture,canvas,iframe,embed,object,svg image,[style*='background-image']{filter:invert(1) hue-rotate(180deg)!important}";
+  const DARK_ON = `(() => { if (document.getElementById("vos-dark")) return "kept";
+    const lum = c => { const m = /rgba?\\(([\\d.]+), ([\\d.]+), ([\\d.]+)(?:, ([\\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.1)) return null; return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255; };
+    const l = lum(getComputedStyle(document.body || document.documentElement).backgroundColor) ?? lum(getComputedStyle(document.documentElement).backgroundColor) ?? 1;
+    if (l < 0.45) return "dark already";
+    const s = document.createElement("style"); s.id = "vos-dark"; s.textContent = ${JSON.stringify(DARK_CSS)};
+    (document.head || document.documentElement).appendChild(s); return "made dark"; })()`;
+  const DARK_OFF = `(() => { document.getElementById("vos-dark")?.remove(); return "light"; })()`;
+  function darkPage(wv) {
+    if (typeof wv?.executeScript !== "function") return;
+    if (!wv.__vosDarkHook) { wv.__vosDarkHook = true; wv.addEventListener("contentload", () => { if (darkWeb) setTimeout(() => darkPage(wv), 200); }); }
+    try { wv.executeScript({ code: darkWeb ? DARK_ON : DARK_OFF }, () => void chrome.runtime.lastError); } catch (e) {}
+  }
+  const darkPagesAll = () => document.querySelectorAll("#webpage-stack webview").forEach(darkPage);
+  pref("vivaldi.PreferredColorScheme").then(v => { darkWeb = v === 2 && !!document.getElementById("browser"); if (darkWeb) setTimeout(darkPagesAll, 1500); }).catch(() => {});
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => {      // new pages (a new window, a new tab) while it is on
+    if (!darkWeb) return;
+    document.querySelectorAll("#webpage-stack webview").forEach(wv => { if (!wv.__vosDarkHook) darkPage(wv); });
+  });
   let dissolving = false;
   async function dissolve(fn) {
     if (dissolving) return;
@@ -2410,8 +2428,7 @@
     const b = document.getElementById("browser"), wait = ms => new Promise(r => setTimeout(r, ms));
     const bg = () => (b ? getComputedStyle(b).getPropertyValue("--colorBg").trim().toLowerCase() : "");
     try {
-      b?.setAttribute("data-vos-theming", "out");
-      await wait(200);                                // the pages have faded out
+      b?.setAttribute("data-vos-theming", "");      // Vivaldi's colours glide; the pages stay in sight and change in place
       const want = await fn();
       let same = 0, last = "";
       for (let i = 0; i < 60 && same < 5; i++) {     // the new theme in place: its colour, the same for 200ms
@@ -2419,11 +2436,23 @@
         const now = bg();
         same = now === last && (!want || now === want || i > 25) ? same + 1 : 0; last = now;
       }
-      await wait(450);                                // the pages redraw in the new mode, out of sight
-      b?.setAttribute("data-vos-theming", "in");
-      await wait(380);
+      await wait(420);
     } finally { b?.removeAttribute("data-vos-theming"); dissolving = false; }
   }
+  /* FOLLOW THE SYSTEM: when macOS / Windows changes between light and dark, Vivaldi follows - with the same
+     smooth switch (the mod switches it, so the pages fade instead of jumping; nothing is reloaded) */
+  const osDark = async () => { const c = await pref("vivaldi.system.desktop_theme_color"); return c === "dark" || c === 1 || (c !== "light" && c !== 0 && c !== 2 && matchMedia("(prefers-color-scheme: dark)").matches); };
+  let lastOs = null;
+  async function followOs() {
+    const d = await osDark();
+    if (lastOs === null) { lastOs = d; return; }
+    if (d === lastOs) return;
+    lastOs = d;
+    if ((await isDarkNow()) !== d) window.vosAppearance.set(d);
+  }
+  setTimeout(followOs, 1200);
+  try { vivaldi.prefs.onChanged.addListener(p => { if (/desktop_theme_color/.test(String(p?.path ?? p ?? ""))) setTimeout(followOs, 30); }); } catch (e) {}
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(followOs, 60)); } catch (e) {}
   window.vosAppearance = { isDark: isDarkNow, set: on => dissolve(() => setDark(on)), async toggle() { const d = await isDarkNow(); await dissolve(() => setDark(!d)); } };
   async function changeWallpaper(mode = "both") {
     if (lp && !lp.desktop) close(true, true); else close();
