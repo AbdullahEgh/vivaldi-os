@@ -90,8 +90,14 @@ window.vosBeat = window.vosBeat || (() => {
   const noTitle = new Set();        // floating windows with the title bar hidden
   let cover = null;                 // the window held to full view (over the tab bar and Vivaldi's buttons)
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
-  const PIP_K = 0.55, PIP_START_W = 400, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
+  const PIP_K = 0.55, PIP_START_W = 300, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
   const pipZoomWas = new Map();     // page id -> its scale before it was held small (given back after)
+  const pipAspect = new Map();      // id -> its height / width (its own shape, kept at any width)
+  const cornerW = (c, except) => { const o = pip.find(p => p !== except && (pipCorner.get(p) || "bl") === c && pipW.has(p)); return o ? pipW.get(o) : null; };   // one width per corner
+  function pipFit(id, c, w) {                       // this one at that corner's width, its own shape
+    const W = Math.max(160, Math.round(w)), a = pipAspect.get(id) || (pipH.get(id) && pipW.get(id) ? pipH.get(id) / pipW.get(id) : 0.75);
+    pipW.set(id, W); pipH.set(id, Math.max(100, Math.round(W * a)));
+  }
   const pipUserZoom = new Map();    // id -> the scale you chose with its scale button while held small
   const pipCorner = new Map();      // id -> "bl" | "br" | "tl" | "tr"
   const pipW = new Map();           // id -> its width (55% of the window it was: its own shape)
@@ -1628,8 +1634,15 @@ window.vosBeat = window.vosBeat || (() => {
         el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
         return;
       }
-      if (/[lr]/.test(how)) pipW.set(id, Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx))));   // only this one
-      if (/[tb]/.test(how)) pipH.set(id, Math.max(100, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));   // only this one
+      if (/[lr]/.test(how)) {                       // the width: every window in this corner follows, each in its own shape
+        const W = Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx)));
+        if (/[tb]/.test(how)) pipW.set(id, W); else for (const p of pip) if ((pipCorner.get(p) || "bl") === c) pipFit(p, c, W);
+      }
+      if (/[tb]/.test(how)) {                       // the height: only this one (its shape changes)
+        pipH.set(id, Math.max(100, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));
+        if (/[lr]/.test(how)) { const W = pipW.get(id); for (const p of pip) if (p !== id && (pipCorner.get(p) || "bl") === c) pipFit(p, c, W); }
+        pipAspect.set(id, pipH.get(id) / Math.max(1, pipW.get(id)));
+      }
       render();
     };
     const onMove = ev => { if (ev.pointerId !== pid) return; last = ev; if (!frame) frame = requestAnimationFrame(apply); };
@@ -1646,6 +1659,7 @@ window.vosBeat = window.vosBeat || (() => {
       const els = pip.map(p => targetOf(pageOf(p)));
       flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
         clear();
+        { const w = cornerW(to, id); if (w) pipFit(id, to, w); }   // that corner's width, its own shape
         pipCorner.set(id, to); persist(id);
         pip.splice(pip.indexOf(id), 1); pip.push(id);
         render();
@@ -1673,7 +1687,7 @@ window.vosBeat = window.vosBeat || (() => {
   function pipOff(id) {
     const i = pip.indexOf(id);
     if (i < 0) return false;
-    pip.splice(i, 1); pipZoom(id, false); pipH.delete(id); pipCorner.delete(id);
+    pip.splice(i, 1); pipZoom(id, false); pipH.delete(id); pipW.delete(id); pipAspect.delete(id); pipCorner.delete(id);
     persist(id);
     return true;
   }
@@ -1728,8 +1742,8 @@ window.vosBeat = window.vosBeat || (() => {
         if (!pipOff(win)) {
           if (cover === win) cover = null;
           const c = "bl";
-          { const W = Math.min(PIP_START_W, r.width), H = Math.round(W * r.height / Math.max(1, r.width));   // a fixed starting width, the window's own shape (resizable after)
-            pipW.set(win, Math.max(160, Math.round(W))); pipH.set(win, Math.max(100, H)); }
+          pipAspect.set(win, r.height / Math.max(1, r.width));
+          pipFit(win, c, cornerW(c, win) ?? Math.min(PIP_START_W, r.width));   // that corner's width (300 to start), its own shape
           pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
           persist(win);
         }
