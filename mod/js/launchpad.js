@@ -1586,7 +1586,7 @@
     if (pills) {
       // twelve pills spread to the edge of the face (r 38 to 48); the hands: the Numbers clock's
       for (let i = 0; i < 12; i++)
-        s += `<rect class="lp-pill" x="48.7" y="2" width="2.6" height="10" rx="1.3" transform="rotate(${i * 30} 50 50)"/>`;
+        s += `<rect class="lp-pill" x="48.75" y="7" width="2.5" height="10" rx="1.25" transform="rotate(${i * 30} 50 50)"/>`;   // on the Numbers clock's circle (r 33 to 43, the digits' r 38)
     } else {
       for (let i = 1; i <= 12; i++) {
         const a = i * Math.PI / 6;
@@ -1966,9 +1966,14 @@
     pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px";
     pop.style.top = (r.top - h - gap >= 8 ? r.top - h - gap : r.bottom + gap) + "px";
   }
-  addEventListener("resize", () => {
-    requestAnimationFrame(() => { placeNear(tmPop, tmMini); placeNear(clkPop, clkAt); placeNear(tmMenu, tmMini, 8); });
-  });
+  const shown = el => !!el?.isConnected && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none";
+  const followAll = () => {
+    if (tmPop && !shown(tmMini)) closeTmPop();               // its ring hidden (a narrow window): the popup goes too
+    if (tmMenu && !shown(tmMini)) closeTmMenu();
+    if (clkPop && !shown(clkAt)) closeClkPop();
+    placeNear(tmPop, tmMini); placeNear(clkPop, clkAt); placeNear(tmMenu, tmMini, 8);
+  };
+  addEventListener("resize", () => { requestAnimationFrame(followAll); setTimeout(followAll, 200); });   // (again once the tab bar has made room)
   /* right-click on the ring: another time (asks first while one is going), or remove it */
   let tmMenu = null;
   function openTmMenu() {
@@ -2396,24 +2401,28 @@
     setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
     return wantBg;                                  // (the dissolve waits for this colour)
   }
+  /* the switch, smoothly: the web pages fade out to the window's colour, Vivaldi's colours glide to the new
+     look, and once the pages have redrawn in it (dark or light) they fade back in - no snapshot, no flash */
   let dissolving = false;
-  async function dissolve(fn) {                    // the old look fades into the new one (a snapshot cross-fade)
+  async function dissolve(fn) {
     if (dissolving) return;
     dissolving = true;
+    const b = document.getElementById("browser"), wait = ms => new Promise(r => setTimeout(r, ms));
+    const bg = () => (b ? getComputedStyle(b).getPropertyValue("--colorBg").trim().toLowerCase() : "");
     try {
-      const b = document.getElementById("browser"), bg = () => (b ? getComputedStyle(b).getPropertyValue("--colorBg").trim().toLowerCase() : "");
-      const settle = async want => {                 // the new theme in place: its colour, the same for 200ms
-        let same = 0, last = "";
-        for (let i = 0; i < 60 && same < 5; i++) {
-          await new Promise(r => setTimeout(r, 40));
-          const now = bg();
-          same = now === last && (!want || now === want || i > 25) ? same + 1 : 0; last = now;
-        }
-      };
-      if (!document.startViewTransition) { await settle(await fn()); return; }
-      let vt; try { vt = document.startViewTransition(async () => { await settle(await fn()); }); } catch (e) { await fn(); return; }
-      try { await vt.finished; } catch (e) {}
-    } finally { dissolving = false; }
+      b?.setAttribute("data-vos-theming", "out");
+      await wait(200);                                // the pages have faded out
+      const want = await fn();
+      let same = 0, last = "";
+      for (let i = 0; i < 60 && same < 5; i++) {     // the new theme in place: its colour, the same for 200ms
+        await wait(40);
+        const now = bg();
+        same = now === last && (!want || now === want || i > 25) ? same + 1 : 0; last = now;
+      }
+      await wait(450);                                // the pages redraw in the new mode, out of sight
+      b?.setAttribute("data-vos-theming", "in");
+      await wait(380);
+    } finally { b?.removeAttribute("data-vos-theming"); dissolving = false; }
   }
   window.vosAppearance = { isDark: isDarkNow, set: on => dissolve(() => setDark(on)), async toggle() { const d = await isDarkNow(); await dissolve(() => setDark(!d)); } };
   async function changeWallpaper(mode = "both") {

@@ -960,7 +960,6 @@
     "vivaldi.panels.window_defaults": {
       "barVisible": false,
       "contentVisible": false,
-      "selectedPanel": "PanelWindow",
       "width": 360
     },
     "vivaldi.startpage": {
@@ -1001,7 +1000,7 @@
       "dim_blurred": false,
       "schedule": {
         "o_s": {
-          "dark": "Vivaldi2",
+          "dark": "Vivaldi1",
           "light": "Vivaldi1"
         }
       }

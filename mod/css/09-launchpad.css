@@ -1427,8 +1427,6 @@
 /* ---------- the tab bar's editing mode: one timer ring (the button you drag), not two ---------- */
 #browser.toolbar-edit-mode .vos-tm-mini { display: none !important; }
 
-/* ---------- Dark Mode: a slow dissolve ---------- */
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.5s !important; animation-timing-function: ease !important; }
 
 /* 1.0.140 ---------- the widget gallery, again ---------- */
 /* rows scroll from edge to edge of the sheet */
@@ -1445,9 +1443,15 @@
 #browser .lp-w-m :is(.lp-wk-clock-num, .lp-wk-clock-pill, .lp-wk-clock-sq) > .lp-clock { height: 100% !important; justify-self: center !important; }
 #browser .lp-w-m :is(.lp-wk-clock-num, .lp-wk-clock-pill, .lp-wk-clock-sq) > .lp-dclock { justify-self: center !important; }
 
-/* the single Pills clock: a bigger face (less frame around it) */
-#browser .lp-w-s .lp-wk-clock-pill { padding: 5px !important; }
 
 /* the medium calendar: today's number bigger, in the middle of its column */
 #browser .lp-w-m .lp-cal-left { display: flex !important; flex-direction: column !important; }
 #browser .lp-w-m .lp-cal-big { flex: 1 !important; display: flex !important; align-items: center !important; margin: 0 !important; font-size: 112px !important; letter-spacing: -3px !important; }
+
+/* 1.0.141: Dark Mode switching - the pages fade out to the window colour and back in once redrawn; Vivaldi's colours glide */
+#browser[data-vos-theming] #webpage-stack webview { transition: opacity 0.18s ease !important; }
+#browser[data-vos-theming="out"] #webpage-stack webview { opacity: 0 !important; }
+#browser[data-vos-theming="in"] #webpage-stack webview { opacity: 1 !important; transition: opacity 0.35s ease !important; }
+#browser[data-vos-theming] #webpage-stack .webpageview { background-color: var(--colorBg) !important; }
+#browser[data-vos-theming], #browser[data-vos-theming] :is(#header, #tabs-tabbar-container, .toolbar, .tab-position, .UrlBar-AddressField, .webpageview, .lp-wcard, .vos-tm-mini) {
+  transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, fill 0.4s ease !important; }
