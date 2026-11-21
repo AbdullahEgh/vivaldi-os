@@ -257,6 +257,20 @@ window.vosBeat = window.vosBeat || (() => {
       queueRender();
     } catch (e) { LOG("split again", e); }
   }
+  function splitParts(id, ss) {                    // the panes of the split a tab is in, where they are on the screen (a desktop's preview)
+    const pg = pageOf(id);
+    if (pg && isTiled(pg)) {
+      const r0 = stackRect(), out = membersOf(pg).map(m => { const r = pageOf(m)?.getBoundingClientRect(); return r && r.width > 4 ? { id: m, r: { x: r.left - r0.left, y: r.top - r0.top, w: r.width, h: r.height } } : null; }).filter(Boolean);
+      if (out.length > 1) return out;
+    }
+    const g = splitOfTab.get(String(id));                          // not drawn (another desktop): Vivaldi's own order and layout
+    if (!g) return null;
+    const ids = [...splitOfTab].filter(([k, v]) => v === g).map(([k]) => k).sort((x, y) => (tileMeta.get(x)?.index || 0) - (tileMeta.get(y)?.index || 0));
+    if (ids.length < 2) return null;
+    const row = (tileMeta.get(String(id))?.layout || "row") !== "column", n = ids.length, G = 6;
+    const each = ((row ? ss.width : ss.height) - G * (n + 1)) / n;
+    return ids.map((m, i) => ({ id: m, r: row ? { x: G + i * (each + G), y: G, w: each, h: ss.height - 2 * G } : { x: G, y: G + i * (each + G), w: ss.width - 2 * G, h: each } }));
+  }
   const winEls = id => { const v = vSplit(id); return v ? v.pages : [targetOf(pageOf(id))]; };   // what shows a window: its element - or a split's pages not drawn
   /* the window a tab belongs to: itself, or the floating split it is part of */
   function winOf(id) {
@@ -1368,6 +1382,7 @@ window.vosBeat = window.vosBeat || (() => {
     ensureLights($$("#webpage-stack .webpageview[data-id]"));
     for (const { id, el } of windows) if (!awayWs(id)) for (const pg of (el.classList.contains("webpageview") ? [el] : $$(".webpageview[data-id]", el))) readTone(pg);   // (each page: every 4s at most)
     if (b.hasAttribute("data-ft-maxpage")) readTone(activePage());
+    { const ap = activePage(); if (ap && isTiled(ap) && !winOf(ap.dataset.id)) for (const m of membersOf(ap)) readTone(pageOf(m)); }   // a split shown full screen: its grabbers too
     toneFrames();
   }
 
@@ -3426,7 +3441,7 @@ window.vosBeat = window.vosBeat || (() => {
       return null;
     }
     const t = targetOf(pageOf(w)), host = stack();
-    if (!t || !host) return null;
+    if ((!t && !rect) || !host) return null;
     const r = rect || t.getBoundingClientRect(), ss = stackRect();
     const fx = (x - r.left) / Math.max(1, r.width), fy = (y - r.top) / Math.max(1, r.height);
     const side = [["left", fx], ["right", 1 - fx], ["top", fy], ["bottom", 1 - fy]].sort((a, b) => a[1] - b[1])[0][0];
@@ -3474,7 +3489,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* a split re-arranged from inside: pane `id` goes to `side` of pane `to` - left / right: the panes side by side,
      top / bottom: one above the other (three or more: one row / one column, in the new order) */
-  async function rearrange(win, id, to, side) {
+  async function rearrange(win, id, to, side, full) {
     const api = vivTile();
     if (!api) return false;
     try {
@@ -3485,7 +3500,7 @@ window.vosBeat = window.vosBeat || (() => {
       const nums = order.map(Number), wid = await winId();
       const list = api.store.getPages(wid)?.filter?.(pg => nums.includes(pg.id))?.sortBy?.(pg => nums.indexOf(pg.id));
       if (!list || list.size !== nums.length) return false;
-      dropInfo = { target: String(win), dragged: String(id), src: String(win), kind: "window", t: Date.now() };   // the window keeps its place
+      if (!full) dropInfo = { target: String(win), dragged: String(id), src: String(win), kind: "window", t: Date.now() };   // the window keeps its place (full screen: it stays full screen)
       await api.tile(list, side === "left" || side === "right" ? "row" : "column");
       activate(id); queueRender();
       return true;
@@ -4478,13 +4493,15 @@ window.vosBeat = window.vosBeat || (() => {
       if (goB) bentoToggle(t.bento);
       return;
     }
-    const go = !!t && (Math.abs(s.acc) > D * 0.4 || (v > 0.5 && Math.abs(s.acc) > 30));
+    // natural: it goes the way it was moving when the fingers lifted - still moving on: on to that desktop; moved back: back
+    const last = (s.hist || []).slice(-2).reduce((a, x) => a + x, 0) * dir;   // the last steps: on (>0) or back (<0)
+    const go = !!t && (Math.abs(s.acc) > D * 0.5 || (Math.abs(s.acc) > D * 0.06 && (last > 0 || v > 0.05)));
     if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
     const from = s.dxV || 0, to = go ? dir * D : 0;
     const dist = Math.max(1, Math.abs(to - from));
     // it goes on at the fingers' own speed and only slows down from there (never a pause, then a push): a slow lift
     // takes a little longer to arrive, a fast one is there at once
-    const vv = Math.max(0.05, v), ms = Math.round(go ? Math.max(200, Math.min(1500, 1.5 * dist / vv)) : Math.max(160, Math.min(420, 1.4 * dist / Math.max(vv, 1.2))));
+    const vv = Math.max(0.05, v), ms = Math.round(go ? Math.max(220, Math.min(380, 1.5 * dist / vv)) : Math.max(160, Math.min(300, 1.4 * dist / Math.max(vv, 1.2))));
     const k = vv * ms / dist;                                         // its first speed, as a slope of the curve
     const y1 = Math.max(0.05, Math.min(1, 0.3 * k));
     const ease = go ? `cubic-bezier(0.3, ${y1.toFixed(3)}, 0.35, 1)` : "cubic-bezier(0.25, 0.8, 0.3, 1)";
@@ -4822,10 +4839,21 @@ window.vosBeat = window.vosBeat || (() => {
       if (wall && wall !== "none") mini.style.backgroundImage = wall;
       // its windows, where they are (the front ones on top)
       const bE = browserEl(), here = same(sp.id, cur);
-      const fullId = here ? (bE.hasAttribute("data-ft-maxpage") ? activePage()?.dataset.id : bE.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) && pageOf(underId)?.hasAttribute("data-ft-under") ? underId : null)
+      const apH = here ? activePage() : null, splitHere = !!apH && !bE.hasAttribute("data-ft-desktop") && isTiled(apH) && !winOf(apH.dataset.id) && !isStart(apH);   // a split shown full screen, here
+      const fullId = here ? (bE.hasAttribute("data-ft-maxpage") || splitHere ? apH?.dataset.id : bE.hasAttribute("data-ft-desktop") && underId && !awayWs(underId) && pageOf(underId)?.hasAttribute("data-ft-under") ? underId : null)
                           : (fullOf(fronts.get(String(sp.id))) ? String(fronts.get(String(sp.id)).id) : null);
-      const onlyFull = !!fullId && (!here || bE.hasAttribute("data-ft-maxpage"));   // a full-screen app in front: only it
-      if (fullId) {
+      const onlyFull = !!fullId && (!here || bE.hasAttribute("data-ft-maxpage") || splitHere);   // a full-screen app in front: only it
+      const parts = fullId ? splitParts(fullId, ss) : null;
+      if (parts) for (const { id: pid, r } of parts) {                 // a full-screen split: its panes, as they are seen
+        const w = document.createElement("div");
+        w.className = "vos-ws-win vos-ws-pane"; w.dataset.tab = String(pid);
+        Object.assign(w.style, { left: (r.x / ss.width * 100) + "%", top: (r.y / ss.height * 100) + "%", width: (r.w / ss.width * 100) + "%", height: (r.h / ss.height * 100) + "%" });
+        const t = info.get(String(pid));
+        if (t?.url) { const im = document.createElement("img"); im.src = favicon(t.url); im.alt = ""; w.appendChild(im); }
+        pagePicture(w, Number(pid), r);
+        mini.appendChild(w);
+      }
+      else if (fullId) {
         const w = document.createElement("div");
         w.className = "vos-ws-win vos-ws-full"; w.dataset.tab = String(fullId);
         Object.assign(w.style, { left: "0%", top: "0%", width: "100%", height: "100%" });
@@ -5137,7 +5165,7 @@ window.vosBeat = window.vosBeat || (() => {
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
       vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
-      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit,
+      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act,
     } });
   } catch (e) {}
   async function wsByTab(sp) {
@@ -5309,6 +5337,10 @@ window.vosBeat = window.vosBeat || (() => {
     }
     const bar = t.closest?.(".ft-titlebar") || t.closest?.(".mosaic-tile");
     const el = bar?.closest("[data-ft-float]");
+    if (!el && bar?.classList.contains("mosaic-tile") && !lpOn() && !tbEditing()) {   // a split shown full screen: its panes drag like a window's
+      const pg = bar.closest(".webpageview[data-id]"), root = pg && isTiled(pg) ? rootOf(pg) : null;
+      if (root) return tileGesture(e, bar, root);
+    }
     if (!el) return;
     if (bar.classList.contains("mosaic-tile") && isSplitWindow(el)) return tileGesture(e, bar, el);   // a tile: its icon goes with the pointer
     if (bar.classList.contains("ft-titlebar") && pageOf(bar.dataset.ftPage) && doublePress(e, bar.dataset.ftPage)) return;
@@ -5329,7 +5361,8 @@ window.vosBeat = window.vosBeat || (() => {
     const page = strip.closest(".webpageview[data-id]"), id = page?.dataset.id;
     if (!id || e.button !== 0) return;
     e.stopPropagation();                                             // Vivaldi's own tile drag never starts (it took the tile out early)
-    const src = win.dataset.ftFloat, pid = e.pointerId, sx = e.clientX, sy = e.clientY;
+    const src = win.dataset.ftFloat || null, full = !src, pid = e.pointerId, sx = e.clientX, sy = e.clientY;   // full: a split shown full screen
+    const ownOf = () => full ? (rootOf(pageOf(id)) || win) : targetOf(pageOf(src));
     const icon = document.createElement("img"); icon.alt = ""; icon.decoding = "sync";   // loaded now, while the button is down
     icon.src = tabIcon(id) || favicon(page.querySelector("webview")?.getAttribute("src") || "");
     chrome.tabs.get(Number(id), t => { void chrome.runtime.lastError; if (!tabIcon(id) && t) icon.src = t.favIconUrl || favicon(t.url || t.pendingUrl || ""); });
@@ -5349,11 +5382,11 @@ window.vosBeat = window.vosBeat || (() => {
       }
       ev.preventDefault();
       ghost.style.translate = `${Math.round(ev.clientX - 22)}px ${Math.round(ev.clientY - 22)}px`;
-      const ownEl = targetOf(pageOf(src));
-      if (inRect(ev.clientX, ev.clientY, ownEl?.getBoundingClientRect())) {   // inside its own window: onto another pane of it - the split re-arranged
+      const ownEl = ownOf();
+      if (full || inRect(ev.clientX, ev.clientY, ownEl?.getBoundingClientRect())) {   // inside its own window: onto another pane of it - the split re-arranged
         tgt = null;
         pane = paneAt(ownEl, ev.clientX, ev.clientY);
-        side = pane ? splitPreview(src, ev.clientX, ev.clientY, null, ownEl, pane.getBoundingClientRect()) : (splitPreview(null), null);
+        side = pane ? splitPreview(src || pane.dataset.id, ev.clientX, ev.clientY, null, ownEl, pane.getBoundingClientRect()) : (splitPreview(null), null);
         return;
       }
       pane = null;
@@ -5374,8 +5407,9 @@ window.vosBeat = window.vosBeat || (() => {
       setTimeout(() => g.remove(), 400);
       if (ev.type !== "pointerup") return;
       const x = ev.clientX, y = ev.clientY;
-      const own = targetOf(pageOf(src))?.getBoundingClientRect();
-      if (pane && side) { rearrange(src, id, pane.dataset.id, side); return; }   // within its window: on that side of that pane
+      const own = ownOf()?.getBoundingClientRect();
+      if (pane && side) { rearrange(src || id, id, pane.dataset.id, side, full); return; }   // within its window: on that side of that pane
+      if (full) return;                                              // a full-screen split: nothing else
       if (tgt && side) {                                            // onto another window: it joins it on that side
         tileToDesktop({ id, src }, x, y);
         const t1 = Date.now(), to = tgt, sd = side;
@@ -5487,7 +5521,7 @@ window.vosBeat = window.vosBeat || (() => {
   let dragIcon = null;                               // a tile's app icon, made when it is pressed (its picture loads before the drag)
   addEventListener("pointerdown", e => {
     const strip = e.button === 0 && e.target.closest?.(".mosaic-tile");
-    if (!strip || strip.closest("[data-ft-float]")) return;          // (a floating split's tile: tileGesture)
+    if (!strip || strip.closest("[data-ft-float]") || isTiled(strip.closest(".webpageview[data-id]"))) return;   // (a split's tile, floating or full screen: tileGesture)
     const page = strip.closest(".webpageview[data-id]"), url = page?.querySelector("webview")?.getAttribute("src") || "";
     if (!url) return;
     dragIcon?.remove();
@@ -5505,11 +5539,7 @@ window.vosBeat = window.vosBeat || (() => {
   function onDragStart(e) {
     if (tbEditing()) return;
     const strip = e.target.closest?.(".mosaic-tile");
-    if (strip) {
-      const win = strip.closest("[data-ft-float]");
-      if (!win) return;                                             // a full-size split: Vivaldi's own
-      e.preventDefault(); return;                                   // a floating split's tile: the mod's own drag (tileGesture)
-    }
+    if (strip) { e.preventDefault(); return; }                      // a split's tile (floating or full screen): the mod's own drag (tileGesture)
     if (e.target.closest?.("[data-ft-float], .ft-lights")) { e.preventDefault(); return; }
     const id = tabIdAt(e.target);
     if (!id) return;
@@ -5909,6 +5939,7 @@ window.vosBeat = window.vosBeat || (() => {
       const strip = e.button === 0 && e.target.closest?.(".mosaic-tile");
       const win = strip && strip.closest("[data-ft-float]");
       if (win && isSplitWindow(win) && !lpOn()) { e.preventDefault(); e.stopPropagation(); }   // the mod's own tile drag (tileGesture)
+      else if (strip && !win && !lpOn() && !tbEditing() && isTiled(strip.closest(".webpageview[data-id]"))) { e.preventDefault(); e.stopPropagation(); }   // a full-screen split: the mod's too
     }, true);
     document.addEventListener("pointerup", onPointerUp, true);
     document.addEventListener("focusin", onFocusIn, true);

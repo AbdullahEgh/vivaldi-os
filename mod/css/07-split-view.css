@@ -1520,3 +1520,14 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser:not([data-ft-desktop]) #webpage-stack .tiled:not([data-ft-float]) .webpageview:not([data-ft-cover]) {
   border-radius: var(--radius) !important; clip-path: inset(0 round var(--radius)) !important; overflow: hidden !important;
 }
+
+/* 1.0.156: a split shown full screen: its panes have the same strip and grabber as a floating split's (the mod's own
+   drag - the app icon, the half preview - instead of Vivaldi's drop areas) */
+#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile { top: 3px !important; height: 12px !important; }
+#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile::after {
+  content: "" !important; position: absolute !important; top: 4px !important; left: 50% !important; width: 36px !important; height: 4px !important;
+  margin-left: -18px !important; border-radius: 2px !important; background: rgba(0, 0, 0, 0.26) !important; box-shadow: none !important;
+  opacity: 0 !important; transition: opacity 0.15s ease !important;
+}
+#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview[data-vos-tone="dark"] .mosaic-tile::after { background: rgba(255, 255, 255, 0.34) !important; }
+#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile:hover::after { opacity: 1 !important; }
