@@ -4509,20 +4509,18 @@ window.vosBeat = window.vosBeat || (() => {
   function swUnmove(list) {
     for (const el of list) { el.getAnimations().forEach(a => { if (a.effect?.getKeyframes?.().some(k => "--vos-dx" in k)) a.cancel(); }); el.style.removeProperty("--vos-dx"); el.style.removeProperty("--vos-in"); }
   }
-  const SW_QUIET = 700, SW_HUSH = 220;                                // a finger resting is not a release: only the lift (or a long stop) lets go
+  const SW_QUIET = 700, SW_HUSH = 220, SW_QUIET_AFTER = 280, SW_FLICK = 1.8;   // SW_FLICK: px per ms - faster than a hand guiding it
+  let swQuietUntil = 0;                                // a finger resting is not a release: only the lift (or a long stop) lets go
   let swHushAt = 0, swHushLast = 0, swLastEvt = 0;
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(".vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, dx = ev.deltaX * k, dy = ev.deltaY * k;
     const now = performance.now();
-    // what is left of a swipe (its momentum, fading) is let go; a NEW swipe is one only once the momentum has stopped
-    // (the fingers touching again stop it: a gap) - or a clear new push, far stronger than the fading steps
-    const gap = now - swLastEvt; swLastEvt = now;
-    const fresh = !swiping && !(sw && sw.settling) && swHushAt && ((gap > 60 && Math.abs(dx) >= 3) || Math.abs(dx) > Math.max(14, swHushLast * 2.6));
-    if (!fresh && (swiping || (sw && sw.settling) || (swHushAt && now - swHushAt < SW_HUSH))) {
-      swHushAt = now; swHushLast = Math.abs(dx); if (Math.abs(dx) > Math.abs(dy)) ev.preventDefault(); return;
+    // ONE RULE after a swipe: nothing more until the trackpad is quiet (its momentum over) - no extra swipe on arrival
+    if (swiping || (sw && sw.settling) || now < swQuietUntil) {
+      swQuietUntil = Math.max(swQuietUntil, now + SW_QUIET_AFTER);
+      if (Math.abs(dx) >= Math.abs(dy)) ev.preventDefault(); return;
     }
-    swHushAt = 0; swHushLast = 0;
     if (sw && !dx && !dy) { ev.preventDefault(); return swRelease(); }   // the end of the gesture (macOS sends an empty one): the fingers let go
     if (!sw && Math.abs(dx) <= Math.abs(dy)) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }   // up / down: nothing (no tab switching here)
     ev.preventDefault();                                             // not Vivaldi's back / forward swipe
@@ -4618,12 +4616,11 @@ window.vosBeat = window.vosBeat || (() => {
       if (h.length >= 4 && h.every(x => Math.sign(x) === Math.sign(h[0])) &&
           h.slice(1).every((x, i) => Math.abs(x) <= Math.abs(h[i]) * 0.99 && Math.abs(x) >= Math.abs(h[i]) * 0.7)) return swRelease();
     }
-    // the desktop follows the fingers until they lift (macOS ends the gesture with an empty event); only a really fast
-    // flick, well on its way, finishes by itself
-    if (dir && swTarget(dir) && Math.abs(s.acc) > s.D * 0.3 && Math.max(0, ...s.vs.map(([, x]) => x * dir)) > 2.6) return swRelease();
+    // a FAST swipe: straight to that desktop (no need to carry it there); a slow one is the hand's - it only follows
+    if (dir && swTarget(dir) && Math.abs(s.acc) > 24 && Math.max(0, ...s.vs.map(([, x]) => x * dir)) > SW_FLICK) return swRelease(true);
     s.timer = setTimeout(swRelease, SW_QUIET);                       // the scrolling stopped: let go
   }
-  async function swRelease() {
+  async function swRelease(flick) {
     const s = sw;
     if (!s || s.settling) return;
     clearTimeout(s.timer);
@@ -4641,8 +4638,9 @@ window.vosBeat = window.vosBeat || (() => {
       return;
     }
     // natural: it goes the way it was moving when the fingers lifted - still moving on: on to that desktop; moved back: back
+    // let go: where the hand left it - past half way (or still moving on, a good way along): on; else back
     const last = (s.hist || []).slice(-2).reduce((a, x) => a + x, 0) * dir;   // the last steps: on (>0) or back (<0)
-    const go = !!t && (Math.abs(s.acc) > D * 0.5 || (Math.abs(s.acc) > D * 0.06 && (last > 0 || v > 0.05)));
+    const go = !!t && (flick === true || Math.abs(s.acc) >= D * 0.5 || (Math.abs(s.acc) > D * 0.15 && last > 0 && v > 0.6));
     if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
     const from = s.dxV || 0, to = go ? dir * D : 0;
     const dist = Math.max(1, Math.abs(to - from));
@@ -4707,6 +4705,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   function swClean(s) {                                              // all in one frame: everything where it really is
     s.cleaned = true; s.watch?.disconnect();
+    swQuietUntil = Math.max(swQuietUntil, performance.now() + SW_QUIET_AFTER);   // (what the trackpad still sends: not a new swipe)
     s.b.removeAttribute("data-vos-dragdesk");
     if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
     swUnmove(s.movers || []); s.movers = [];
@@ -5869,7 +5868,10 @@ window.vosBeat = window.vosBeat || (() => {
     if (!e.buttons && drag) drag = null;                            // a drag that ended unseen
     if (e.pointerType && e.pointerType !== "mouse") return;
     if (e.buttons || drag || !browserEl()?.hasAttribute("data-ft-desktop")) return;
-    const win = e.target.closest?.("[data-ft-float]:not([data-ft-min])");
+    // a swipe (and its moment after): windows slide under a still pointer - no window is "hovered" then, and never one
+    // of another desktop (making its tab active would take Vivaldi back to that desktop)
+    if (sw || swiping || performance.now() < swQuietUntil + 150) { clearTimeout(hoverTimer); hoverTimer = 0; hoverKey = null; return; }
+    const win = e.target.closest?.("[data-ft-float]:not([data-ft-min]):not([data-ft-away]):not([data-vos-incoming]):not([data-vos-out]):not([data-ft-ws-leave])");
     const inner = win && isSplitWindow(win) ? e.target.closest?.(".webpageview[data-id]")?.dataset.id : null;
     const key = win ? (inner || win.dataset.ftFloat) : "-";
     hoverMoved = performance.now();
@@ -5886,6 +5888,7 @@ window.vosBeat = window.vosBeat || (() => {
     const want = key;
     if (activePage()?.dataset.id === want || pendingActive === want) return;
     restThen(90, () => {
+      if (sw || swiping || awayWs(winOf(want) || want)) return;        // (a swipe began meanwhile, or it is not on this desktop)
       noRaise = want;
       hover = { id: want, t: Date.now() };
       window.__vosHoverFocusAt = Date.now();                         // (a popup is not closed by this focus: it is no click)
