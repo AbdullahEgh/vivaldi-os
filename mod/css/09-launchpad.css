@@ -1468,3 +1468,11 @@
 #browser .lp-w-m .lp-cal-big { justify-content: center !important; width: 100% !important; }
 /* Clock & Calendar: more room around the month */
 #browser .lp-wk-clockcal .lp-cal-mon { padding: 6px 10px 4px 6px !important; }
+
+/* 1.0.145: Square · Medium - its face as the Small one: the full height, flush at the left (its corners the card's);
+   the time centred in the rest */
+#browser .lp-w-m .lp-wk-clock-sq { grid-template-columns: auto 1fr !important; padding: 0 !important; justify-items: stretch !important; }
+#browser .lp-w-m .lp-wk-clock-sq > .lp-clock { height: 100% !important; width: auto !important; aspect-ratio: 1 !important; justify-self: start !important; }
+#browser .lp-w-m .lp-wk-clock-sq > .lp-dclock { justify-self: center !important; }
+/* the month's name lines up with the left of its days (the first day column's letters) */
+#browser .lp-cal-mon .lp-cal-month, #browser .lp-w-m .lp-cal-mon .lp-cal-month, #browser .lp-wk-clockcal .lp-cal-month { text-align: left !important; padding-left: calc((100% / 7 - 0.62em) / 2) !important; }
