@@ -244,7 +244,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (pages.length < 2) return null;
     return { pages, layout: tileMeta.get(String(id))?.layout || "row" };
   }
-  const vsSince = new Map(), vsFixAt = new Map();
+  const vsSince = new Map(), vsFixAt = new Map(), vsShells = new Map();
   async function vsRetile(id) {
     const v = vSplit(id), api = vivTile();
     if (!v || !api) return;
@@ -271,7 +271,7 @@ window.vosBeat = window.vosBeat || (() => {
     const each = ((row ? ss.width : ss.height) - G * (n + 1)) / n;
     return ids.map((m, i) => ({ id: m, r: row ? { x: G + i * (each + G), y: G, w: each, h: ss.height - 2 * G } : { x: G, y: G + i * (each + G), w: ss.width - 2 * G, h: each } }));
   }
-  const winEls = id => { const v = vSplit(id); return v ? v.pages : [targetOf(pageOf(id))]; };   // what shows a window: its element - or a split's pages not drawn
+  const winEls = id => { const v = vSplit(id); return v ? [vsShells.get(id), ...v.pages].filter(Boolean) : [targetOf(pageOf(id))]; };   // what shows a window: its element - or a split's pages not drawn
   /* the window a tab belongs to: itself, or the floating split it is part of */
   function winOf(id) {
     if (id == null) return null;
@@ -1297,10 +1297,18 @@ window.vosBeat = window.vosBeat || (() => {
     for (const { id, el } of windows) {
       addChrome(el, id);
       const held = missionDrag?.id === id;
-      const r = held ? missionDrag.r : liveMove?.id === id ? liveMove.base : pxRect(id, s), o = origins.get(el.parentElement);
+      const r = held ? missionDrag.r : liveMove?.id === id ? liveMove.base
+        : (awayWs(id) && !mission && otherTiles(wsOfTab.get(String(id)), s).get(id)) || pxRect(id, s), o = origins.get(el.parentElement);   // another desktop with Bento on: its place in that Bento (as it shows when you get there)
       const vs = vSplit(id);
       if (vs) {                                                      // a split not drawn: its panes side by side (or one above the other)
-        const n = vs.pages.length, I = 3, G = 3, row = vs.layout !== "column";
+        const F = parseFloat(getComputedStyle(b).getPropertyValue("--ft-frame")) || 3;   // the real split's frame and gap
+        const n = vs.pages.length, I = F, G = F, row = vs.layout !== "column";
+        let sh = vsShells.get(id);                                   // the window itself behind its panes: its colour, corners, outline, shadow
+        if (!sh) { sh = document.createElement("div"); sh.className = "vos-vsplit-shell"; vsShells.set(id, sh); }
+        if (sh.parentElement !== el.parentElement) el.parentElement.insertBefore(sh, el.parentElement.firstChild);
+        sh.dataset.ftFor = id;
+        sh.toggleAttribute("data-ft-away", awayWs(id));
+        place(sh, r, s, o);
         const each = ((row ? r.w : r.h) - 2 * I - G * (n - 1)) / n;
         vs.pages.forEach((mp, i) => place(mp, row ? { x: r.x + I + i * (each + G), y: r.y + I, w: each, h: r.h - 2 * I }
                                                   : { x: r.x + I, y: r.y + I + i * (each + G), w: r.w - 2 * I, h: each }, s, fixedOrigin(mp.parentElement)));
@@ -1310,7 +1318,10 @@ window.vosBeat = window.vosBeat || (() => {
         : cover === id && !mission ? "90000"                         // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts); Mission Control: a window like the others
         : pip.includes(id) ? String((cover ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too)
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
-      if (vs) for (const mp of vs.pages) if (mp !== el) setStyle(mp, "z-index", el.style.getPropertyValue("z-index"));
+      if (vs) {
+        for (const mp of vs.pages) if (mp !== el) setStyle(mp, "z-index", el.style.getPropertyValue("z-index"));
+        const sh = vsShells.get(id); if (sh) setStyle(sh, "z-index", String((Number(el.style.getPropertyValue("z-index")) || 100) - 0));
+      }
       placeFrame(id, el, r, s, o);
       missionLook(id, el, held ? { x: r.x, y: r.y, k: missionDrag.k } : slots?.get(id) || null, r);   // Mission Control: scaled, not resized
       frames.get(id)?.toggleAttribute("data-ft-focused", focusSet.has(id));
@@ -1334,6 +1345,7 @@ window.vosBeat = window.vosBeat || (() => {
     {
       const live = new Set(windows.map(w => w.id));
       for (const [id, f] of frames) if (!live.has(id)) { f.remove(); frames.delete(id); }
+      for (const [id, sh] of vsShells) if (!live.has(id) || !vSplit(id)) { if (!sh.hasAttribute("data-vos-incoming") && !sh.hasAttribute("data-vos-out")) { sh.remove(); vsShells.delete(id); } }   // (drawn by Vivaldi again: the real window)
     }
 
     // apply the difference to the DOM
@@ -2811,8 +2823,8 @@ window.vosBeat = window.vosBeat || (() => {
   const chainButton = () => osChainButtons().vosbento || null;
   const MC_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><rect x="1.5" y="7" width="7" height="4" rx="2"/><circle cx="12" cy="9" r="2"/><circle cx="16" cy="9" r="1.6" opacity="0.55"/></svg>';   // Ubuntu: this desktop a line, the others dots
   const TIMER_ICON = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none" stroke-width="2.6" stroke-linecap="round"><circle cx="10" cy="10" r="7.5" stroke="currentColor" opacity="0.3"/><path d="M10 2.5a7.5 7.5 0 1 1-7.13 5.18" stroke="#ff9f0a"/></svg>';   // only the ring
-  const DARK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="7.8"/><path d="M12 4.2a7.8 7.8 0 0 0 0 15.6z" fill="currentColor" stroke="none"/></svg>';   // macOS Dark Mode: a circle, its left half dark
-  const DATE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M4 10h16M8.5 3.5v3M15.5 3.5v3"/></svg>';
+  const DARK_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M9 1.5a7.5 7.5 0 1 1 0 15a7.5 7.5 0 0 1 0-15zM9 3.8a5.2 5.2 0 0 1 0 10.4z"/></svg>';   // Ubuntu style: solid - a thick ring, its left half filled
+  const DATE_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M4.6 3h8.8A2.6 2.6 0 0 1 16 5.6v7.8a2.6 2.6 0 0 1-2.6 2.6H4.6A2.6 2.6 0 0 1 2 13.4V5.6A2.6 2.6 0 0 1 4.6 3zM4.9 7.4a1 1 0 0 0-1 1v4.7a1 1 0 0 0 1 1h8.2a1 1 0 0 0 1-1V8.4a1 1 0 0 0-1-1z"/><rect x="4.9" y="1.2" width="2" height="3.4" rx="1"/><rect x="11.1" y="1.2" width="2" height="3.4" rx="1"/><rect x="10.2" y="10.2" width="2.6" height="2.6" rx="0.7"/></svg>';   // Ubuntu style: a solid calendar
   /* THE DATE by the tab bar clock: Fri / Fri 20 / Fri 20 Nov */
   let dateFmt = "dd";
   vstore.get("vosDateFmt").then(v => { if (v === "d" || v === "dd" || v === "ddm") { dateFmt = v; paintDate(); } }).catch(() => {});
@@ -4418,7 +4430,8 @@ window.vosBeat = window.vosBeat || (() => {
   function swTarget(dir) {
     const i = sw?.info;
     if (!i || i.i < 0) return null;
-    return i.ds[i.i + dir] || null;                                  // Bento is each desktop's own: a swipe only changes the desktop
+    const t = i.ds[i.i + dir] || null;
+    return t && !("bento" in t) ? t : null;                          // Bento is each desktop's own: a swipe only changes the desktop (never a pull or a Bento switch)
   }
   const isBentoT = t => !!t && "bento" in t;
   function swUnprep() {
@@ -4466,7 +4479,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (d) { s.vs.push([now, d / Math.max(4, Math.min(60, now - (s.at || now - 16)))]); s.at = now; while (s.vs.length && now - s.vs[0][0] > 120) s.vs.shift(); }
     const dir = s.acc > 0 ? 1 : s.acc < 0 ? -1 : s.dir;
     if (dir && dir !== s.dir && s.info) { swPrep(dir); swMovers(s); }
-    const tg = swTarget(dir), shown = isBentoT(tg) ? s.acc * 0.3 : tg ? s.acc : s.acc * 0.15;   // nothing that way: a little stretch; Bento: a pull
+    const tg = swTarget(dir), shown = isBentoT(tg) ? s.acc * 0.3 : tg ? s.acc : 0;   // nothing that way (the first or last desktop): it stays still; Bento: a pull
     swSetDx(s, Math.round(shown));
     clearTimeout(s.timer);
     if (Math.abs(s.acc) >= s.D) return swRelease();                  // all the way: there
