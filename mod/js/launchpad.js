@@ -2356,10 +2356,11 @@
   /* WALLPAPER PER WINDOW: a picture chosen here is this Vivaldi window's own (for Light Mode, Dark Mode, or both);
      the theme's wallpaper shows where a window has none. Dim (15% black) and Blur (strong) are baked into the picture
      once - no live filter on the screen - over this window's own picture or the theme's. */
-  const WALL_FX_KEY = "vosWallFx";
+  const WALL_FX_KEY = "vosWallFx";                  // (+ ":" + the window: each Vivaldi window its own)
   let wallFx = { dim: false, blur: false }, wallWin = null, wallOwn = null, wallStyle = null, wallSeq = 0, wallTheme = "";
   const wallMade = new Map();                      // picture + effects -> its blob url (the last few)
   const wallKey = () => (wallWin ? "vosWall:" + wallWin : null);
+  const fxKey = () => (wallWin ? WALL_FX_KEY + ":" + wallWin : null);
   const winKeyNow = () => new Promise(r => chrome.windows.getCurrent(w => {     // this window, also after a restart (Vivaldi's own id for it)
     void chrome.runtime.lastError; let k = null;
     try { k = JSON.parse(w?.vivExtData || "{}").ext_id; } catch (e) {}
@@ -2391,7 +2392,7 @@
     while (wallMade.size > 4) { const [k0, u0] = wallMade.entries().next().value; wallMade.delete(k0); setTimeout(() => URL.revokeObjectURL(u0), 3000); }
     return url;
   }
-  async function applyWall() {
+  async function applyWall(fade) {
     const seq = ++wallSeq, b = document.getElementById("browser");
     if (!b) return;
     let dark = false; try { dark = await isDarkNow(); } catch (e) {}
@@ -2401,11 +2402,29 @@
     const src = own || theme;
     const url = src && (own || wallFx.dim || wallFx.blur) ? await bakeWall(src, own && !wallFx.dim && !wallFx.blur ? {} : wallFx) : null;
     if (seq !== wallSeq) return;
-    if (!url) { wallStyle?.remove(); wallStyle = null; return; }
-    if (!wallStyle) { wallStyle = document.createElement("style"); wallStyle.id = "vos-wall"; }
-    if (!wallStyle.isConnected) document.head.appendChild(wallStyle);
-    const css = `#browser#browser { --browserBackgroundImage: url("${url}") !important;${own ? " --browserBackgroundSize: cover !important; --browserBackgroundPosition: center !important; --browserBackgroundRepeat: no-repeat !important;" : ""} }`;
-    if (wallStyle.textContent !== css) wallStyle.textContent = css;
+    const css = url ? `#browser#browser { --browserBackgroundImage: url("${url}") !important;${own ? " --browserBackgroundSize: cover !important; --browserBackgroundPosition: center !important; --browserBackgroundRepeat: no-repeat !important;" : ""} }` : "";
+    if ((wallStyle?.isConnected ? wallStyle.textContent : "") === css) return;
+    if (url) { const im = new Image(); im.src = url; try { await im.decode(); } catch (e) {} }   // ready to draw: no empty frame when it shows
+    if (seq !== wallSeq) return;
+    const put = () => {
+      if (!css) { wallStyle?.remove(); wallStyle = null; return; }
+      if (!wallStyle) { wallStyle = document.createElement("style"); wallStyle.id = "vos-wall"; }
+      if (!wallStyle.isConnected) document.head.appendChild(wallStyle);
+      wallStyle.textContent = css;
+    };
+    const stack = document.getElementById("webpage-stack");
+    if (!fade || !stack || document.hidden) return put();
+    // the old wallpaper, on a layer just over the wallpaper (under the Launchpad's icons and the windows), fades away
+    const cs = getComputedStyle(b), old = document.createElement("div");
+    old.className = "vos-wall-old";
+    for (const [k, v] of [["background-color", "--browserBackgroundColor"], ["background-image", "--browserBackgroundImage"], ["background-size", "--browserBackgroundSize"],
+                          ["background-position", "--browserBackgroundPosition"], ["background-repeat", "--browserBackgroundRepeat"]]) old.style.setProperty(k, cs.getPropertyValue(v), "important");
+    stack.appendChild(old);
+    b.setAttribute("data-vos-wallfade", "");
+    put();
+    await old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 520, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }).finished.catch(() => {});
+    old.remove();
+    if (!document.querySelector(".vos-wall-old")) b.removeAttribute("data-vos-wallfade");
   }
   function pickWallpaper(mode) {                   // a picture from the computer: this window's own
     if (lp && !lp.desktop) close(true, true); else if (lp) close();
@@ -2424,17 +2443,17 @@
       const o = { ...(wallOwn || {}) };
       if (mode === "both") { delete o.light; delete o.dark; o.both = data; } else o[mode] = data;
       wallOwn = o; if (wallKey()) vstore.set(wallKey(), o);
-      applyWall();
+      applyWall(true);
     });
     inp.click();
     setTimeout(() => inp.remove(), 120000);
   }
   window.vosWallpaper = { apply: applyWall, pick: pickWallpaper, toggle: wallToggle, state: () => ({ win: wallWin, fx: wallFx, own: wallOwn ? Object.keys(wallOwn) : null, style: wallStyle?.textContent?.slice(0, 120) || null }) };
-  function themeWallpaper() { wallOwn = null; if (wallKey()) vstore.del(wallKey()); applyWall(); }   // this window: the theme's wallpaper again
-  function wallToggle(k) { wallFx = { ...wallFx, [k]: !wallFx[k] }; vstore.set(WALL_FX_KEY, wallFx); applyWall(); }
+  function themeWallpaper() { wallOwn = null; if (wallKey()) vstore.del(wallKey()); applyWall(true); }   // this window: the theme's wallpaper again
+  function wallToggle(k) { wallFx = { ...wallFx, [k]: !wallFx[k] }; if (fxKey()) vstore.set(fxKey(), wallFx); applyWall(true); }
   (async () => {
     wallWin = await winKeyNow();
-    const [o, fx] = await Promise.all([wallKey() ? vstore.get(wallKey()) : null, vstore.get(WALL_FX_KEY)]);
+    const [o, fx] = await Promise.all([wallKey() ? vstore.get(wallKey()) : null, fxKey() ? vstore.get(fxKey()) : null]);
     if (o && typeof o === "object") wallOwn = o;
     if (fx && typeof fx === "object") wallFx = { dim: !!fx.dim, blur: !!fx.blur };
     for (let i = 0; i < 100 && !document.getElementById("browser")?.style.getPropertyValue("--browserBackgroundImage"); i++) await new Promise(r => setTimeout(r, 150));   // Vivaldi's window drawn, its wallpaper set
@@ -2442,7 +2461,8 @@
     const b = document.getElementById("browser");     // the theme's wallpaper changed (another theme, a new picture): again
     if (b) new MutationObserver(() => { if ((b.style.getPropertyValue("--browserBackgroundImage") || "") !== wallTheme) applyWall(); }).observe(b, { attributes: true, attributeFilter: ["style"] });
     addEventListener("vos-appearance", () => setTimeout(applyWall, 200));
-    try { chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch[WALL_FX_KEY]) { const v = ch[WALL_FX_KEY].newValue; wallFx = { dim: !!v?.dim, blur: !!v?.blur }; applyWall(); } }); } catch (e) {}
+    try { chrome.storage.onChanged.addListener((ch, area) => { const k = fxKey(); if (area === "local" && k && ch[k]) { const v = ch[k].newValue; wallFx = { dim: !!v?.dim, blur: !!v?.blur }; applyWall(true); } }); } catch (e) {}
+    vstore.del(WALL_FX_KEY);                         // (the one for every window, of 1.0.153)
   })();
   const wallpaperItems = () => [["Light Mode…", () => pickWallpaper("light")], ["Dark Mode…", () => pickWallpaper("dark")],
                                 ["Both Modes…", () => pickWallpaper("both")], ...(wallOwn ? [["Theme Wallpaper", themeWallpaper]] : []), "-",

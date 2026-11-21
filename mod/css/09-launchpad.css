@@ -1493,3 +1493,11 @@
 #browser .lp-wk-timer[data-over] .lp-ring,
 #browser .vos-tm-mini[data-over] svg { transform-origin: 50% 50% !important; animation: vos-tm-breathe 2.4s ease-in-out infinite !important; }
 @media (prefers-reduced-motion: reduce) { #browser .lp-wk-timer[data-over] .lp-ring, #browser .vos-tm-mini[data-over] svg { animation-duration: 4.8s !important; scale: 1 !important; } }
+
+/* 1.0.154: the wallpaper changing (a picture, Dim, Blur): the old one, on its own layer over the new one, fades away -
+   the new one shows under it on the page area itself (the Launchpad's own copy of it stays clear meanwhile) */
+#browser[data-vos-wallfade] #webpage-stack { background-color: var(--browserBackgroundColor) !important; background-image: var(--browserBackgroundImage) !important;
+  background-position: var(--browserBackgroundPosition) !important; background-repeat: var(--browserBackgroundRepeat) !important;
+  background-size: var(--browserBackgroundSize) !important; background-attachment: fixed !important; }
+#browser[data-vos-wallfade] #webpage-stack > .lp-layer.lp-desktop { background: transparent !important; }
+#browser #webpage-stack > .vos-wall-old { position: absolute !important; inset: 0 !important; z-index: 84 !important; pointer-events: none !important; background-attachment: fixed !important; }

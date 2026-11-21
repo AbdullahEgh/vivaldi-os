@@ -1504,3 +1504,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-chain-vosmission button > .vos-desks-ic { display: flex !important; align-items: center !important; justify-content: center !important; height: 100% !important; }
 #browser .vos-chain-vosmission button > .vos-desks-ic svg { display: block !important; }
 #browser .vos-chain-vosmission .ToolbarButton-Button:has(> .vos-desks-ic) { width: auto !important; min-width: 30px !important; padding: 0 6px !important; }
+
+/* 1.0.154: a swipe from or to a desktop showing its Launchpad (no window in front): the windows coming in, and the ones
+   sliding out, are drawn as they are - Vivaldi keeps background pages at opacity 0, and outside the desktop view
+   nothing lifted that, so they came in unseen and popped up at the end (or vanished on the way out) */
+#browser#browser#browser:is([data-vos-dragdesk], [data-vos-swipe]) #webpage-stack :is([data-ft-float][data-vos-incoming], [data-ft-float][data-vos-out], [data-ft-float][data-ft-swipe-out]):not([data-ft-min]),
+#browser#browser#browser:is([data-vos-dragdesk], [data-vos-swipe]) #webpage-stack :is([data-ft-float][data-vos-incoming], [data-ft-float][data-vos-out], [data-ft-float][data-ft-swipe-out]):not([data-ft-min]) .webpageview,
+#browser#browser#browser:is([data-vos-dragdesk], [data-vos-swipe]) :is(.ft-frame[data-vos-out], .ft-frame[data-ft-swipe-out]) {
+  opacity: 1 !important; visibility: visible !important; filter: none !important; transform: none !important; transition: none !important;
+}
+#browser#browser#browser:is([data-vos-dragdesk], [data-vos-swipe]) #webpage-stack :is([data-ft-float][data-vos-out], [data-ft-float][data-ft-swipe-out]) * { visibility: visible !important; }

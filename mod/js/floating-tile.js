@@ -3214,7 +3214,13 @@ window.vosBeat = window.vosBeat || (() => {
     return to;
   }
   // the other side: draw the window being dragged in, where the pointer is
-  let ghost = null;
+  let ghost = null, landGhost = null;
+  function ghostGone(g = landGhost) {                // the icon of a window dropped here: gone as the window shows (a quick fade)
+    if (!g || g.__gone) return;
+    g.__gone = true; if (landGhost === g) landGhost = null;
+    g.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.8)" }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => g.remove());
+    setTimeout(() => g.remove(), 400);
+  }
   if (dragCh) dragCh.onmessage = ({ data: m }) => {
     if (!m || m.from === myWin()) return;
     if (m.to != null) {                                   // an answer to my own drag
@@ -3240,7 +3246,7 @@ window.vosBeat = window.vosBeat || (() => {
       }
     } else if (m.type === "end" && ghost) {
       const g = ghost.el; ghost = null;
-      if (m.drop && g.style.display !== "none") setTimeout(() => g.remove(), 900);   // stays until the window itself arrives
+      if (m.drop && g.style.display !== "none") { landGhost = g; setTimeout(() => ghostGone(g), 700); }   // until the window itself arrives (no longer)
       else g.remove();
     }
   };
@@ -3324,6 +3330,7 @@ window.vosBeat = window.vosBeat || (() => {
           const lx = d.sx - window.screenX - ss.left, ly = d.sy - window.screenY - (window.outerHeight - window.innerHeight) - ss.top;
           setPx(id, clampRect({ x: lx - (d.ox ?? d.w / 2), y: Math.max(0, ly - (d.oy ?? 14)), w: d.w, h: d.h }, ss), ss);
           groupFloat.add(id); floatNow(id, pageOf(id) || null); raise(id); queueRender();
+          requestAnimationFrame(() => ghostGone());
           const t0 = Date.now();
           const again = async () => {                                 // Vivaldi let go of the split on the way: split again, in the same order
             if (!d.ids.every(x => pageOf(x))) { if (Date.now() - t0 < 5000) setTimeout(again, 150); return; }
@@ -3344,6 +3351,7 @@ window.vosBeat = window.vosBeat || (() => {
           setPx(id, clampRect({ x: lx - (d.ox ?? d.w / 2), y: Math.max(0, ly - (d.oy ?? 14)), w: d.w, h: d.h }, ss), ss);
         }
         floatNow(id, pageOf(id) || null); raise(id); queueRender();
+        requestAnimationFrame(() => ghostGone());
       });
     });
   }
@@ -4467,10 +4475,38 @@ window.vosBeat = window.vosBeat || (() => {
       if (s.max && !s.max.classList.contains("webpageview") && s.max.getAttribute("data-vos-swmax") !== "under")
         await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 150))]);   // a split: out first (Vivaldi rebuilds it on the switch)
       const t1 = Date.now();
+      // that desktop shows its Launchpad (no window there): it slides in with its wallpaper - caught the moment
+      // Vivaldi draws it, before it is ever seen in its place
+      const toLp = !s.inc.length || s.inc.every(el => el.classList?.contains("vos-lp-ghost"));
+      const join = (el, inc) => {                                   // drawn anew mid-swipe: it rides on the same clock as the rest
+        if (!el || s.movers.includes(el)) return;
+        if (inc) { el.setAttribute("data-vos-incoming", ""); el.removeAttribute("data-ft-swipe-out"); s.inc.push(el); el.style.setProperty("--vos-in", String(s.inV || dir * D)); }
+        else { el.setAttribute("data-vos-out", ""); el.setAttribute("data-ft-ws-leave", ""); s.out.push(el); }
+        s.movers.push(el);
+        const a = el.animate([{ "--vos-dx": String(from) }, { "--vos-dx": String(to) }], { duration: ms, easing: ease, fill: "forwards" });
+        try { a.startTime = anim.startTime; } catch (e) {}
+      };
+      const lpQ = "#webpage-stack > .lp-layer.lp-desktop:not(.vos-lp-ghost)";
+      const outIds = [...new Set(out.map(el => el.dataset.ftFloat || "").filter(Boolean))];
+      const inIds = [...new Set(s.inc.map(el => el.dataset?.ftFloat || el.dataset?.ftFor || "").filter(Boolean))];
+      let joinQ = false;
+      const keep = () => {                                           // what Vivaldi re-draws on the switch keeps sliding (a split it takes apart: its panes)
+        joinQ = false;
+        if (s.cleaned) return;
+        if (toLp) join(document.querySelector(lpQ), true);
+        for (const id of outIds) for (const el of winEls(id)) if (el && el.isConnected && !el.hasAttribute("data-vos-out")) join(el, false);
+        for (const id of inIds) for (const el of [...winEls(id), frames.get(id)]) if (el && el.isConnected && !el.hasAttribute("data-vos-incoming")) join(el, true);   // a split Vivaldi draws again on arrival: still coming in
+      };
+      let joinN = 0;
+      const watch = new MutationObserver(() => { if (!joinQ && joinN < 30) { joinQ = true; joinN++; queueMicrotask(() => { render(); keep(); }); } });
+      watch.observe(s.stack, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+      s.watch = watch;
+      setTimeout(() => watch.disconnect(), ms + 2500);
       try {
         await Promise.race([switchWs({ id: t.id, name: t.name }, s.info.list), new Promise(r => setTimeout(r, 2000))]);
         while (Date.now() - t1 < 1500 && !sameWs(curWs(), t.id)) { wsNowAt = 0; await new Promise(r => setTimeout(r, 20)); }
         render();
+        keep();
       } catch (e) { wsErr("swipe", e); }
     }
     await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 200))]);
@@ -4480,6 +4516,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (go) { swiping = false; deskInfo = null; deskDots(true); arrive(t.id); }
   }
   function swClean(s) {                                              // all in one frame: everything where it really is
+    s.cleaned = true; s.watch?.disconnect();
     s.b.removeAttribute("data-vos-dragdesk");
     if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
     swUnmove(s.movers || []); s.movers = [];
@@ -5339,9 +5376,15 @@ window.vosBeat = window.vosBeat || (() => {
   const toneOf = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.2)) return "light"; return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light"; };
   function readTone(page) {
     const wv = page?.querySelector("webview");
-    if (!wv || typeof wv.executeScript !== "function" || Date.now() - (toneRead.get(wv) || 0) < 4000) return;
+    if (!wv || typeof wv.executeScript !== "function") return;
+    const tiledNow = page.classList.contains("tiled");
+    if (page.__vosToneTiled !== tiledNow) { page.__vosToneTiled = tiledNow; wv.__vosToneN = 0; toneRead.delete(wv); }   // just split (or out of a split): read now
+    const quick = (wv.__vosToneN || 0) < 6;                          // new here: read often at first (a page drawing its colours), then every 4s
+    if (Date.now() - (toneRead.get(wv) || 0) < (quick ? 350 : 4000)) return;
+    wv.__vosToneN = (wv.__vosToneN || 0) + 1;
     toneRead.set(wv, Date.now());
-    if (!wv.__vosTone) { wv.__vosTone = true; wv.addEventListener("loadstop", () => { toneRead.delete(wv); setTimeout(() => readTone(page), 400); }); }
+    if (quick) setTimeout(() => readTone(page), 400);
+    if (!wv.__vosTone) { wv.__vosTone = true; wv.addEventListener("loadstop", () => { toneRead.delete(wv); wv.__vosToneN = 0; setTimeout(() => readTone(page), 150); }); }
     try {
       wv.executeScript({ code: TONE_CODE }, x => {
         void chrome.runtime.lastError;
