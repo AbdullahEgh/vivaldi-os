@@ -493,7 +493,16 @@
     if (!lp?.sheet) return false;
     lp.sheet.remove(); lp.sheet = null; lp.picker = null;
     if (!lp.menu) lp.layer.removeAttribute("data-raised");
+    if (lp.sheetOnly) close(true, true);                            // opened for the sheet alone: it all goes
     return true;
+  }
+  function sheetOnly(fn) {                         // a sheet over the desktop as it is (no Launchpad behind it)
+    if (lp && !lp.desktop) return fn();
+    if (lp?.desktop) { lp.sheetOnlyDesk = true; return fn(); }       // the desktop's own Launchpad: just the sheet over it
+    open(); if (!lp) return;
+    lp.sheetOnly = true; lp.layer.setAttribute("data-sheet-only", "");
+    document.getElementById("browser")?.removeAttribute("data-launchpad");
+    fn();
   }
   function showMenu(n, x, y) {
     closeMenu();
@@ -552,10 +561,12 @@
     add(lp.editing ? "Done Editing" : "Edit Home Screen", () => (lp.editing ? exitEdit() : enterEdit()));
     add("Add Website…", () => { enterEdit(); siteGallery(); });
     add("Add Widget…", () => { enterEdit(); widgetGallery(); });
-    add("Bookmarks…", () => { enterEdit(); folderPicker(); });
+    add("Bookmarks…", () => folderPicker());   // just the Bookmarks sheet (no editing)
     const sep = () => { const d = document.createElement("div"); d.className = "lp-menu-sep"; m.appendChild(d); };
     sep();
-    add("Change Wallpaper…", changeWallpaper);
+    add("Change Wallpaper…", () => setTimeout(() => wallpaperMenu(x, y), 0));
+    add("Dark Mode", () => window.vosAppearance.toggle());
+    isDarkNow().then(d => { const b = [...m.querySelectorAll(".lp-menu-item")].find(e => /Dark Mode/.test(e.textContent)); b?.classList.toggle("lp-menu-on", d); });
     sep();
     add("Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), () => checkUpdate(true));
     add("Settings…", openSettings);
@@ -960,7 +971,7 @@
       e.addEventListener("click", ev => ev.stopPropagation());
       return e;
     };
-    return [mk("l", [["Folder", ICON.folder, folderPicker], ["Wallpaper", ICON.wall, changeWallpaper],
+    return [mk("l", [["Folder", ICON.folder, folderPicker], ["Wallpaper", ICON.wall, () => { const b = lp?.layer.querySelector('.lp-edge-btn[title="Wallpaper"]')?.getBoundingClientRect(); wallpaperMenu(b ? b.left : 40, b ? b.bottom + 8 : 120); }],
                      ["Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), ICON.update, () => checkUpdate(true)]]),
             mk("r", [["Websites", ICON.globe, siteGallery], ["Widgets", ICON.widget, widgetGallery], ["Done", ICON.check, exitEdit, "lp-edge-done"]])];
   }
@@ -2087,7 +2098,7 @@
     const l = document.createElement("div"); l.className = "lp-ios-label"; l.textContent = "Tab Bar";
     const g = document.createElement("div"); g.className = "lp-ios-group lp-tb-group";
     body.append(l, g);
-    const items = [["bento", "Bento"], ["desktops", "Desktops"], ["timer", "Timer"], ["date", "Date"]];
+    const items = [["bento", "Bento"], ["desktops", "Desktops"], ["dark", "Dark Mode"], ["timer", "Timer"], ["date", "Date"]];
     tbw.get().then(st => {
       for (const [k, name] of items) {
         const row = document.createElement("div"); row.className = "lp-ios-row lp-tb-row";
@@ -2238,18 +2249,96 @@
     }
     return pref("vivaldi.themes.current");
   }
-  async function changeWallpaper() {
+  /* THE WALLPAPER, per appearance: Light mode, Dark mode, or one for both. Each mode is a Vivaldi theme
+     (Vivaldi switches them with the system's appearance); the wallpaper is that theme's background image. */
+  const darkTheme = t => { const c = /^#?([0-9a-f]{6})$/i.exec(t?.colorBg || ""); if (!c) return false; const n = parseInt(c[1], 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 < 0.5; };
+  async function modeThemes() {
+    const en = await pref("vivaldi.theme.schedule.enabled"), os = (await pref("vivaldi.theme.schedule.o_s")) || {};
+    const cur = await themeInUse();
+    const all = [...((await pref("vivaldi.themes.system")) || []), ...((await pref("vivaldi.themes.user")) || [])];
+    const has = id => all.some(t => t?.id === id), curT = all.find(t => t?.id === cur);
+    let pair = null; try { pair = JSON.parse((await vstore.get("vosModeThemes")) || "null"); } catch (e) {}
+    if (os.light && os.dark && os.light !== os.dark) vstore.set("vosModeThemes", JSON.stringify(pair = { light: os.light, dark: os.dark }));   // the real pair (Dark Mode may point both at one)
+    const light = pair?.light && has(pair.light) ? pair.light : os.light && has(os.light) ? os.light : curT && !darkTheme(curT) ? cur : has("Vivaldi1") ? "Vivaldi1" : cur;
+    const dark = pair?.dark && has(pair.dark) ? pair.dark : os.dark && has(os.dark) ? os.dark : curT && darkTheme(curT) ? cur : has("Vivaldi2") ? "Vivaldi2" : cur;
+    return { light, dark, en, os, sys: en === "system" || en === 1 };
+  }
+  async function themeBg(id, fields) {               // that theme's background (both lists: the one it is in)
+    for (const path of ["vivaldi.themes.user", "vivaldi.themes.system"]) {
+      const list = await pref(path);
+      const i = Array.isArray(list) ? list.findIndex(t => t?.id === id) : -1;
+      if (i < 0) continue;
+      if (!fields) return list[i];
+      list[i] = { ...list[i], ...fields }; vivaldi.prefs.set({ path, value: list });
+    }
+    return null;
+  }
+  function wallpaperMenu(x, y) {                    // which mode's wallpaper (in the Launchpad, or over the desktop)
+    const host = lp?.layer;
+    if (host) closeMenu();
+    const m = document.createElement("div");
+    m.className = "lp-menu" + (host ? "" : " vos-vars vos-desk-menu");
+    const head = document.createElement("div"); head.className = "lp-menu-head"; head.textContent = "Wallpaper"; m.appendChild(head);
+    const add = (label, fn) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "lp-menu-item"; menuLabel(b, label);
+      b.addEventListener("click", ev => { ev.stopPropagation(); closeMenu(); fn(); });
+      m.appendChild(b);
+    };
+    add("Light Mode…", () => changeWallpaper("light"));
+    add("Dark Mode…", () => changeWallpaper("dark"));
+    add("Both Modes…", () => changeWallpaper("both"));
+    const sep = document.createElement("div"); sep.className = "lp-menu-sep"; m.appendChild(sep);
+    add("Themes Settings…", wallpaperSettings);
+    m.addEventListener("click", ev => ev.stopPropagation());
+    m.addEventListener("pointerdown", ev => ev.stopPropagation());
+    if (host) { host.appendChild(m); lp.menu = m; host.setAttribute("data-raised", ""); }
+    else {                                          // over the desktop: closes on a click elsewhere or Esc
+      m.style.position = "fixed";
+      (document.getElementById("browser") || document.body).appendChild(m);
+      const off = ev => { if (ev.type === "keydown" && ev.key !== "Escape") return; if (ev.type !== "keydown" && m.contains(ev.target)) return; m.remove(); removeEventListener("pointerdown", off, true); removeEventListener("keydown", off, true); };
+      setTimeout(() => { addEventListener("pointerdown", off, true); addEventListener("keydown", off, true); });
+      m.addEventListener("click", () => setTimeout(() => off({ type: "pointerdown", target: document.body }), 0));
+    }
+    const w = m.offsetWidth, h = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + "px";
+    m.style.top = Math.max(8, Math.min(y, innerHeight - h - 8)) + "px";
+  }
+  /* DARK MODE: Vivaldi's dark theme or its light theme (the two the wallpapers belong to), chosen here -
+     it then stays (no longer following the system's appearance) */
+  async function isDarkNow() {
+    const cur = await themeInUse();
+    const all = [...((await pref("vivaldi.themes.system")) || []), ...((await pref("vivaldi.themes.user")) || [])];
+    return darkTheme(all.find(t => t?.id === cur));
+  }
+  async function setDark(on) {                     // Vivaldi follows the system's appearance: both appearances point at the dark (or the light) theme
+    const t = await modeThemes();
+    const target = on ? t.dark : t.light;
+    if (!target) return;
+    if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
+    else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
+    setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
+  }
+  window.vosAppearance = { isDark: isDarkNow, set: setDark, async toggle() { await setDark(!(await isDarkNow())); } };
+  async function changeWallpaper(mode = "both") {
     if (lp && !lp.desktop) close(true, true); else close();
     try {
-      const themeId = await themeInUse();
+      const t = await modeThemes();
+      if (mode !== "both" && !t.sys && t.light !== t.dark) {       // a wallpaper per mode: Vivaldi follows the system's appearance (once)
+        await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: t.light, dark: t.dark } });
+        await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.enabled", value: typeof t.en === "number" ? 1 : "system" });
+      }
+      const themeId = mode === "dark" ? t.dark : mode === "light" ? t.light : await themeInUse();
       const win = await new Promise(r => chrome.windows.getCurrent(w => { void chrome.runtime.lastError; r(w); }));
       if (!themeId || !vivaldi?.utilities?.selectLocalImage) throw new Error("no picker");
-      const ok = await vivaldi.utilities.selectLocalImage({ windowId: win?.id, title: "Select Background Image", themeId });
+      const title = mode === "dark" ? "Wallpaper for Dark Mode" : mode === "light" ? "Wallpaper for Light Mode" : "Wallpaper for Light and Dark Mode";
+      const ok = await vivaldi.utilities.selectLocalImage({ windowId: win?.id, title, themeId });
       if (!ok) return;
-      for (const path of ["vivaldi.themes.user", "vivaldi.themes.system"]) {   // a picked image wins over a daily / preset source
-        const list = await pref(path);
-        const i = Array.isArray(list) ? list.findIndex(t => t?.id === themeId) : -1;
-        if (i >= 0 && list[i].backgroundSource) { list[i] = { ...list[i], backgroundSource: "" }; vivaldi.prefs.set({ path, value: list }); }
+      await themeBg(themeId, { backgroundSource: "" });             // a picked image wins over a daily / preset source
+      if (mode === "both") {                                        // the same image in the other mode too
+        const src = await themeBg(themeId);
+        for (const other of [t.light, t.dark]) if (other && other !== themeId && src?.backgroundImage)
+          await themeBg(other, { backgroundImage: src.backgroundImage, backgroundPosition: src.backgroundPosition, backgroundSource: "" });
       }
     } catch (e) {                                    // no picker here: Vivaldi's Themes settings instead
       console.warn("Bento OS: wallpaper", e);
@@ -2472,9 +2561,11 @@
     add("Open Launchpad", () => { if (!lp) open(); });
     add("Add Website…", inLp(siteGallery));
     add("Add Widget…", inLp(widgetGallery));
-    add("Bookmarks…", inLp(folderPicker));
+    add("Bookmarks…", () => sheetOnly(folderPicker));
     sep();
-    add("Change Wallpaper…", changeWallpaper);
+    add("Change Wallpaper…", () => setTimeout(() => wallpaperMenu(x, y), 0));
+    add("Dark Mode", () => window.vosAppearance.toggle());
+    isDarkNow().then(d => { const b = [...m.querySelectorAll(".lp-menu-item")].find(e => /Dark Mode/.test(e.textContent)); b?.classList.toggle("lp-menu-on", d); });
     sep();
     add("Update" + (window.vosVersion ? "  v" + window.vosVersion : ""), () => checkUpdate(true));
     add("Settings…", openSettings);

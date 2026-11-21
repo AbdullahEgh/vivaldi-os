@@ -202,13 +202,12 @@
   background: var(--colorBg) !important;
   /* inactive window: soft shadow */
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.10),                    /* the white edge, outside the window */
+                       /* the white edge, outside the window */
     0 8px 22px rgba(0, 0, 0, 0.22) !important;
 }
 /* the front (active) window: the deep macOS shadow */
 #browser #main [data-ft-float][data-ft-front] {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.10),
     0 28px 72px rgba(0, 0, 0, 0.46),
     0 10px 24px rgba(0, 0, 0, 0.28) !important;
 }
@@ -703,10 +702,10 @@
    ========================================================================== */
 #browser #main .webpageview[data-ft-float] {
   border: 0 !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 8px 22px rgba(0, 0, 0, 0.22) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22) !important;
 }
 #browser #main .webpageview[data-ft-float][data-ft-front] {   /* the active window: lifted higher */
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 28px 72px rgba(0, 0, 0, 0.46), 0 10px 24px rgba(0, 0, 0, 0.28) !important;
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.46), 0 10px 24px rgba(0, 0, 0, 0.28) !important;
 }
 #browser #main .webpageview[data-ft-float]::after {
   content: none !important;
@@ -1476,3 +1475,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-drag-ghost.vos-drag-icon { width: 64px !important; height: 64px !important; border-radius: 15px !important; overflow: hidden !important;
   background: var(--colorBg, #fff) !important; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(127, 127, 127, 0.35) !important; display: grid !important; place-items: center !important; }
 #browser .vos-drag-ghost.vos-drag-icon img { width: 42px !important; height: 42px !important; border-radius: 0 !important; filter: none !important; object-fit: contain !important; }
+
+/* 1.0.136: a window's rounded corners are clean in light and dark: no white ring around it, and no window
+   colour showing past the page's own curve (a lone page: nothing behind it) */
+#browser #main .webpageview[data-ft-float] { background: transparent !important; }
+#browser #main .webpageview[data-ft-float] > webview, #browser #main .webpageview[data-ft-float] .webpagecontainer { background: transparent !important; }
+
+/* 1.0.136: a single app (not part of a split) has no border line - full screen or a window */
+#browser #webpage-stack .webpageview:not(.tiled) { border: 0 !important; }
+#browser #webpage-stack .webpageview:not(.tiled)::after { content: none !important; border: 0 !important; }

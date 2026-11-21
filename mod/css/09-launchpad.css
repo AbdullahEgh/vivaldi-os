@@ -1377,3 +1377,10 @@
   background: color-mix(in srgb, var(--lp-text, #fff) 9%, transparent) !important; color: var(--lp-text, inherit) !important;
   font: 500 13px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; font-variant-numeric: tabular-nums !important; }
 #browser .lp-tb-seg button[data-on] { background: var(--lp-blue, #0a84ff) !important; color: #fff !important; }
+
+/* 1.0.136: Bookmarks opened from the desktop: the sheet alone over the desktop - no Launchpad behind it */
+#browser .lp-layer[data-sheet-only] { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+#browser .lp-layer[data-sheet-only] > :not(.lp-sheet) { visibility: hidden !important; }
+#browser .lp-layer[data-sheet-only]::before, #browser .lp-layer[data-sheet-only]::after { display: none !important; }
+/* a Bento OS menu over the desktop (the wallpaper's modes) */
+#browser > .lp-menu.vos-desk-menu { position: fixed !important; z-index: 2147482000 !important; }
