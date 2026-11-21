@@ -5031,18 +5031,26 @@ window.vosBeat = window.vosBeat || (() => {
        on the desktop: it leaves the split and opens there as its own window
        on another window: the half it would take shows; let go - it joins that window on that side
        on its own window, or nothing moved: nothing happens */
+  /* the app's icon as the tab bar shows it (already loaded there); else the tab's own icon */
+  function tabIcon(id) {
+    const im = document.getElementById("tab-" + id)?.querySelector("img");
+    return im?.currentSrc || im?.src || "";
+  }
   function tileGesture(e, strip, win) {
     const page = strip.closest(".webpageview[data-id]"), id = page?.dataset.id;
     if (!id || e.button !== 0) return;
+    e.stopPropagation();                                             // Vivaldi's own tile drag never starts (it took the tile out early)
     const src = win.dataset.ftFloat, pid = e.pointerId, sx = e.clientX, sy = e.clientY;
-    const url = page.querySelector("webview")?.getAttribute("src") || "";
+    const icon = document.createElement("img"); icon.alt = ""; icon.decoding = "sync";   // loaded now, while the button is down
+    icon.src = tabIcon(id) || favicon(page.querySelector("webview")?.getAttribute("src") || "");
+    chrome.tabs.get(Number(id), t => { void chrome.runtime.lastError; if (!tabIcon(id) && t) icon.src = t.favIconUrl || favicon(t.url || t.pendingUrl || ""); });
     let ghost = null, tgt = null, side = null;
     const move = ev => {
       if (ev.pointerId !== pid) return;
       if (!ghost) {
         if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
         ghost = document.createElement("div"); ghost.className = "vos-mc-icon vos-tile-ghost";
-        const im = document.createElement("img"); im.alt = ""; im.src = favicon(url); ghost.appendChild(im);
+        ghost.appendChild(icon);
         (browserEl() || document.body).appendChild(ghost);
         page.setAttribute("data-vos-tile-lift", "");
         ghost.animate([{ scale: "0.5", opacity: 0 }, { scale: "1", opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
@@ -5056,7 +5064,7 @@ window.vosBeat = window.vosBeat || (() => {
     const up = ev => {
       if (ev.pointerId !== pid) return;
       removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
-      if (!ghost) return;
+      if (!ghost) { if (ev.type === "pointerup") { activate(id); render(); } return; }   // a click: that tile
       const g = ghost; ghost = null;
       splitPreview(null);
       page.removeAttribute("data-vos-tile-lift");
@@ -5068,7 +5076,11 @@ window.vosBeat = window.vosBeat || (() => {
       if (tgt && side) {                                            // onto another window: it joins it on that side
         tileToDesktop({ id, src }, x, y);
         const t1 = Date.now(), to = tgt, sd = side;
-        const wait = () => { if (!isTiled(pageOf(id))) return splitInto(id, to, sd); if (Date.now() - t1 < 2000) setTimeout(wait, 60); };
+        const wait = async () => {                                   // out of its split and a window of its own first, then into the other
+          if (isTiled(pageOf(id)) || !floating.has(id)) { if (Date.now() - t1 < 3000) setTimeout(wait, 60); return; }
+          await new Promise(r => setTimeout(r, 150));
+          for (let k = 0; k < 4; k++) { if (await splitInto(id, to, sd)) return; await new Promise(r => setTimeout(r, 300)); if (isTiled(pageOf(id))) return; }
+        };
         setTimeout(wait, 120);
         return;
       }
@@ -5543,6 +5555,11 @@ window.vosBeat = window.vosBeat || (() => {
       if (page) act(btn.dataset.act, page);
     }, true);
     document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("mousedown", e => {
+      const strip = e.button === 0 && e.target.closest?.(".mosaic-tile");
+      const win = strip && strip.closest("[data-ft-float]");
+      if (win && isSplitWindow(win) && !lpOn()) { e.preventDefault(); e.stopPropagation(); }   // the mod's own tile drag (tileGesture)
+    }, true);
     document.addEventListener("pointerup", onPointerUp, true);
     document.addEventListener("focusin", onFocusIn, true);
     window.addEventListener("dragstart", onDragStart, true);

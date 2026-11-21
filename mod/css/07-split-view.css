@@ -840,11 +840,11 @@
 #browser .ft-frame[data-ft-grab] > .ft-grab {
   display: block !important;
   position: absolute !important;
-  top: 6px !important;                        /* inside: the window's top edge, at its centre */
+  top: 12px !important;                       /* inside, at the top centre, on the tiles' grabber line */
   left: 50% !important;
   right: auto !important;
-  width: 140px !important;
-  margin-left: -70px !important;
+  width: 110px !important;
+  margin-left: -55px !important;
   height: 12px !important;
   pointer-events: auto !important;
   cursor: grab !important;
@@ -858,10 +858,10 @@
   content: "" !important;
   position: absolute !important;
   left: 50% !important;
-  top: 1px !important;                        /* the tiles' own grabber, longer: it moves the whole window */
-  width: 72px !important;
+  top: 4px !important;                        /* the tiles' own grabber (36px), a little longer: it moves the whole window */
+  width: 54px !important;
   height: 4px !important;
-  margin-left: -36px !important;
+  margin-left: -27px !important;
   border-radius: 2px !important;
   background: color-mix(in srgb, var(--colorFg) 35%, transparent) !important;
   box-shadow: none !important;
@@ -1444,3 +1444,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.124: a split's tile being dragged: its app icon under the pointer; the tile it came from dims */
 #browser .vos-mc-icon.vos-tile-ghost { position: fixed !important; left: 0 !important; top: 0 !important; z-index: 2147482000 !important; pointer-events: none !important; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(127, 127, 127, 0.35) !important; }
 #browser #webpage-stack .webpageview[data-vos-tile-lift] { opacity: 0.45 !important; transition: opacity 0.15s ease !important; }
+
+/* 1.0.129: the window's grabber shows on hover only, as the tiles' do */
+#browser .vos-tile-ghost img { width: 30px !important; height: 30px !important; object-fit: contain !important; }
