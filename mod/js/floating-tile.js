@@ -329,6 +329,7 @@ window.vosBeat = window.vosBeat || (() => {
     const x = extOf(tab);
     return x?.tiling?.id ? String(x.tiling.id) : "";
   };
+  const perf = { render: [0, 0], markPills: [0, 0] };              // (how often the drawing runs, and how long: Q.perf)
   const tileMeta = new Map();                       // tab id -> { index, layout } in its split (Vivaldi's tab data)
   let tileTrees = {};                               // split id -> its tree (the window's own data)
   const readTrees = () => new Promise(r => chrome.windows.getCurrent(w => { void chrome.runtime.lastError; try { tileTrees = JSON.parse(w?.vivExtData || "{}").tiles || {}; } catch (e) {} r(tileTrees); }));
@@ -482,7 +483,8 @@ window.vosBeat = window.vosBeat || (() => {
   const tiledSeen = new Map();                                       // tab id -> { on, at }
   let pillRecheck = 0;
   let wsSeen;
-  function markPills() {
+  function markPills() { const t = performance.now(); try { return markPillsNow(); } finally { perf.markPills[0]++; perf.markPills[1] += performance.now() - t; } }
+  function markPillsNow() {
     watchPills();
     wsNowAt = 0;                                     // the tab bar changed: is it another workspace now?
     if (curWs() !== wsSeen) { wsSeen = wsNow; queueRender(); }
@@ -1230,7 +1232,9 @@ window.vosBeat = window.vosBeat || (() => {
 
   let marked = new Map();                           // element -> { attr: value } from the last render
   let lastSiteTab = null;
-  function render() {
+  function render() { const t = performance.now(); try { return renderNow(); } finally { perf.render[0]++; perf.render[1] += performance.now() - t; } }
+  let focusTry = { id: null, at: 0 };                 // the last window brought up because the keyboard focus was in it
+  function renderNow() {
     reconcile();
     bentoForDesk();
     focusForDesk();
@@ -1269,10 +1273,14 @@ window.vosBeat = window.vosBeat || (() => {
     { // the keyboard focus never stays in a window behind the front one: a click in it is
       // then always heard (it focuses the page) and brings that window to the front
       const aw = document.activeElement?.closest?.("[data-ft-float]");
-      if (aw && front && aw.dataset.ftFloat !== front) setTimeout(() => {
+      // (not a window of another desktop - the one just left keeps the focus a moment -, not while sliding or in Mission
+      // Control, and one try per window: it never turns into a loop of redraws)
+      if (aw && front && aw.dataset.ftFloat !== front && !aw.hasAttribute("data-ft-away") && !awayWs(aw.dataset.ftFloat) && !swiping && !sw && !mission &&
+          !(focusTry.id === aw.dataset.ftFloat && Date.now() - focusTry.at < 1000)) setTimeout(() => {
         const w = document.activeElement?.closest?.("[data-ft-float]");
-        if (!w || w.dataset.ftFloat === topWindow(null) || w.hasAttribute("data-ft-pip")) return;
+        if (!w || w.dataset.ftFloat === topWindow(null) || w.hasAttribute("data-ft-pip") || awayWs(w.dataset.ftFloat)) return;
         const wid = w.dataset.ftFloat, inner = document.activeElement?.closest?.(".webpageview[data-id]")?.dataset.id;
+        focusTry = { id: wid, at: Date.now() };
         const hovered = (hover && Date.now() - hover.t < 1500 && (hover.id === wid || winOf(hover.id) === wid)) ||
                         (window.__ftQuietTint != null && (window.__ftQuietTint === wid || winOf(window.__ftQuietTint) === wid));
         if (hovered) return unfocusPage();                           // only hovered: the focus goes back (the next click is heard)
@@ -5280,7 +5288,7 @@ window.vosBeat = window.vosBeat || (() => {
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
       vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
-      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act,
+      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act, get perf() { return perf; },
     } });
   } catch (e) {}
   async function wsByTab(sp) {
