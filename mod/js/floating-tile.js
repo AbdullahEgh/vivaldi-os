@@ -244,6 +244,19 @@ window.vosBeat = window.vosBeat || (() => {
     if (pages.length < 2) return null;
     return { pages, layout: tileMeta.get(String(id))?.layout || "row" };
   }
+  const vsSince = new Map(), vsFixAt = new Map();
+  async function vsRetile(id) {
+    const v = vSplit(id), api = vivTile();
+    if (!v || !api) return;
+    try {
+      const nums = v.pages.map(p => Number(p.dataset.id)), wid = await winId();
+      const list = api.store.getPages(wid)?.filter?.(pg => nums.includes(pg.id))?.sortBy?.(pg => nums.indexOf(pg.id));
+      if (!list || list.size !== nums.length) return;
+      dropInfo = { target: String(id), dragged: null, src: String(id), kind: "window", t: Date.now() };   // the window keeps its place
+      await api.tile(list, v.layout);
+      queueRender();
+    } catch (e) { LOG("split again", e); }
+  }
   const winEls = id => { const v = vSplit(id); return v ? v.pages : [targetOf(pageOf(id))]; };   // what shows a window: its element - or a split's pages not drawn
   /* the window a tab belongs to: itself, or the floating split it is part of */
   function winOf(id) {
@@ -1223,6 +1236,7 @@ window.vosBeat = window.vosBeat || (() => {
       const vs = vSplit(id);
       if (vs) for (const mp of vs.pages) if (mp !== el) {                  // a split not drawn: its other panes are this window too
         mark(mp, "data-ft-float", id); mark(mp, "data-vos-vsplit", id);
+        if (noTitle.has(id)) mark(mp, "data-ft-notitle");               // (no title bar room on any pane: no band at its top)
         if (awayWs(id)) mark(mp, "data-ft-away");
         for (let p = mp.parentElement; p && p.id !== "webpage-stack"; p = p.parentElement) mark(p, "data-ft-chain");
       }
@@ -1291,6 +1305,14 @@ window.vosBeat = window.vosBeat || (() => {
       frames.get(id)?.toggleAttribute("data-ft-pip", pip.includes(id));
     }
     if (focusSet.size) focusLift = new Set(focusSet);
+    // a split on this desktop that Vivaldi has not drawn again (back from another desktop): split it again, as it was
+    for (const { id } of windows) {
+      if (!vSplit(id) || awayWs(id) || swiping || sw || mission) { vsSince.delete(id); continue; }
+      if (!vsSince.has(id)) { vsSince.set(id, Date.now()); setTimeout(queueRender, 900); continue; }
+      if (Date.now() - vsSince.get(id) < 800) { setTimeout(queueRender, 300); continue; }
+      if (Date.now() - (vsFixAt.get(id) || 0) < 4000) continue;
+      vsFixAt.set(id, Date.now()); vsRetile(id);
+    }
     wsAnimate(windows);
     b.toggleAttribute("data-ft-wins", mcOver || windows.some(w => !awayWs(w.id)));   // windows on this desktop (js/launchpad.js)
     veilFor(focusSet.size > 0, s);
@@ -4431,7 +4453,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (d) {
       (s.hist ||= []).push(d); if (s.hist.length > 6) s.hist.shift();
       const h = s.hist;
-      if (h.length >= 5 && h.every(x => Math.sign(x) === Math.sign(h[0])) &&
+      if (h.length >= 4 && h.every(x => Math.sign(x) === Math.sign(h[0])) &&
           h.slice(1).every((x, i) => Math.abs(x) <= Math.abs(h[i]) * 0.99 && Math.abs(x) >= Math.abs(h[i]) * 0.7)) return swRelease();
     }
     // the desktop follows the fingers until they lift (macOS ends the gesture with an empty event); only a really fast
@@ -4460,9 +4482,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (s.raf) { cancelAnimationFrame(s.raf); s.raf = 0; }
     const from = s.dxV || 0, to = go ? dir * D : 0;
     const dist = Math.max(1, Math.abs(to - from));
-    const ms = Math.round(go ? Math.max(180, Math.min(280, dist / Math.max(1.8, v * 1.2))) : Math.max(140, Math.min(240, dist / 1.6)));
-    const y1 = Math.max(0.05, Math.min(1, 0.4 * Math.max(v, 0.2) * ms / dist));   // its first speed: the fingers' speed
-    const ease = go ? `cubic-bezier(0.4, ${y1.toFixed(2)}, 0.2, 1)` : "cubic-bezier(0.25, 0.8, 0.3, 1)";
+    // it goes on at the fingers' own speed and only slows down from there (never a pause, then a push): a slow lift
+    // takes a little longer to arrive, a fast one is there at once
+    const vv = Math.max(0.05, v), ms = Math.round(go ? Math.max(200, Math.min(1500, 1.5 * dist / vv)) : Math.max(160, Math.min(420, 1.4 * dist / Math.max(vv, 1.2))));
+    const k = vv * ms / dist;                                         // its first speed, as a slope of the curve
+    const y1 = Math.max(0.05, Math.min(1, 0.3 * k));
+    const ease = go ? `cubic-bezier(0.3, ${y1.toFixed(3)}, 0.35, 1)` : "cubic-bezier(0.25, 0.8, 0.3, 1)";
     s.movers = (s.movers || []).filter(el => el.isConnected);
     const anim = s.movers.map(el => el.animate([{ "--vos-dx": String(from) }, { "--vos-dx": String(to) }], { duration: ms, easing: ease, fill: "forwards" }))[0] || { finished: Promise.resolve(), cancel() {} };
     if (go) {
@@ -5245,7 +5270,8 @@ window.vosBeat = window.vosBeat || (() => {
         if (focusTab(tabId)) { e.preventDefault(); e.stopPropagation(); swallowTab = Date.now(); return; }
         endFocus();
       }
-      tabDown = { id: tabId, desktop: !!browserEl()?.hasAttribute("data-ft-desktop"), active: activePage()?.dataset.id, t: Date.now() };
+      { const ap0 = activePage(), dk = !!browserEl()?.hasAttribute("data-ft-desktop");
+        tabDown = { id: tabId, desktop: dk, active: ap0?.dataset.id, full: !dk && !!ap0 && !isStart(ap0) && !winOf(ap0.dataset.id), t: Date.now() }; }   // full: a full-screen app (or split) in front
       confirmTint(tabId);
       // a minimized window comes back — also when its tab is already active
       // (a single tab), where Vivaldi reports no tab switch
@@ -5491,7 +5517,7 @@ window.vosBeat = window.vosBeat || (() => {
     const down = tabDown && tabDown.id === id ? tabDown : null;
     tabDown = null;
     const desktop = !!down?.desktop;
-    if (desktop && down.active && down.active !== id) activate(down.active, { quiet: true });
+    if ((desktop || down?.full) && down.active && down.active !== id) activate(down.active, { quiet: true });   // the desktop - or the full-screen app - stays shown while the tab is dragged
     drag = { kind: "tab", id, src: winOf(id), desktop, x: e.clientX, y: e.clientY, over: null };
   }
 
@@ -5503,6 +5529,7 @@ window.vosBeat = window.vosBeat || (() => {
       // pressing it made it active and may have left the desktop - go back
       const down = tabDown && Date.now() - (tabDown.t || 0) < 3000 ? tabDown : null;
       tabDown = null;
+      if (down?.full && !down.desktop && down.active && down.active !== down.id) { activate(down.active, { quiet: true }); drag = { kind: "tab", id: down.id, src: winOf(down.id), desktop: false, x: e.clientX, y: e.clientY, over: null }; return; }   // a full-screen app in front: it stays
       if (down?.desktop) {
         if (down.active && down.active !== down.id) activate(down.active, { quiet: true });
         drag = { kind: "tab", id: down.id, src: winOf(down.id), desktop: true, x: e.clientX, y: e.clientY, over: null };

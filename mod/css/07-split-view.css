@@ -1514,3 +1514,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   opacity: 1 !important; visibility: visible !important; filter: none !important; transform: none !important; transition: none !important;
 }
 #browser#browser#browser:is([data-vos-dragdesk], [data-vos-swipe]) #webpage-stack :is([data-ft-float][data-vos-out], [data-ft-float][data-ft-swipe-out]) * { visibility: visible !important; }
+
+/* 1.0.155: a split shown full screen: each of its panes with the windows' rounded corners (a single page full screen
+   meets the edge of the Vivaldi window, which rounds it; a split's panes stand apart, so they round themselves) */
+#browser#browser:not([data-ft-desktop]) #webpage-stack .tiled:not([data-ft-float]) .webpageview:not([data-ft-cover]) {
+  border-radius: var(--radius) !important; clip-path: inset(0 round var(--radius)) !important; overflow: hidden !important;
+}
