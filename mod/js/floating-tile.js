@@ -248,8 +248,20 @@ window.vosBeat = window.vosBeat || (() => {
   async function vsRetile(id) {
     const v = vSplit(id), api = vivTile();
     if (!v || !api) return;
+    await syncTiling();
     const g = splitOfTab.get(String(id)), all = [...splitOfTab].filter(([k, x]) => x === g).map(([k]) => k);
-    if (v.pages.length !== all.length) { vsFixAt.delete(id); return; }   // every pane there first (one left out would leave the split)
+    if (!g || v.pages.length !== all.length) { vsFixAt.delete(id); return; }   // every pane there first (one left out would leave the split)
+    // the same split, told to Vivaldi again (its own message, its own id): it draws it - nothing made anew, nothing moved
+    if (api.dispatch && api.store.getTiles) {
+      try {
+        const wid = await winId(), pages = api.store.getTiles(wid, g), tree = await treeOf(g, all);
+        if (pages && pages.size === all.length && tree && api.setLayout) {
+          api.dispatch({ actionType: "PAGE_TILE_PAGES", windowId: wid, pages, id: g });
+          api.setLayout(wid, tree, g);                                // (that message clears the split's layout first: its own tree, put straight back)
+          queueRender(); return;
+        }
+      } catch (e) { LOG("split shown again", e); }
+    }
     try {
       const nums = v.pages.map(p => Number(p.dataset.id)), wid = await winId();
       const list = api.store.getPages(wid)?.filter?.(pg => nums.includes(pg.id))?.sortBy?.(pg => nums.indexOf(pg.id));
@@ -313,7 +325,7 @@ window.vosBeat = window.vosBeat || (() => {
   // the split each tab belongs to, from Vivaldi's own tab data (steady, unlike
   // the page layout, which changes for a moment while windows switch)
   const splitOfTab = new Map();                                          // tab id -> split id ("" = solo)
-  let tilingRead = false, tilingTimer = 0;
+  let tilingRead = false, tilingTimer = 0, tilingAt = 0;   // tilingAt: when a split last changed (Vivaldi's tab data)
   const extCache = new Map();                       // tab id -> { raw, x }: vivExtData parsed once per change
   const extOf = tab => {
     const raw = tab.vivExtData;
@@ -333,10 +345,24 @@ window.vosBeat = window.vosBeat || (() => {
   const tileMeta = new Map();                       // tab id -> { index, layout } in its split (Vivaldi's tab data)
   let tileTrees = {};                               // split id -> its tree (the window's own data)
   const readTrees = () => new Promise(r => chrome.windows.getCurrent(w => { void chrome.runtime.lastError; try { tileTrees = JSON.parse(w?.vivExtData || "{}").tiles || {}; } catch (e) {} r(tileTrees); }));
-  async function treeOf(g, ids) {                   // a split's tree: Vivaldi's own (read now), or the flat one it makes (first | (second | third))
-    if (!tileTrees[g]) await readTrees();
-    if (tileTrees[g]) return tileTrees[g];
+  /* Vivaldi's split data, read now (not the last copy): each tab's split and place in it, and the window's trees */
+  function syncTiling() {
+    return new Promise(res => chrome.tabs.query({ currentWindow: true }, tabs => {
+      void chrome.runtime.lastError;
+      for (const t of tabs || []) {
+        const k = String(t.id), g = tilingOfTab(t), ti = extOf(t)?.tiling;
+        if (splitOfTab.get(k) !== g) { splitOfTab.set(k, g); tilingAt = Date.now(); }
+        if (ti?.id) tileMeta.set(k, { index: Number(ti.index) || 0, layout: ti.layout === "column" ? "column" : "row" }); else tileMeta.delete(k);
+      }
+      readTrees().then(() => res());
+    }));
+  }
+  const leavesOf = (n, out = []) => { if (typeof n === "number") out.push(n); else if (n) { leavesOf(n.first, out); leavesOf(n.second, out); } return out; };
+  async function treeOf(g, ids) {                   // a split's tree: Vivaldi's own (read now) - only one that holds exactly its panes -, or the flat one it makes
     const idx = ids.map(k => tileMeta.get(String(k))?.index).filter(i => i != null).sort((x, y) => x - y);
+    const fits = t => { const l = leavesOf(t).sort((x, y) => x - y); return !!t && l.length === idx.length && l.every((v, i) => v === idx[i]); };
+    if (!fits(tileTrees[g])) await readTrees();
+    if (fits(tileTrees[g])) return tileTrees[g];
     if (idx.length < 2) return null;
     const dir = (tileMeta.get(String(ids[0]))?.layout || "row") === "column" ? "column" : "row";
     const build = i => i === idx.length - 1 ? idx[i] : { direction: dir, first: idx[i], second: build(i + 1), splitPercentage: 100 / (idx.length - i) };
@@ -402,7 +428,7 @@ window.vosBeat = window.vosBeat || (() => {
         for (const t of tabs) {
           const k = String(t.id), g = tilingOfTab(t);
           live.add(k);
-          if (splitOfTab.get(k) !== g) { splitOfTab.set(k, g); changed = true; }
+          if (splitOfTab.get(k) !== g) { splitOfTab.set(k, g); changed = true; tilingAt = Date.now(); }
           { const ti = extOf(t)?.tiling; if (ti?.id) tileMeta.set(k, { index: Number(ti.index) || 0, layout: ti.layout === "column" ? "column" : "row" }); else tileMeta.delete(k); }
           if (extOf(t)?.panelId != null) {                              // a side panel's page (web panel, extension panel): not a window
             panelTabs.add(k);
@@ -1381,7 +1407,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (focusSet.size) focusLift = new Set(focusSet);
     // a split on this desktop that Vivaldi has not drawn again (back from another desktop): split it again, as it was
     for (const { id } of windows) {
-      if (!vSplit(id) || awayWs(id) || swiping || sw) { vsSince.delete(id); continue; }   // (Mission Control and Bento too: the whole split)
+      if (!vSplit(id) || awayWs(id) || swiping || sw || Date.now() - tilingAt < 1500) { vsSince.delete(id); continue; }   // (Mission Control and Bento too: the whole split; a split just made or changed: Vivaldi draws it itself)
       const now = !!mission || !!bento.on;                           // Mission Control / Bento: the whole split at once
       if (!vsSince.has(id)) { vsSince.set(id, Date.now()); if (!now) { setTimeout(queueRender, 900); continue; } }
       if (!now && Date.now() - vsSince.get(id) < 800) { setTimeout(queueRender, 300); continue; }
@@ -3535,23 +3561,25 @@ window.vosBeat = window.vosBeat || (() => {
       try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
       const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
       if (!ch?.push) return null;
-      let req = null, tile = null, store = null, setLayout = null, addTo = null;
+      let req = null, tile = null, store = null, setLayout = null, addTo = null, flux = null;
       ch.push([["vos-tile-" + Date.now()], {}, r => { req = r; }]);
       for (const mid of Object.keys(req?.m || {})) {
         let src = "";
         try { src = Function.prototype.toString.call(req.m[mid]); } catch (e) { continue; }
         const wantTile = !tile && src.includes('"TILE_SET_LAYOUT"') && src.includes("randomUUID");
         const wantStore = !store && /getPageInWindow\([a-z],[a-z]\)\{/.test(src);
-        if (!wantTile && !wantStore) continue;
+        const wantFlux = !flux && src.length < 3000 && src.includes("reorderRegistrations");   // Vivaldi's own dispatcher (its actions)
+        if (!wantTile && !wantStore && !wantFlux) continue;
         let ex; try { ex = req(mid); } catch (e) { continue; }
         for (const k of Object.keys(ex || {})) {
           let v; try { v = ex[k]; } catch (e) { continue; }
           if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; if (fs.includes('actionType:"TILE_SET_LAYOUT"')) setLayout = v; if (fs.includes('"PAGE_TILE_ADD_PAGES"')) addTo = v; }
           if (wantStore && v && typeof v.getPageInWindow === "function" && typeof v.getPages === "function") store = v;
+          if (wantFlux && v && typeof v.dispatch === "function" && typeof v.register === "function") flux = v;
         }
-        if (tile && store && setLayout && addTo) break;
+        if (tile && store && setLayout && addTo && flux) break;
       }
-      if (tile && store) tileApi = { tile, store, setLayout, addTo };
+      if (tile && store) tileApi = { tile, store, setLayout, addTo, dispatch: flux ? a => flux.dispatch(a) : null };
     } catch (e) { LOG("tile: Vivaldi's split not found", e); }
     return tileApi;
   }
@@ -3561,6 +3589,7 @@ window.vosBeat = window.vosBeat || (() => {
     const api = vivTile();
     if (!api) return false;
     try {
+      await syncTiling();                                            // (each pane's place in the split as it is now)
       const g = splitOfTab.get(String(id)), ix = tileMeta.get(String(id))?.index, iy = tileMeta.get(String(to))?.index;
       const tree = g ? await treeOf(g, [...splitOfTab].filter(([k, v]) => v === g).map(([k]) => k)) : null;
       if (tree && api.setLayout && ix != null && iy != null && splitOfTab.get(String(to)) === g) {
@@ -3599,6 +3628,7 @@ window.vosBeat = window.vosBeat || (() => {
       const wid = await winId(), all = api.store.getPages(wid);
       const tp = pageOf(target), refId = pane || (isTiled(tp) ? (splitFocus.get(String(target)) || target) : null);
       if (refId && isTiled(pageOf(refId)) && api.addTo) {
+        await syncTiling();
         const ref = all?.find?.(pg => pg.id === Number(refId)), g = ref?.vivExtData?.tiling?.id;
         const adds = all?.filter?.(pg => pg.id === Number(src));
         if (!ref || !g || !adds?.size) { render(); return false; }
