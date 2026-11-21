@@ -940,7 +940,7 @@
     [/widget/i, MI('<rect x="4" y="4" width="7" height="7" rx="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.8"/><path d="M16.5 14v5M14 16.5h5"/>')],
     [/wallpaper/i, MI('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M6 16.5l4.3-4.6 3.2 3.2 2-2 3 3.4"/><circle cx="15.5" cy="9.5" r="1.4"/>')],
     [/update/i, MI('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.6 4.6v4.2h-4.2"/>')],
-    [/settings/i, MI('<path d="M10.3 3h3.4l.5 2.4c.7.2 1.3.6 1.9 1l2.3-.8 1.7 2.9-1.8 1.6a7 7 0 0 1 0 2.2l1.8 1.6-1.7 2.9-2.3-.8c-.6.4-1.2.8-1.9 1l-.5 2.4h-3.4l-.5-2.4c-.7-.2-1.3-.6-1.9-1l-2.3.8-1.7-2.9 1.8-1.6a7 7 0 0 1 0-2.2L3.9 8.5l1.7-2.9 2.3.8c.6-.4 1.2-.8 1.9-1z"/><circle cx="12" cy="12" r="2.8"/>')],
+    [/settings/i, MI('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>')],
     [/\bmin$/i, MI('<circle cx="12" cy="12.5" r="7.5"/><path d="M12 12.5V8.6"/>')],
   ];
   const BLANK_IC = '<svg class="lp-mi-ic" viewBox="0 0 24 24"></svg>';
@@ -2149,7 +2149,7 @@
         g.appendChild(row);
         if (k === "date" && tbw.dateFmt) {                   // how it reads (Fri / Fri 20 / Fri 20 Nov): its gear
           const gear = document.createElement("span"); gear.className = "lp-tb-gear"; gear.setAttribute("role", "button"); gear.title = "How the date reads";
-          gear.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3h3.4l.5 2.4c.7.2 1.3.6 1.9 1l2.3-.8 1.7 2.9-1.8 1.6c.1.7.1 1.5 0 2.2l1.8 1.6-1.7 2.9-2.3-.8c-.6.4-1.2.8-1.9 1l-.5 2.4h-3.4l-.5-2.4c-.7-.2-1.3-.6-1.9-1l-2.3.8-1.7-2.9 1.8-1.6a7 7 0 0 1 0-2.2L3.6 8.5l1.7-2.9 2.3.8c.6-.4 1.2-.8 1.9-1z"/><circle cx="12" cy="12" r="2.8"/></svg>';
+          gear.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
           gear.addEventListener("click", ev => {
             ev.stopPropagation();
             document.querySelector(".lp-tb-fmt")?.remove();

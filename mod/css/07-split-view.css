@@ -1488,3 +1488,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.137: no border line on any page - a window, a full-screen app, or the panes of a split */
 #browser #webpage-stack .webpageview, #browser #webpage-stack .webpageview.tiled { border: 0 !important; outline: 0 !important; }
 #browser #webpage-stack .webpageview::after { content: none !important; border: 0 !important; }
+
+/* 1.0.144: floating windows - the soft light outline around them again (outside the window, see-through) */
+#browser #main [data-ft-float]:not([data-ft-pip]), #browser #main .webpageview[data-ft-float]:not([data-ft-pip]) { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 8px 22px rgba(0, 0, 0, 0.22) !important; }
+#browser #main [data-ft-float][data-ft-front]:not([data-ft-pip]), #browser #main .webpageview[data-ft-float][data-ft-front]:not([data-ft-pip]) { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 28px 72px rgba(0, 0, 0, 0.46), 0 10px 24px rgba(0, 0, 0, 0.28) !important; }

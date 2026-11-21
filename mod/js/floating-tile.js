@@ -4283,7 +4283,9 @@ window.vosBeat = window.vosBeat || (() => {
     s.stack.style.setProperty("--vos-dx", String(Math.round(shown)));
     clearTimeout(s.timer);
     if (Math.abs(s.acc) >= s.D) return swRelease();                  // all the way: there
-    if (dir && swTarget(dir) && Math.abs(s.acc) > 60 && Math.max(0, ...s.vs.map(([, x]) => x * dir)) > 1.1) return swRelease();   // a fast flick: there now
+    // the desktop follows the fingers until they lift (macOS ends the gesture with an empty event); only a really fast
+    // flick, well on its way, finishes by itself
+    if (dir && swTarget(dir) && Math.abs(s.acc) > s.D * 0.3 && Math.max(0, ...s.vs.map(([, x]) => x * dir)) > 2.6) return swRelease();
     s.timer = setTimeout(swRelease, SW_QUIET);                       // the scrolling stopped: let go
   }
   async function swRelease() {
@@ -4326,6 +4328,8 @@ window.vosBeat = window.vosBeat || (() => {
       } catch (e) { wsErr("swipe", e); }
     }
     await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, ms + 200))]);
+    s.stack.style.setProperty("--vos-dx", String(Math.round(to)));   // exactly at its place (no last little snap)
+    await new Promise(r => requestAnimationFrame(r));
     swClean(s);
     if (go) { swiping = false; deskInfo = null; deskDots(true); arrive(t.id); }
   }

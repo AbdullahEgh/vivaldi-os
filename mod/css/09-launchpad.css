@@ -1462,3 +1462,9 @@
 #browser .lp-ios-thumb { position: absolute !important; right: 3px !important; top: 0; width: 6px !important; border-radius: 3px !important; background: rgba(127, 127, 127, 0.55) !important;
   opacity: 0 !important; pointer-events: none !important; z-index: 6 !important; transition: opacity 0.35s ease !important; }
 #browser .lp-ios-thumb[data-on] { opacity: 1 !important; transition: opacity 0.12s ease !important; }
+
+/* 1.0.144: the medium calendar - the day, today's number and the month centred on one line down the middle of the column */
+#browser .lp-w-m .lp-cal-left { align-items: center !important; text-align: center !important; }
+#browser .lp-w-m .lp-cal-big { justify-content: center !important; width: 100% !important; }
+/* Clock & Calendar: more room around the month */
+#browser .lp-wk-clockcal .lp-cal-mon { padding: 6px 10px 4px 6px !important; }
