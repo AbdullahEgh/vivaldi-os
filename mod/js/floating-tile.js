@@ -5591,11 +5591,20 @@ window.vosBeat = window.vosBeat || (() => {
           else frac[rest[0]] = { ...pxFrac(id) };                    // one tile left: it floats right there
         }
       }
+      const wasWin = floating.has(id) && !awayWs(id);
       floatOnLoadAt.delete(id); sawStart.delete(id);
       floatOnLoad.delete(id); siteReady.delete(id); inSplit.delete(id); delete frac[id]; noTitle.delete(id);
       groupMemory.delete(id); splitFocus.delete(id);
       forget(id);
       queueRender();
+      // a window closed (a held-small one too): Vivaldi shows the tab beside it - when that is the Launchpad page
+      // while windows are still here, the desktop stays as it was (its front window), nothing shrinks away or re-tiles
+      if (wasWin) for (const ms of [120, 450]) setTimeout(() => {
+        const a = activePage();
+        if (!a || !isStart(a) || swiping || sw) return;
+        const w = topWindow(null);
+        if (w) { activate(groupFloat.has(w) ? (splitFocus.get(w) || w) : w); render(); }
+      }, ms);
     };
     chrome.tabs.onMoved.addListener(() => { setTimeout(queueRender, 50); readTiling(); });   // tab bar order (split pills)
     chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.vivExtData != null) readTiling(); });
