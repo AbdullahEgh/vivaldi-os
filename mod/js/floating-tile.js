@@ -3120,13 +3120,14 @@ window.vosBeat = window.vosBeat || (() => {
     const splitCheck = (x, y) => {
       const hit = how === "move" && !inMission && !deskDrop && !zone && !leaving && !scaling && !groupFloat.has(id) ? splitTargetAt(id, x, y) : null;
       if ((hit?.w ?? null) !== (spT?.w ?? null)) { splitOff(); spT = hit; spAt = null; }
+      else if (hit && spT) spT.pane = hit.pane;                       // (another pane of the same split)
       if (!spT) return;
-      if (spArmed) { spSide = splitPreview(spT.w, x, y, el); return; }
+      if (spArmed) { spSide = splitPreview(spT.w, x, y, el, null, spT.pane ? pageOf(spT.pane)?.getBoundingClientRect() : null); return; }
       if (spAt && Math.hypot(x - spAt.x, y - spAt.y) < 14) return;    // held still: the timer runs on
       spAt = { x, y }; clearTimeout(spTimer);
       spTimer = setTimeout(() => {
         if (!spT || ended) return;
-        spArmed = true; spSide = splitPreview(spT.w, px, py, el);
+        spArmed = true; spSide = splitPreview(spT.w, px, py, el, null, spT.pane ? pageOf(spT.pane)?.getBoundingClientRect() : null);
         el.setAttribute("data-vos-split-armed", ""); frames.get(id)?.setAttribute("data-vos-split-armed", "");
       }, SPLIT_HOLD);
     };
@@ -3214,9 +3215,9 @@ window.vosBeat = window.vosBeat || (() => {
       const heldMD = missionDrag?.id === id ? missionDrag : null, wasHeld = !!heldMD; missionDrag = null;
       if (wasHeld) requestAnimationFrame(() => requestAnimationFrame(() => { el.removeAttribute("data-ft-mc-held"); frames.get(id)?.removeAttribute("data-ft-mc-held"); }));
       if (missionSkip === id) missionSkip = null;
-      { const t = spArmed && spT && spSide && ev.type === "pointerup" ? spT.w : null, side = spSide;
+      { const t = spArmed && spT && spSide && ev.type === "pointerup" ? spT.w : null, side = spSide, pane = spT?.pane;
         splitOff(); spT = null;
-        if (t) { persist(id); if (backToBento.delete(id)) bento.skip.delete(id); splitInto(id, t, side); return; } }
+        if (t) { persist(id); if (backToBento.delete(id)) bento.skip.delete(id); splitInto(id, t, side, pane); return; } }
       if (deskDrop) {                                               // the desktops panel is open
         const card = deskOver; deskOver?.removeAttribute("data-drop");
         ntrace("drop", { card: card ? (card.classList.contains("vos-ws-more") ? "new" : card.dataset.ws) : null, type: ev.type, inMission });
@@ -3479,11 +3480,16 @@ window.vosBeat = window.vosBeat || (() => {
   /* the window under the pointer that a held window can split with (one page, on this desktop) */
   function splitTargetAt(id, x, y) {
     for (const w of [...zOrder].reverse()) {
-      if (w === id || !floating.has(w) || minimized.has(w) || awayWs(w) || pip.includes(w) || groupFloat.has(w) || w === cover) continue;
+      if (w === id || !floating.has(w) || minimized.has(w) || awayWs(w) || pip.includes(w) || w === cover) continue;
       const pg = pageOf(w), t = targetOf(pg);
-      if (!t || isTiled(pg)) continue;
+      if (!t) continue;
       const r = t.getBoundingClientRect();
-      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return { w, r };
+      if (!(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) continue;
+      if (isTiled(pg)) {                                             // a split: beside the pane under the pointer
+        const pane = membersOf(pg).map(m => pageOf(m)).find(p => p && inRect(x, y, p.getBoundingClientRect()));
+        return pane ? { w, r: pane.getBoundingClientRect(), pane: pane.dataset.id } : null;
+      }
+      return { w, r };
     }
     return null;
   }
@@ -3521,7 +3527,7 @@ window.vosBeat = window.vosBeat || (() => {
       try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
       const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
       if (!ch?.push) return null;
-      let req = null, tile = null, store = null, setLayout = null;
+      let req = null, tile = null, store = null, setLayout = null, addTo = null;
       ch.push([["vos-tile-" + Date.now()], {}, r => { req = r; }]);
       for (const mid of Object.keys(req?.m || {})) {
         let src = "";
@@ -3532,12 +3538,12 @@ window.vosBeat = window.vosBeat || (() => {
         let ex; try { ex = req(mid); } catch (e) { continue; }
         for (const k of Object.keys(ex || {})) {
           let v; try { v = ex[k]; } catch (e) { continue; }
-          if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; if (fs.includes('actionType:"TILE_SET_LAYOUT"')) setLayout = v; }
+          if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; if (fs.includes('actionType:"TILE_SET_LAYOUT"')) setLayout = v; if (fs.includes('"PAGE_TILE_ADD_PAGES"')) addTo = v; }
           if (wantStore && v && typeof v.getPageInWindow === "function" && typeof v.getPages === "function") store = v;
         }
-        if (tile && store && setLayout) break;
+        if (tile && store && setLayout && addTo) break;
       }
-      if (tile && store) tileApi = { tile, store, setLayout };
+      if (tile && store) tileApi = { tile, store, setLayout, addTo };
     } catch (e) { LOG("tile: Vivaldi's split not found", e); }
     return tileApi;
   }
@@ -3578,11 +3584,34 @@ window.vosBeat = window.vosBeat || (() => {
       return true;
     } catch (e) { LOG("rearrange", e); dropInfo = null; render(); return false; }
   }
-  async function splitInto(src, target, side) {
+  async function splitInto(src, target, side, pane) {
     const api = vivTile();
     if (!api) { LOG("tile: Vivaldi's split not found"); render(); return false; }
     try {
       const wid = await winId(), all = api.store.getPages(wid);
+      const tp = pageOf(target), refId = pane || (isTiled(tp) ? (splitFocus.get(String(target)) || target) : null);
+      if (refId && isTiled(pageOf(refId)) && api.addTo) {
+        const ref = all?.find?.(pg => pg.id === Number(refId)), g = ref?.vivExtData?.tiling?.id;
+        const adds = all?.filter?.(pg => pg.id === Number(src));
+        if (!ref || !g || !adds?.size) { render(); return false; }
+        dropInfo = { target: String(target), dragged: String(src), src: String(src), kind: "window", t: Date.now() };   // the split window keeps its place
+        lastOver = { id: String(target), t: Date.now() };
+        raise(target); render();
+        const prev = await treeOf(g, [...splitOfTab].filter(([k, v]) => v === g).map(([k]) => k)), a0 = ref.vivExtData.tiling.index;
+        await api.addTo(g, adds, ref, side);
+        if (prev && api.setLayout && a0 != null) {                     // the split as it was (nested, its sizes) - only that pane split in two
+          const before = side === "left" || side === "top", ni = before ? a0 : a0 + 1, refNow = before ? a0 + 1 : a0;
+          const shift = n => typeof n === "number" ? (n >= ni ? n + 1 : n) : { ...n, first: shift(n.first), second: shift(n.second) };
+          const put = n => typeof n === "number"
+            ? (n === refNow ? { direction: side === "left" || side === "right" ? "row" : "column", first: before ? ni : refNow, second: before ? refNow : ni, splitPercentage: 50 } : n)
+            : { ...n, first: put(n.first), second: put(n.second) };
+          const next = put(shift(prev));
+          api.setLayout(wid, next, g); tileTrees = { ...tileTrees, [g]: next };
+        }
+        setTimeout(readTiling, 400);
+        queueRender();
+        return true;
+      }
       const order = side === "left" || side === "top" ? [Number(src), Number(target)] : [Number(target), Number(src)];
       const list = all?.filter?.(pg => order.includes(pg.id))?.sortBy?.(pg => order.indexOf(pg.id));
       if (!list || list.size !== 2) { render(); return false; }
@@ -5452,7 +5481,7 @@ window.vosBeat = window.vosBeat || (() => {
     const icon = document.createElement("img"); icon.alt = ""; icon.decoding = "sync";   // loaded now, while the button is down
     icon.src = tabIcon(id) || favicon(page.querySelector("webview")?.getAttribute("src") || "");
     chrome.tabs.get(Number(id), t => { void chrome.runtime.lastError; if (!tabIcon(id) && t) icon.src = t.favIconUrl || favicon(t.url || t.pendingUrl || ""); });
-    let ghost = null, tgt = null, side = null, pane = null;
+    let ghost = null, tgt = null, side = null, pane = null, tgtPane = null;
     const paneAt = (el, x, y) => (el ? $$(".webpageview[data-id]", el) : []).find(p => p.dataset.id !== id && inRect(x, y, p.getBoundingClientRect())) || null;
     const move = ev => {
       if (ev.pointerId !== pid) return;
@@ -5477,8 +5506,8 @@ window.vosBeat = window.vosBeat || (() => {
       }
       pane = null;
       const t = splitTargetAt(src, ev.clientX, ev.clientY);
-      tgt = t ? t.w : null;
-      side = tgt ? splitPreview(tgt, ev.clientX, ev.clientY, null, targetOf(pageOf(tgt))) : (splitPreview(null), null);
+      tgt = t ? t.w : null; tgtPane = t?.pane || null;
+      side = tgt ? splitPreview(tgt, ev.clientX, ev.clientY, null, targetOf(pageOf(tgt)), tgtPane ? pageOf(tgtPane)?.getBoundingClientRect() : null) : (splitPreview(null), null);
     };
     const up = ev => {
       if (ev.pointerId !== pid) return;
@@ -5498,11 +5527,11 @@ window.vosBeat = window.vosBeat || (() => {
       if (full) return;                                              // a full-screen split: nothing else
       if (tgt && side) {                                            // onto another window: it joins it on that side
         tileToDesktop({ id, src }, x, y);
-        const t1 = Date.now(), to = tgt, sd = side;
+        const t1 = Date.now(), to = tgt, sd = side, tp = tgtPane;
         const wait = async () => {                                   // out of its split and a window of its own first, then into the other
           if (isTiled(pageOf(id)) || !floating.has(id)) { if (Date.now() - t1 < 3000) setTimeout(wait, 60); return; }
           await new Promise(r => setTimeout(r, 150));
-          for (let k = 0; k < 4; k++) { if (await splitInto(id, to, sd)) return; await new Promise(r => setTimeout(r, 300)); if (isTiled(pageOf(id))) return; }
+          for (let k = 0; k < 4; k++) { if (await splitInto(id, to, sd, tp)) return; await new Promise(r => setTimeout(r, 300)); if (isTiled(pageOf(id))) return; }
         };
         setTimeout(wait, 120);
         return;
@@ -5670,10 +5699,11 @@ window.vosBeat = window.vosBeat || (() => {
     }
     // a tab over a lone window: the half it takes shows (as a window held over it); the drop is ours
     const tabSplit = !!hit && hit !== drag.src && drag.kind === "tab" && drag.id != null && String(drag.id) !== hit &&
-      !isTiled(pageOf(hit)) && !isTiled(pageOf(drag.id)) && !groupFloat.has(String(drag.src ?? "")) && !!vivTile();
+      !isTiled(pageOf(drag.id)) && !groupFloat.has(String(drag.src ?? "")) && !!vivTile();
     if (tabSplit) {
       const t = targetOf(pageOf(hit));
-      drag.split = { to: hit, side: splitPreview(hit, e.clientX, e.clientY, null, t) };
+      const pane = isTiled(pageOf(hit)) ? membersOf(pageOf(hit)).map(m => pageOf(m)).find(p => p && inRect(e.clientX, e.clientY, p.getBoundingClientRect())) : null;
+      drag.split = { to: hit, pane: pane?.dataset.id || null, side: splitPreview(hit, e.clientX, e.clientY, null, t, pane ? pane.getBoundingClientRect() : null) };
       e.preventDefault(); e.stopImmediatePropagation();
       try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
       return;
@@ -5729,7 +5759,7 @@ window.vosBeat = window.vosBeat || (() => {
       splitPreview(null);
       swallow(e);
       const src = String(ids[0] ?? d.id);
-      if (src !== sp.to && sp.side) splitInto(src, sp.to, sp.side);
+      if (src !== sp.to && sp.side) splitInto(src, sp.to, sp.side, sp.pane);
       return;
     }
     if (!d.desktop) return;
