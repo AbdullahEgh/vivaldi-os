@@ -2350,27 +2350,26 @@
     const all = [...((await pref("vivaldi.themes.system")) || []), ...((await pref("vivaldi.themes.user")) || [])];
     return darkTheme(all.find(t => t?.id === cur));
   }
-  /* the system's own Dark Mode (macOS / Windows), through Bento OS's helper (the updater app on a Mac, a small
-     handler on Windows): Vivaldi follows the system with its light and dark themes. Without the helper (or when
-     you decline it): Vivaldi alone goes dark / light. */
-  function openHelper(url) {
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
-      const t = tabs?.[0], go = () => void chrome.runtime.lastError;
-      if (t) chrome.tabs.update(t.id, { url }, go); else chrome.tabs.create({ url, active: false }, go);
-    });
-  }
+  /* DARK MODE, inside Vivaldi: its dark theme (or its light one) - and the websites too: they are asked for
+     their own dark look, and the rest get Vivaldi's forced dark theme. Off: light again, the websites light too. */
   async function setDark(on) {
     const t = await modeThemes();
-    if (!t.light || !t.dark) return;
-    // Vivaldi follows the system again, with its real light / dark themes
-    await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: t.light, dark: t.dark } });
-    if (!t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.enabled", value: typeof t.en === "number" ? 1 : "system" });
-    openHelper("vivaldios://appearance/" + (on ? "dark" : "light"));   // the system's Dark Mode
-    setTimeout(async () => {                                         // no helper (or declined): Vivaldi alone
-      if ((await isDarkNow()) === on) return;
-      const target = on ? t.dark : t.light;
-      await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
-    }, 6000);
+    const target = on ? t.dark : t.light;
+    if (!target) return;
+    if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: { ...t.os, light: target, dark: target } });
+    else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
+    try {
+      if (on) {
+        if ((await vstore.get("vosSchemeWas")) == null) vstore.set("vosSchemeWas", JSON.stringify({ scheme: (await pref("vivaldi.PreferredColorScheme")) ?? 0, force: !!(await pref("vivaldi.appearance.force_dark_mode_theme")) }));
+        await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: 2 });          // websites: dark (0 auto, 1 light, 2 dark)
+        await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: true });   // and the ones with no dark look of their own
+      } else {
+        let was = null; try { was = JSON.parse((await vstore.get("vosSchemeWas")) || "null"); } catch (e) {}
+        await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });
+        await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: 1 });          // websites light, as Vivaldi is now
+        vstore.set("vosSchemeWas", null);
+      }
+    } catch (e) { console.warn("Bento OS: websites' dark mode", e); }
     setTimeout(() => window.dispatchEvent(new Event("vos-appearance")), 300);
   }
   window.vosAppearance = { isDark: isDarkNow, set: setDark, async toggle() { await setDark(!(await isDarkNow())); } };

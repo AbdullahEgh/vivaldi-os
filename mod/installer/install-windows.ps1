@@ -239,31 +239,6 @@ $ls['browser']['enabled_labs_experiments'] = $labs.ToArray()
 Write-Json $lsPath $ls
 Write-Host 'settings applied (themes, wallpaper, tab bar, CSS folder, CSS experiment)'
 
-# 3b. Dark Mode from Bento OS: vivaldios://appearance/dark|light sets Windows' own light / dark mode
-#     (this user's setting only). Remove it: delete HKCU\Software\Classes\vivaldios and %LOCALAPPDATA%\Bento OS
-try {
-  $helperDir = Join-Path $env:LOCALAPPDATA 'Bento OS'
-  New-Item -ItemType Directory -Force -Path $helperDir | Out-Null
-  $helper = Join-Path $helperDir 'appearance.ps1'
-  @'
-param([string]$url)
-if ($url -notmatch '^vivaldios://appearance/(dark|light)/?$') { exit }
-$light = [int]($Matches[1] -eq 'light')
-$k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
-Set-ItemProperty -Path $k -Name AppsUseLightTheme -Value $light -Type DWord
-Set-ItemProperty -Path $k -Name SystemUsesLightTheme -Value $light -Type DWord
-Add-Type -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern System.IntPtr SendMessageTimeout(System.IntPtr h, uint m, System.UIntPtr w, string l, uint f, uint t, out System.UIntPtr r);'
-$r = [System.UIntPtr]::Zero
-[void][W.U]::SendMessageTimeout([System.IntPtr]0xffff, 0x1A, [System.UIntPtr]::Zero, 'ImmersiveColorSet', 2, 3000, [ref]$r)
-'@ | Set-Content -Path $helper -Encoding UTF8
-  $cls = 'HKCU:\Software\Classes\vivaldios'
-  New-Item -Force -Path "$cls\shell\open\command" | Out-Null
-  Set-ItemProperty -Path $cls -Name '(default)' -Value 'URL:Bento OS'
-  Set-ItemProperty -Path $cls -Name 'URL Protocol' -Value ''
-  Set-ItemProperty -Path "$cls\shell\open\command" -Name '(default)' -Value ("powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$helper`" `"%1`"")
-  Write-Host "Dark Mode: ready (Bento OS can switch Windows' light / dark mode)"
-} catch { Write-Host "Dark Mode helper: skipped ($($_.Exception.Message))" }
-
 # 4. start Vivaldi again
 Start-Process (Join-Path $app 'vivaldi.exe') -ArgumentList '--restore-last-session'   # your windows and tabs, as they were
 Write-Host 'Done. Vivaldi is now an OS.'
