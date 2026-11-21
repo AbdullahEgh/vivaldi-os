@@ -238,8 +238,8 @@ window.vosBeat = window.vosBeat || (() => {
   const siblingOf = tile => tile && [...tile.parentElement.children].find(c => c !== tile && c.classList.contains("tile"));
   const activePage = () => $("#webpage-stack .webpageview.active.visible") || $("#webpage-stack .webpageview.active");
   const tabIdOf = id => { const n = Number(id); return Number.isFinite(n) && n > 0 ? n : null; };
-  const vivaldiClose = page => { const b = $$(".mosaic-tile .controls > button", page); return b[b.length - 1]; };
   const raise = id => { zOrder = zOrder.filter(z => z !== id); zOrder.push(id); };
+  const vivaldiClose = page => { const b = $$(".mosaic-tile .controls > button", page); return b[b.length - 1]; };
   const topWindow = except => [...zOrder].reverse().find(z => z !== except && floating.has(z) && !minimized.has(z) && pageOf(z) && !awayWs(z));
 
   function groupOf(page) {                          // ids of all pages in its top-level split
@@ -458,11 +458,13 @@ window.vosBeat = window.vosBeat || (() => {
     window.__ftQuietTint = null;
     if (was === String(id)) window.dispatchEvent(new Event("ft-tint"));   // recolor now
   }
+  let wantActive = null;
   function activate(id, opts) {
     const t = tabIdOf(id);
     if (opts?.quiet) window.__ftQuietTint = String(id);
     else { confirmTint(id); selected = String(id); queueRender(); }   // the name and tab marks follow the choice
     if (!t || activePage()?.dataset.id === String(id)) return;     // already active: no event comes back
+    wantActive = { id: String(id), at: Date.now() };                 // the latest switch asked for (older reports are stale)
     pendingActive = String(id);
     clearTimeout(pendingTimer);
     pendingTimer = setTimeout(() => { pendingActive = null; queueRender(); }, 1500);
@@ -1175,7 +1177,12 @@ window.vosBeat = window.vosBeat || (() => {
       const aw = document.activeElement?.closest?.("[data-ft-float]");
       if (aw && front && aw.dataset.ftFloat !== front) setTimeout(() => {
         const w = document.activeElement?.closest?.("[data-ft-float]");
-        if (w && w.dataset.ftFloat !== topWindow(null)) unfocusPage();
+        if (!w || w.dataset.ftFloat === topWindow(null) || w.hasAttribute("data-ft-pip")) return;
+        const wid = w.dataset.ftFloat, inner = document.activeElement?.closest?.(".webpageview[data-id]")?.dataset.id;
+        const hovered = (hover && Date.now() - hover.t < 1500 && (hover.id === wid || winOf(hover.id) === wid)) ||
+                        (window.__ftQuietTint != null && (window.__ftQuietTint === wid || winOf(window.__ftQuietTint) === wid));
+        if (hovered) return unfocusPage();                           // only hovered: the focus goes back (the next click is heard)
+        raise(wid); activate(groupFloat.has(wid) && inner ? inner : wid); render();   // a click in it (its focus event comes a moment later): it comes up
       }, 0);
     }
     const windows = [];
@@ -5079,6 +5086,9 @@ window.vosBeat = window.vosBeat || (() => {
     if (el && !el.hasAttribute("data-ft-dragging")) el.setAttribute("data-ft-dragging", "");
   }
   setInterval(() => { if (!drag && seeing) seeThrough(null); }, 500);
+  /* the keyboard focus never rests in a window behind the front one: a click there is then always heard
+     (the page takes the focus again) and brings that window up - checked often, not only on redraws */
+
 
   /* ================= drag and drop with windows =================
      - over a window: that window becomes the active page right away, because
@@ -5360,7 +5370,7 @@ window.vosBeat = window.vosBeat || (() => {
     const inner = e.target.closest?.(".webpageview[data-id]")?.dataset.id;
     const want = groupFloat.has(id) && inner ? inner : id;
     const own = hover && hover.id === want &&
-      (hover.landed ? Date.now() - hover.landed < 60 : Date.now() - hover.t < 250);
+      (hover.landed ? Date.now() - hover.landed < 60 : Date.now() - hover.t < 120);   // (narrow: a quick real click is never mistaken for it)
     if (own) {                                                      // Vivaldi's own focus after a hover:
       hover = null;                                                 // give it back right away, so the
       setTimeout(() => { if (window.__ftQuietTint === want) unfocusPage(); }, 0);   // next click is heard
@@ -5553,7 +5563,9 @@ window.vosBeat = window.vosBeat || (() => {
       holdDesktop = null;
       const w = winOf(id);
       if (w && minimized.has(w)) return restore(w);                 // its tab was clicked
-      if (w && floating.has(w) && noRaise !== id) raise(w);       // hover activation keeps the order
+      const stale = wantActive && wantActive.id !== id && Date.now() - wantActive.at < 1500;   // an earlier switch reported late:
+      if (wantActive?.id === id) wantActive = null;                  // it never puts that window back on top
+      if (w && floating.has(w) && noRaise !== id && !stale) raise(w);   // hover activation keeps the order
       noRaise = null;
       queueRender();
     });
