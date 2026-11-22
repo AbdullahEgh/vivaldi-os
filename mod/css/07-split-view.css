@@ -1556,33 +1556,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser webview[data-vos-frozen] { visibility: hidden !important; }
 #browser #webpage-stack > .vos-freeze { pointer-events: none !important; background-size: 100% 100% !important; background-repeat: no-repeat !important; overflow: hidden !important; }
 
-/* 1.0.182: the window buttons on the side of your choosing - the traffic lights left (or right), the scale button
-   right (or left); dragged to the other side, they go there, in every window, kept. Both on one side: side by side
-   (lights first), and hovering either shows both. The same on full-screen pages and splits. Dragged: shown. */
-:root { --vos-lights-w: 64px; --vos-scale-w: 24px; }
-/* a window (title bar hidden) */
-#browser[data-vos-lights="right"] [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights { left: auto !important; right: 4px !important; }
-#browser[data-vos-lights="right"][data-vos-scale="right"] [data-ft-float][data-ft-notitle]:not(.tiled:not(.webpageview)) > .ft-titlebar .ft-lights { right: calc(4px + var(--vos-scale-w)) !important; }
-#browser[data-vos-scale="left"] [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-right { right: auto !important; left: 4px !important; }
-#browser[data-vos-scale="left"][data-vos-lights="left"] [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-right { left: calc(4px + var(--vos-lights-w)) !important; }
-/* full view on macOS: the system's buttons sit at the left - the window's own move right of them (left side only) */
-#browser.mac[data-vos-scale="left"][data-vos-lights="left"] #main [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar .ft-right { left: calc(76px + var(--vos-lights-w)) !important; }
-#browser.mac[data-vos-scale="left"][data-vos-lights="right"] #main [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar .ft-right { left: 76px !important; }
-#browser.mac[data-vos-lights="right"] #main [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar .ft-lights { left: auto !important; }
-/* both on one side: one hover shows both */
-#browser[data-vos-lights="left"][data-vos-scale="left"] [data-ft-float][data-ft-notitle] > .ft-titlebar:has(:is(.ft-lights, .ft-right):hover) :is(.ft-lights, .ft-right),
-#browser[data-vos-lights="right"][data-vos-scale="right"] [data-ft-float][data-ft-notitle] > .ft-titlebar:has(:is(.ft-lights, .ft-right):hover) :is(.ft-lights, .ft-right) { opacity: 1 !important; }
-/* a split window: the scale is each page's own (its top corner) - on the scale's side; on the lights' side too, the
-   pages' buttons sit beside the window's lights, and hovering the lights shows them (and the other way round) */
-#browser[data-vos-scale="left"] .tiled[data-ft-float]:not(.webpageview) .webpageview > .ft-inner { right: auto !important; left: 0 !important; }
-#browser[data-vos-lights="left"][data-vos-scale="left"] .tiled[data-ft-float]:not(.webpageview) .webpageview > .ft-inner { left: calc(var(--vos-lights-w) - 6px) !important; }
-#browser[data-vos-lights="right"][data-vos-scale="right"] .tiled[data-ft-float]:not(.webpageview) .webpageview > .ft-inner { right: calc(var(--vos-lights-w) - 6px) !important; }
-#browser[data-vos-lights="left"][data-vos-scale="left"] .tiled[data-ft-float]:not(.webpageview):has(> .ft-titlebar .ft-lights:hover) .webpageview > .ft-inner,
-#browser[data-vos-lights="right"][data-vos-scale="right"] .tiled[data-ft-float]:not(.webpageview):has(> .ft-titlebar .ft-lights:hover) .webpageview > .ft-inner { opacity: 1 !important; }
-#browser[data-vos-lights="left"][data-vos-scale="left"] .tiled[data-ft-float]:not(.webpageview):has(.webpageview > .ft-inner:hover) > .ft-titlebar .ft-lights,
-#browser[data-vos-lights="right"][data-vos-scale="right"] .tiled[data-ft-float]:not(.webpageview):has(.webpageview > .ft-inner:hover) > .ft-titlebar .ft-lights { opacity: 1 !important; }
-/* a full-screen page (and each pane of a full-screen split): its lights on the same side */
-#browser[data-vos-lights="right"] .webpageview > .ft-lights { left: auto !important; right: 0 !important; }
-/* dragged: shown, following the pointer */
+/* 1.0.183: the window buttons put away - dragged out of the window and let go: gone until the mouse leaves the window
+   and comes back (js: ctrlDrag). Their corners never change. Dragged: shown, following the pointer; out of the window,
+   faded (letting go there puts them away). */
 #browser :is([data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right, .webpageview > .ft-lights, .webpageview > .ft-inner)[data-vos-ctrl-drag] { opacity: 1 !important; z-index: 50 !important; cursor: grabbing !important; transition: none !important; }
 #browser :is(.ft-lights, .ft-right, .ft-inner)[data-vos-ctrl-drag] .ft-light { pointer-events: none !important; }
+#browser :is(.ft-lights, .ft-right, .ft-inner)[data-vos-ctrl-drag][data-vos-ctrl-out] { opacity: 0.4 !important; }
+#browser#browser :is(.ft-lights, .ft-right, .ft-inner)[data-vos-ctrl-hid] { visibility: hidden !important; pointer-events: none !important; }

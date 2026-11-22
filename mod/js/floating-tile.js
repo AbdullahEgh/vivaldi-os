@@ -1947,34 +1947,23 @@ window.vosBeat = window.vosBeat || (() => {
   };
   for (const t of ["pointerup", "pointercancel", "pointermove"]) addEventListener(t, btnLetGo, { capture: true, passive: true });
 
-  /* THE WINDOW BUTTONS ON YOUR SIDE: drag the traffic lights to the other side of a window - they go there (left or
-     right); the scale button the same. Every window (and full-screen page, and split) follows it, and it is kept.
-     A press without moving is a click (or a hold), as always. */
-  const CTRL_KEY = "vosCtrlAt";
-  let ctrlAt = { lights: "left", scale: "right" };
-  function ctrlApply() {
-    const b = browserEl(); if (!b) return setTimeout(ctrlApply, 300);
-    if (b.dataset.vosLights !== ctrlAt.lights) b.dataset.vosLights = ctrlAt.lights;
-    if (b.dataset.vosScale !== ctrlAt.scale) b.dataset.vosScale = ctrlAt.scale;
-  }
-  setTimeout(() => vstore.get(CTRL_KEY).then(v => {            // (once everything is set up)
-    try { const o = typeof v === "string" ? JSON.parse(v) : v; if (o?.lights === "left" || o?.lights === "right") ctrlAt.lights = o.lights; if (o?.scale === "left" || o?.scale === "right") ctrlAt.scale = o.scale; } catch (e) {}
-    ctrlApply();
-  }), 0);
+  /* PUT THE BUTTONS AWAY: drag a window's buttons (the traffic lights, or the scale button) out of the window and let
+     go - they are gone from it; they come back once the mouse has left the window and come in again. Let go inside:
+     they glide back to their place. Their corners never change. A press without moving is a click (or a hold). */
   function ctrlDrag(e, box, kind) {
     const win = box.closest("[data-ft-float]") || box.closest(".webpageview"); if (!win || e.button !== 0) return;
     const sx = e.clientX, sy = e.clientY, pid = e.pointerId;
-    let moving = false;
+    let moving = false, out = false;
+    const outside = (x, y) => { const r = win.getBoundingClientRect(); return x < r.left - 2 || x > r.right + 2 || y < r.top - 2 || y > r.bottom + 2; };
     const move = ev => {
       if (ev.pointerId !== pid) return;
-      const dx = ev.clientX - sx;
-      if (!moving && Math.hypot(dx, ev.clientY - sy) < 8) return;
-      if (!moving) { moving = true; box.setAttribute("data-vos-ctrl-drag", ""); browserEl()?.setAttribute("data-vos-ctrl-drag", kind); }
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if (!moving && Math.hypot(dx, dy) < 8) return;
+      if (!moving) { moving = true; box.setAttribute("data-vos-ctrl-drag", ""); }
       ev.preventDefault();
-      const wr = win.getBoundingClientRect(), f = (ev.clientX - wr.left) / wr.width;
-      const to = f < 0.5 ? "left" : "right";                      // the side it is on
-      box.style.setProperty("transform", `translateX(${dx}px)`, "important");
-      if (box.dataset.vosCtrlTo !== to) box.dataset.vosCtrlTo = to;   // (where it lands, if let go now)
+      out = outside(ev.clientX, ev.clientY);
+      box.toggleAttribute("data-vos-ctrl-out", out);                // out of the window: it fades (let go: gone)
+      box.style.setProperty("transform", `translate(${dx}px, ${dy}px)`, "important");
     };
     const up = ev => {
       if (ev.pointerId !== pid) return;
@@ -1983,16 +1972,39 @@ window.vosBeat = window.vosBeat || (() => {
       const swallow = c => { c.preventDefault(); c.stopPropagation(); c.stopImmediatePropagation(); };   // the click on letting go is not a click
       addEventListener("click", swallow, { capture: true, once: true });
       setTimeout(() => removeEventListener("click", swallow, true), 400);
-      const to = ev.type === "pointerup" ? box.dataset.vosCtrlTo : null;
+      const away = ev.type === "pointerup" && outside(ev.clientX, ev.clientY);
+      box.removeAttribute("data-vos-ctrl-drag"); box.removeAttribute("data-vos-ctrl-out");
+      if (away) {
+        const t = box.style.getPropertyValue("transform");
+        box.style.removeProperty("transform");
+        box.animate([{ transform: t, opacity: 0.5 }, { transform: t + " scale(0.4)", opacity: 0 }], { duration: 180, easing: "ease-in" });
+        ctrlHide(box, win);
+        return;
+      }
       const before = box.getBoundingClientRect();
-      box.style.removeProperty("transform"); box.removeAttribute("data-vos-ctrl-drag"); delete box.dataset.vosCtrlTo;
-      browserEl()?.removeAttribute("data-vos-ctrl-drag");
-      if (to && to !== ctrlAt[kind]) { ctrlAt = { ...ctrlAt, [kind]: to }; ctrlApply(); vstore.set(CTRL_KEY, JSON.stringify(ctrlAt)); }
-      const after = box.getBoundingClientRect();                     // it glides to its place
-      box.animate([{ transform: `translateX(${before.left - after.left}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+      box.style.removeProperty("transform");
+      const after = box.getBoundingClientRect();                     // let go inside: it glides back
+      box.animate([{ transform: `translate(${before.left - after.left}px, ${before.top - after.top}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
     };
     e.preventDefault(); e.stopPropagation();
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+  }
+  /* away until the mouse has been in the window, gone out of it, and come back */
+  function ctrlHide(box, win) {
+    box.setAttribute("data-vos-ctrl-hid", "");
+    let wasIn = false, wasOut = false;
+    const inWin = (x, y) => { const r = win.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
+    const watch = ev => {
+      if (!box.isConnected || !win.isConnected) return stop();
+      const inside = inWin(ev.clientX, ev.clientY);
+      if (inside && !wasIn) wasIn = true;
+      else if (!inside && wasIn) wasOut = true;
+      else if (inside && wasOut) { stop(); box.removeAttribute("data-vos-ctrl-hid"); box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" }); }
+    };
+    const stop = () => { removeEventListener("pointermove", watch, true); box.__vosCtrlStop = null; };
+    box.__vosCtrlStop?.();
+    box.__vosCtrlStop = stop;
+    addEventListener("pointermove", watch, { capture: true, passive: true });
   }
 
   /* ---------------- move / resize ---------------- */
@@ -5773,8 +5785,8 @@ window.vosBeat = window.vosBeat || (() => {
       return;
     }
     if (t.closest?.(".ft-max-grab")) return startMaxDrag(e);        // a full-screen page: drag it out
-    { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right, .webpageview > .ft-lights, .tiled[data-ft-float] .webpageview > .ft-inner");   // the window buttons: dragged to the other side, they go there
-      if (cb && !mission && t.closest?.(".ft-light")) return ctrlDrag(e, cb, cb.classList.contains("ft-lights") ? "lights" : "scale"); }
+    { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right, .webpageview > .ft-lights, .tiled[data-ft-float] .webpageview > .ft-inner");   // the window buttons: dragged out of the window, they are put away
+      if (cb && !mission && t.closest?.(".ft-light")) return ctrlDrag(e, cb); }
     if (t.closest?.(".ft-lights, .ft-right, .ft-inner")) return;
     const bd = t.closest?.(".bento-divider");                       // Bento: a gap between windows
     if (bd && bento.on) {
