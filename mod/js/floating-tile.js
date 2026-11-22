@@ -3628,7 +3628,7 @@ window.vosBeat = window.vosBeat || (() => {
     return null;
   }
   let snapEl = null;
-  const SPLIT_HOLD = 550;
+  const SPLIT_HOLD = 850;                            // (held still this long over a window: the split shows - a little longer, never by chance)
   /* the window under the pointer that a held window can split with (one page, on this desktop) */
   function splitTargetAt(id, x, y) {
     for (const w of [...zOrder].reverse()) {
