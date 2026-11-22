@@ -311,7 +311,9 @@ window.vosBeat = window.vosBeat || (() => {
   const siblingOf = tile => tile && [...tile.parentElement.children].find(c => c !== tile && c.classList.contains("tile"));
   const activePage = () => $("#webpage-stack .webpageview.active.visible") || $("#webpage-stack .webpageview.active");
   const tabIdOf = id => { const n = Number(id); return Number.isFinite(n) && n > 0 ? n : null; };
-  const raise = id => { zOrder = zOrder.filter(z => z !== id); zOrder.push(id); };
+  const raisedAt = new Map();                      // window -> when it last came to the front
+  let focusInAt = 0;                                // when the keyboard focus last went into a window (a click there)
+  const raise = id => { zOrder = zOrder.filter(z => z !== id); zOrder.push(id); raisedAt.set(id, Date.now()); };
   const vivaldiClose = page => { const b = $$(".mosaic-tile .controls > button", page); return b[b.length - 1]; };
   const topWindow = except => [...zOrder].reverse().find(z => z !== except && floating.has(z) && !minimized.has(z) && pageOf(z) && !awayWs(z));
 
@@ -1313,6 +1315,8 @@ window.vosBeat = window.vosBeat || (() => {
         const hovered = (hover && Date.now() - hover.t < 1500 && (hover.id === wid || winOf(hover.id) === wid)) ||
                         (window.__ftQuietTint != null && (window.__ftQuietTint === wid || winOf(window.__ftQuietTint) === wid));
         if (hovered) return unfocusPage();                           // only hovered: the focus goes back (the next click is heard)
+        const fr = topWindow(null);                                  // the front one came AFTER the focus went there (a new tab - also one
+        if (fr && (raisedAt.get(fr) || 0) > focusInAt) return unfocusPage();   // opened in the background): it stays in front; the focus goes
         raise(wid); activate(groupFloat.has(wid) && inner ? inner : wid); render();   // a click in it (its focus event comes a moment later): it comes up
       }, 0);
     }
@@ -6425,6 +6429,7 @@ window.vosBeat = window.vosBeat || (() => {
 
   function onFocusIn(e) {                            // click inside a window: bring it to the front
     if (lpOn()) return;
+    if (e.target.closest?.("[data-ft-float]")) focusInAt = Date.now();
     const under = e.target.closest?.("[data-ft-under]");             // the full-screen page under them: it comes back
     if (under?.dataset.id) { activate(under.dataset.id); render(); return; }
     const win = e.target.closest?.("[data-ft-float]");
