@@ -3201,7 +3201,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (spAt && Math.hypot(x - spAt.x, y - spAt.y) < 14) return;    // held still: the timer runs on
       spAt = { x, y }; clearTimeout(spTimer);
       spTimer = setTimeout(() => {
-        if (!spT || ended) return;
+        if (!spT || ended || leaving) return;
         spArmed = true; spSide = splitPreview(spT.w, px, py, el, null, spT.pane ? pageOf(spT.pane)?.getBoundingClientRect() : null);
         el.setAttribute("data-vos-split-armed", ""); frames.get(id)?.setAttribute("data-vos-split-armed", "");
       }, SPLIT_HOLD);
@@ -3216,7 +3216,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
       const out = how === "move" && isOutside(ev);                  // past the edge of this Vivaldi window
-      if (out !== leaving) { leaving = out; out ? dragOutStart(id, el, ev) : dragOutCancel(); }
+      if (out !== leaving) { leaving = out; if (out) { splitOff(); spT = null; spAt = null; } out ? dragOutStart(id, el, ev) : dragOutCancel(); }   // (no split here: it goes to the other window)
       if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
       snapCheck(px, py);
       deskCheck(px, py);
@@ -3290,7 +3290,7 @@ window.vosBeat = window.vosBeat || (() => {
       const heldMD = missionDrag?.id === id ? missionDrag : null, wasHeld = !!heldMD; missionDrag = null;
       if (wasHeld) requestAnimationFrame(() => requestAnimationFrame(() => { el.removeAttribute("data-ft-mc-held"); frames.get(id)?.removeAttribute("data-ft-mc-held"); }));
       if (missionSkip === id) missionSkip = null;
-      { const t = spArmed && spT && spSide && ev.type === "pointerup" ? spT.w : null, side = spSide, pane = spT?.pane;
+      { const t = spArmed && spT && spSide && !leaving && ev.type === "pointerup" ? spT.w : null, side = spSide, pane = spT?.pane;
         splitOff(); spT = null;
         if (t) { persist(id); if (backToBento.delete(id)) bento.skip.delete(id); splitInto(id, t, side, pane); return; } }
       if (deskDrop) {                                               // the desktops panel is open
@@ -3440,7 +3440,16 @@ window.vosBeat = window.vosBeat || (() => {
     if (target) {                                                   // moved, as it is, onto the desktop that window shows
       const tws = vivActiveWs(target.id);
       const split = ids.length > 1 ? (tileMeta.get(String(id))?.layout || (page && rootOf(page)?.querySelector(".mosaic-split.-column, [class*='column']") ? "column" : "row")) : null;   // a split: it stays one there
-      vstore.set(DROP_KEY, { urls, ids: ids.map(String), split, sx, sy, w: w0, h: h0, ox: held.ox, oy: held.oy, t: Date.now() });
+      let tree = null;                                                // its layout, by tab (the other window numbers its panes itself)
+      if (split) try {
+        await syncTiling();
+        const g = splitOfTab.get(String(ids[0])), t = g ? await treeOf(g, ids.map(String)) : null;
+        const tabAt = new Map(ids.map(x => [tileMeta.get(String(x))?.index, String(x)]));
+        const conv = n => typeof n === "number" ? (tabAt.has(n) ? tabAt.get(n) : null) : (n ? { ...n, first: conv(n.first), second: conv(n.second) } : null);
+        const tt = t ? conv(t) : null, ok = n => typeof n === "string" || (!!n && typeof n === "object" && ok(n.first) && ok(n.second));
+        if (tt && ok(tt)) tree = tt;
+      } catch (e) {}
+      vstore.set(DROP_KEY, { urls, ids: ids.map(String), split, tree, sx, sy, w: w0, h: h0, ox: held.ox, oy: held.oy, t: Date.now() });
       const cur = curWs();
       const left = await handOver(ids.map(String), cur);              // this window stays on its desktop
       const moved = await new Promise(res => {
@@ -3498,14 +3507,19 @@ window.vosBeat = window.vosBeat || (() => {
           setPx(id, clampRect({ x: lx - (d.ox ?? d.w / 2), y: Math.max(0, ly - (d.oy ?? 14)), w: d.w, h: d.h }, ss), ss);
           groupFloat.add(id); floatNow(id, pageOf(id) || null); raise(id); queueRender();
           requestAnimationFrame(() => ghostGone());
-          const t0 = Date.now();
-          const again = async () => {                                 // Vivaldi let go of the split on the way: split again, in the same order
+          const t0 = Date.now(), order = d.tree ? tabLeaves(d.tree) : d.ids;
+          const again = async () => {                                 // Vivaldi let go of the split on the way: split again, in the same order - then its own layout
             if (!d.ids.every(x => pageOf(x))) { if (Date.now() - t0 < 5000) setTimeout(again, 150); return; }
-            if (isTiled(pageOf(id)) && rootOf(pageOf(id)) === rootOf(pageOf(d.ids[1]))) { queueRender(); return; }
+            if (isTiled(pageOf(id)) && rootOf(pageOf(id)) === rootOf(pageOf(d.ids[1]))) { if (d.tree) await layOutTabs(d.tree); queueRender(); return; }
             const api = vivTile(); if (!api) return;
             try {
-              const nums = d.ids.map(Number), list = api.store.getPages(await winId())?.filter?.(pg => nums.includes(pg.id))?.sortBy?.(pg => nums.indexOf(pg.id));
-              if (list && list.size === nums.length) { dropInfo = { target: id, dragged: null, src: id, kind: "window", t: Date.now() }; await api.tile(list, d.split); queueRender(); }
+              const nums = order.map(Number), list = api.store.getPages(await winId())?.filter?.(pg => nums.includes(pg.id))?.sortBy?.(pg => nums.indexOf(pg.id));
+              if (list && list.size === nums.length) {
+                dropInfo = { target: id, dragged: null, src: id, kind: "window", t: Date.now() };
+                await api.tile(list, d.split);
+                if (d.tree) setTimeout(() => layOutTabs(d.tree).then(queueRender), 500);
+                queueRender();
+              }
             } catch (e) { LOG("split moved", e); }
           };
           setTimeout(again, 400);
@@ -3626,6 +3640,33 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* a split re-arranged from inside: pane `id` goes to `side` of pane `to` - left / right: the panes side by side,
      top / bottom: one above the other (three or more: one row / one column, in the new order) */
+  const tabLeaves = (n, out = []) => { if (typeof n === "string") out.push(n); else if (n) { tabLeaves(n.first, out); tabLeaves(n.second, out); } return out; };
+  async function layOutTabs(tabTree, tries = 0) {
+    const api = vivTile(); if (!api?.setLayout) return false;
+    try {
+      await syncTiling();
+      const leaves = tabLeaves(tabTree), g = splitOfTab.get(leaves[0]);
+      if (!g || !leaves.every(t => splitOfTab.get(t) === g) || [...splitOfTab].filter(([, v]) => v === g).length !== leaves.length) {
+        if (tries < 12) setTimeout(() => layOutTabs(tabTree, tries + 1), 250);   // (not all in one split yet)
+        return false;
+      }
+      await Promise.all(leaves.map((tid, i) => new Promise(res => {   // each pane's number follows its place
+        if (tileMeta.get(tid)?.index === i) return res();
+        chrome.tabs.get(Number(tid), t => {
+          void chrome.runtime.lastError;
+          let x = {}; try { x = JSON.parse(t?.vivExtData || "{}") || {}; } catch (e) {}
+          if (!x.tiling) return res();
+          x.tiling = { ...x.tiling, index: i };
+          chrome.tabs.update(Number(tid), { vivExtData: JSON.stringify(x) }, () => { void chrome.runtime.lastError; tileMeta.set(tid, { ...(tileMeta.get(tid) || {}), index: i }); res(); });
+        });
+      })));
+      const conv = n => typeof n === "string" ? leaves.indexOf(n) : { ...n, first: conv(n.first), second: conv(n.second) };
+      const tree = conv(tabTree);
+      api.setLayout(await winId(), tree, g);
+      tileTrees = { ...tileTrees, [g]: tree }; setTimeout(readTiling, 600);
+      return true;
+    } catch (e) { LOG("layout moved", e); return false; }
+  }
   async function rearrange(win, id, to, side, full) {
     const api = vivTile();
     if (!api) return false;
