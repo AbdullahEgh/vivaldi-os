@@ -1109,7 +1109,7 @@ window.vosBeat = window.vosBeat || (() => {
     label.textContent = Math.round(z * 100) + "%";
     host.appendChild(label);
     label.animate([{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }],
-                  { duration: 1100, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => label.remove());
+                  { duration: 1100, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => label.remove()) && setTimeout(() => label.remove(), 2500);
   }
   function pageAct(what, page) {
     const id = page.dataset.id, w = winOf(id);
@@ -1695,7 +1695,7 @@ window.vosBeat = window.vosBeat || (() => {
         label.textContent = Math.round(z * 100) + "%";
         w.appendChild(label);
         label.animate([{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }],
-                      { duration: 1100, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => label.remove());
+                      { duration: 1100, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => label.remove()) && setTimeout(() => label.remove(), 2500);
       }
       persist(id);
       render();
@@ -2590,7 +2590,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (bDim && !bDim.__leaving) {
         const d = bDim; bDim = null; d.__leaving = true;
         d.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: "ease-out", fill: "forwards" })
-          .finished.catch(() => {}).then(() => d.remove());
+          .finished.catch(() => {}).then(() => d.remove()) && setTimeout(() => d.remove(), 2500);
       }
       return;
     }
@@ -3448,7 +3448,7 @@ window.vosBeat = window.vosBeat || (() => {
   function ghostGone(g = landGhost) {                // the icon of a window dropped here: gone as the window shows (a quick fade)
     if (!g || g.__gone) return;
     g.__gone = true; if (landGhost === g) landGhost = null;
-    g.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.8)" }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => g.remove());
+    g.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.8)" }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => g.remove()) && setTimeout(() => g.remove(), 2500);
     setTimeout(() => g.remove(), 400);
   }
   if (dragCh) dragCh.onmessage = ({ data: m }) => {
@@ -3649,7 +3649,7 @@ window.vosBeat = window.vosBeat || (() => {
   function splitPreview(w, x, y, fromEl, overEl, rect) {                    // rect: one pane of it (a split re-arranged)                          // the half of window w the held one takes; null: gone
     if (w == null) {
       const old = splitEl; splitEl = null;
-      old?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => old.remove());
+      old?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => old.remove()) && setTimeout(() => old.remove(), 2500);
       return null;
     }
     const t = targetOf(pageOf(w)), host = stack();
@@ -3819,7 +3819,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (!old) return;
       if (taken) { old.remove(); return; }                          // the window takes its place now
       old.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(0.96)" }], { duration: 160, easing: "ease-in", fill: "forwards" })
-        .finished.catch(() => {}).then(() => old.remove());
+        .finished.catch(() => {}).then(() => old.remove()) && setTimeout(() => old.remove(), 2500);
       return;
     }
     if (!host) return;
@@ -5116,7 +5116,7 @@ window.vosBeat = window.vosBeat || (() => {
     const pn = st.querySelector(".vos-ws-panel") || st;            // back up, under the tab bar
     st.querySelector(".vos-ws-row")?.animate([{ transform: "none", opacity: 1 }, { transform: "translateY(-16px)", opacity: 0 }], { duration: 200, easing: "ease-in", fill: "forwards" });
     pn.animate([{ clipPath: "inset(0 0 0 0 round 18px)" }, { clipPath: "inset(0 0 100% 0 round 18px)" }], { duration: 220, easing: "cubic-bezier(0.4, 0, 0.8, 0.4)", fill: "forwards" })
-      .finished.catch(() => {}).then(() => st.remove());
+      .finished.catch(() => {}).then(() => st.remove()) && setTimeout(() => st.remove(), 2500);
   }
   // a click outside the strip closes it - its own right-click menu and the Workspaces button are not outside
   const wsOut = ev => { if (wsStrip && ev.target !== wsStrip.__back && !wsStrip.contains(ev.target) && !ev.target?.closest?.(WS_BTN + ", .vos-ws-menu")) closeWsStrip(); };
@@ -5518,7 +5518,7 @@ window.vosBeat = window.vosBeat || (() => {
       wv.removeAttribute("data-vos-frozen"); c.remove(); frozen.delete(wv);
     }
   }
-  const dropCover = c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove());
+  const dropCover = c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove()) && setTimeout(() => c.remove(), 2500);
   function thawUnder() {
     freezeGen = (freezeGen || 0) + 1;
     if (!frozen?.size) return;
@@ -5585,7 +5585,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (drawn && !drawnAt) drawnAt = Date.now();
         if (!drawn) drawnAt = 0;
         if ((drawnAt && Date.now() - drawnAt >= 380) || Date.now() - t0 > 3000) {
-          out.forEach(c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove()));
+          out.forEach(c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove()) && setTimeout(() => c.remove(), 2500));
           return;
         }
         setTimeout(check, 60);
@@ -5882,7 +5882,7 @@ window.vosBeat = window.vosBeat || (() => {
       try { strip.releasePointerCapture(pid); } catch (e) {}
       splitPreview(null);
       page.removeAttribute("data-vos-tile-lift");
-      g.animate([{ scale: "1", opacity: 1 }, { scale: "0.6", opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => g.remove());
+      g.animate([{ scale: "1", opacity: 1 }, { scale: "0.6", opacity: 0 }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => g.remove()) && setTimeout(() => g.remove(), 2500);
       setTimeout(() => g.remove(), 400);
       if (ev.type !== "pointerup") return;
       const x = ev.clientX, y = ev.clientY;

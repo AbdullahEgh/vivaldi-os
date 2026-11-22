@@ -340,7 +340,7 @@
     const to = !c.__trail?.length && folderMorph(c, c.__folder);   // back into its icon
     c.animate(to ? [{ transform: "none", opacity: 1 }, { transform: to, opacity: 0 }] : [{ transform: "none", opacity: 1 }, { transform: "scale(0.8)", opacity: 0 }],
               to ? { duration: 280, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" } : { duration: 170, easing: "ease-in", fill: "forwards" })
-      .finished.catch(() => {}).then(() => c.remove());
+      .finished.catch(() => {}).then(() => c.remove()) && setTimeout(() => c.remove(), 2500);
     return true;
   }
   /* the transform that puts an open folder exactly over its icon (the card is centred on screen) */
@@ -423,7 +423,7 @@
     const goal = (merge || st.el).querySelector(".lp-tile").getBoundingClientRect();
     st.ghost.animate([{ left: st.ghost.style.left, top: st.ghost.style.top, opacity: 1 },
                       { left: goal.left + "px", top: goal.top + "px", opacity: merge ? 0 : 1 }],
-                     { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove());
+                     { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
     st.el.removeAttribute("data-drag-src");
     lp?.layer.removeAttribute("data-dragging");
     justDragged = true; setTimeout(() => { justDragged = false; }, 60);
@@ -706,7 +706,7 @@
     grid.animate([{ transform: "none", opacity: 1 }, { transform: "scale(1.06)", opacity: 0 }],
                  { duration: 200, easing: "ease-in", fill: "forwards" });
     layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-in", fill: "forwards" })
-      .finished.catch(() => {}).then(() => layer.remove());
+      .finished.catch(() => {}).then(() => layer.remove()) && setTimeout(() => layer.remove(), 2500);
   }
   addEventListener("keydown", ev => {
     if (!lp || ev.key !== "Escape" || drag) return;
@@ -1927,7 +1927,7 @@
     removeEventListener("pointerdown", outside, true);
     removeEventListener("keydown", popKey, true);
     p.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(0.97)" }], { duration: 140, easing: "ease-in", fill: "forwards" })
-      .finished.catch(() => {}).then(() => p.remove());
+      .finished.catch(() => {}).then(() => p.remove()) && setTimeout(() => p.remove(), 2500);
   }
 
   /* a click on the tab bar clock: the Clock & Calendar widget in a popup above it */
@@ -1960,7 +1960,7 @@
     removeEventListener("pointerdown", clkOut, true);
     removeEventListener("keydown", clkKey, true);
     p.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(0.97)" }], { duration: 140, easing: "ease-in", fill: "forwards" })
-      .finished.catch(() => {}).then(() => p.remove());
+      .finished.catch(() => {}).then(() => p.remove()) && setTimeout(() => p.remove(), 2500);
     ensureTick();
   }
   // Vivaldi's own clock popup is replaced: a left click never reaches it (right-click still does)
@@ -2112,7 +2112,7 @@
       for (const c of lp.grid.querySelectorAll(".lp-widget")) if (c.__w) { c.__w = widgets.find(w => w.id === c.__w.id) || c.__w; pinEdge(c, c.__w); }
       const goal = el.querySelector(".lp-wcard").getBoundingClientRect();
       st.ghost.animate([{ left: st.ghost.style.left, top: st.ghost.style.top }, { left: goal.left + "px", top: goal.top + "px" }],
-                       { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove());
+                       { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
       saveWidgets();
       drag = null;
     };
@@ -2804,7 +2804,7 @@
       b.addEventListener("click", ev => { ev.stopPropagation(); fn(b); });
       row.appendChild(b); return b;
     };
-    const close = () => { n.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -8px)" }], { duration: 180, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => n.remove()); if (updEl === n) updEl = null; };
+    const close = () => { n.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -8px)" }], { duration: 180, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => n.remove()) && setTimeout(() => n.remove(), 2500); if (updEl === n) updEl = null; };
     if (tag) {
       btn("Later", () => { vstore.set(UPD_KEY, tag); close(); });
       const auto = isMac || chrome.downloads?.download;
