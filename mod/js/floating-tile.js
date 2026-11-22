@@ -1947,6 +1947,54 @@ window.vosBeat = window.vosBeat || (() => {
   };
   for (const t of ["pointerup", "pointercancel", "pointermove"]) addEventListener(t, btnLetGo, { capture: true, passive: true });
 
+  /* THE WINDOW BUTTONS HAVE A PLACE OF YOUR CHOOSING: drag the traffic lights along a window's top edge - to the
+     centre, or back to the left; the scale button the same - to the centre, or back to the right. Every window
+     follows it, and it is kept. A press without moving is a click (or a hold), as always. */
+  const CTRL_KEY = "vosCtrlAt";
+  let ctrlAt = { lights: "left", scale: "right" };
+  function ctrlApply() {
+    const b = browserEl(); if (!b) return setTimeout(ctrlApply, 300);
+    if (b.dataset.vosLights !== ctrlAt.lights) b.dataset.vosLights = ctrlAt.lights;
+    if (b.dataset.vosScale !== ctrlAt.scale) b.dataset.vosScale = ctrlAt.scale;
+  }
+  setTimeout(() => vstore.get(CTRL_KEY).then(v => {            // (once everything is set up)
+    try { const o = typeof v === "string" ? JSON.parse(v) : v; if (o?.lights === "center" || o?.lights === "left") ctrlAt.lights = o.lights; if (o?.scale === "center" || o?.scale === "right") ctrlAt.scale = o.scale; } catch (e) {}
+    ctrlApply();
+  }), 0);
+  function ctrlDrag(e, box, kind) {
+    const win = box.closest("[data-ft-float]"); if (!win || e.button !== 0) return;
+    const sx = e.clientX, sy = e.clientY, pid = e.pointerId;
+    let moving = false;
+    const move = ev => {
+      if (ev.pointerId !== pid) return;
+      const dx = ev.clientX - sx;
+      if (!moving && Math.hypot(dx, ev.clientY - sy) < 8) return;
+      if (!moving) { moving = true; box.setAttribute("data-vos-ctrl-drag", ""); browserEl()?.setAttribute("data-vos-ctrl-drag", kind); }
+      ev.preventDefault();
+      const wr = win.getBoundingClientRect(), f = (ev.clientX - wr.left) / wr.width;
+      const to = kind === "lights" ? (f > 0.3 ? "center" : "left") : (f < 0.7 ? "center" : "right");
+      box.style.setProperty("transform", `translateX(${dx}px)`, "important");
+      if (box.dataset.vosCtrlTo !== to) box.dataset.vosCtrlTo = to;   // (where it lands, if let go now)
+    };
+    const up = ev => {
+      if (ev.pointerId !== pid) return;
+      removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+      if (!moving) return;                                           // a press: the button's own click
+      const swallow = c => { c.preventDefault(); c.stopPropagation(); c.stopImmediatePropagation(); };   // the click on letting go is not a click
+      addEventListener("click", swallow, { capture: true, once: true });
+      setTimeout(() => removeEventListener("click", swallow, true), 400);
+      const to = ev.type === "pointerup" ? box.dataset.vosCtrlTo : null;
+      const before = box.getBoundingClientRect();
+      box.style.removeProperty("transform"); box.removeAttribute("data-vos-ctrl-drag"); delete box.dataset.vosCtrlTo;
+      browserEl()?.removeAttribute("data-vos-ctrl-drag");
+      if (to && to !== ctrlAt[kind]) { ctrlAt = { ...ctrlAt, [kind]: to }; ctrlApply(); vstore.set(CTRL_KEY, JSON.stringify(ctrlAt)); }
+      const after = box.getBoundingClientRect();                     // it glides to its place
+      box.animate([{ transform: `translateX(${before.left - after.left}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    };
+    e.preventDefault(); e.stopPropagation();
+    addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+  }
+
   /* ---------------- move / resize ---------------- */
   const CURSOR = { move: "grabbing", t: "ns-resize", b: "ns-resize", l: "ew-resize", r: "ew-resize",
                    tl: "nwse-resize", br: "nwse-resize", tr: "nesw-resize", bl: "nesw-resize" };
@@ -5725,6 +5773,8 @@ window.vosBeat = window.vosBeat || (() => {
       return;
     }
     if (t.closest?.(".ft-max-grab")) return startMaxDrag(e);        // a full-screen page: drag it out
+    { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right");   // a window's buttons: dragged along the top, they move
+      if (cb && !mission) return ctrlDrag(e, cb, cb.classList.contains("ft-lights") ? "lights" : "scale"); }
     if (t.closest?.(".ft-lights, .ft-right, .ft-inner")) return;
     const bd = t.closest?.(".bento-divider");                       // Bento: a gap between windows
     if (bd && bento.on) {

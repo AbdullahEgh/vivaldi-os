@@ -1555,3 +1555,14 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.175 (performance): a page resting under the open Launchpad - its photo shows in its place (see freezeUnder) */
 #browser#browser#browser#browser#browser webview[data-vos-frozen] { visibility: hidden !important; }
 #browser #webpage-stack > .vos-freeze { pointer-events: none !important; background-size: 100% 100% !important; background-repeat: no-repeat !important; overflow: hidden !important; }
+
+/* 1.0.181: the window buttons where you put them - the traffic lights at the top centre (or the left), the scale
+   button at the top centre (or the right); both at the centre: side by side. A split keeps its move pill in the
+   middle: its lights sit just left of it. Being dragged: shown, following the pointer. */
+#browser[data-vos-lights="center"] [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights { left: 50% !important; translate: -50% 0 !important; }
+#browser[data-vos-scale="center"] [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-right { right: auto !important; left: 50% !important; translate: -50% 0 !important; }
+#browser[data-vos-lights="center"][data-vos-scale="center"] [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights { translate: calc(-100% + 2px) 0 !important; }
+#browser[data-vos-lights="center"][data-vos-scale="center"] [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-right { translate: -2px 0 !important; }
+#browser[data-vos-lights="center"] .tiled[data-ft-float]:not(.webpageview)[data-ft-notitle] > .ft-titlebar .ft-lights { left: calc(50% - 58px) !important; translate: -100% 0 !important; }
+#browser [data-ft-float] > .ft-titlebar :is(.ft-lights, .ft-right)[data-vos-ctrl-drag] { opacity: 1 !important; z-index: 50 !important; cursor: grabbing !important; transition: none !important; }
+#browser [data-ft-float] > .ft-titlebar :is(.ft-lights, .ft-right)[data-vos-ctrl-drag] .ft-light { pointer-events: none !important; }
