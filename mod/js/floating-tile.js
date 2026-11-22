@@ -3628,9 +3628,10 @@ window.vosBeat = window.vosBeat || (() => {
     return null;
   }
   let snapEl = null;
-  const SPLIT_HOLD = 850;                            // (held still this long over a window: the split shows - a little longer, never by chance)
+  const SPLIT_HOLD = 1200;                           // (held still this long over a window: the split shows - a little longer, never by chance)
   /* the window under the pointer that a held window can split with (one page, on this desktop) */
   function splitTargetAt(id, x, y) {
+    if (focusSet.size) return null;                                  // focus mode: no splits (windows only move)
     for (const w of [...zOrder].reverse()) {
       if (w === id || !floating.has(w) || minimized.has(w) || awayWs(w) || pip.includes(w) || w === cover) continue;
       const pg = pageOf(w), t = targetOf(pg);
@@ -6241,7 +6242,7 @@ window.vosBeat = window.vosBeat || (() => {
       }
     }
     // a tab over a lone window: the half it takes shows (as a window held over it); the drop is ours
-    const tabSplit = !!hit && hit !== drag.src && drag.kind === "tab" && drag.id != null && String(drag.id) !== hit &&
+    const tabSplit = !!hit && !focusSet.size && hit !== drag.src && drag.kind === "tab" && drag.id != null && String(drag.id) !== hit &&
       !isTiled(pageOf(drag.id)) && !groupFloat.has(String(drag.src ?? "")) && !!vivTile();
     if (tabSplit) {
       const t = targetOf(pageOf(hit));

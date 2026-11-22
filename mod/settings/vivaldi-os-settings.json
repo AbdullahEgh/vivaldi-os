@@ -960,6 +960,7 @@
     "vivaldi.panels.window_defaults": {
       "barVisible": false,
       "contentVisible": false,
+      "selectedPanel": "PanelDownloads",
       "width": 360
     },
     "vivaldi.startpage": {
