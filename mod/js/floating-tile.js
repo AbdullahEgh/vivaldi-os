@@ -5843,15 +5843,21 @@ window.vosBeat = window.vosBeat || (() => {
           if (list) for (const x of side.children) if (!x.contains(list)) x.setAttribute("data-vos-wa-off", "");
           // as wide as a picture with the same room on both sides (its own left gap, again on its right)
           // in each row only its picture shows (a photo, or WhatsApp's own default picture): the left-most square of picture size
+          // (only the picture itself - the photo, or WhatsApp's own default picture - never a bigger box around it, which also
+          // holds other marks; and looked at again every time: WhatsApp reuses its rows for other chats as the list scrolls)
           for (const rowEl of (list || side).querySelectorAll("[role=row],[role=listitem]")) {
-            if (rowEl.querySelector("[data-vos-wa-av]")) continue;
             const rr = rowEl.getBoundingClientRect();
-            let best = null;
-            for (const el of rowEl.querySelectorAll("img,svg,span,div")) {
-              const r = el.getBoundingClientRect();
-              if (r.width >= 28 && r.width <= 80 && Math.abs(r.width - r.height) < 3 && r.left - rr.left < 40 && (!best || r.width > best.r.width || (r.width === best.r.width && r.left < best.r.left))) best = { el, r };
+            const sq = el => { const r = el.getBoundingClientRect(); return r.width >= 28 && r.width <= 64 && Math.abs(r.width - r.height) < 3 && r.left - rr.left < 40 ? r : null; };
+            let pick = null, pr = null;
+            for (const im of rowEl.querySelectorAll("img")) { const r = sq(im); if (r && (!pr || r.width > pr.width)) { pick = im; pr = r; } }   // a photo
+            if (!pick) for (const sv of rowEl.querySelectorAll("svg")) {                                     // no photo: the default picture
+              const r = sq(sv); if (!r) continue;
+              let el = sv;                                                                                   // (with its own round box, when that box is the same size)
+              for (let up = sv.parentElement; up && up !== rowEl; up = up.parentElement) { const u = up.getBoundingClientRect(); if (Math.abs(u.width - r.width) < 2 && Math.abs(u.height - r.height) < 2) el = up; else break; }
+              if (!pr || r.width > pr.width) { pick = el; pr = r; }
             }
-            if (best) best.el.setAttribute("data-vos-wa-av", "");
+            for (const m of rowEl.querySelectorAll("[data-vos-wa-av]")) if (m !== pick) m.removeAttribute("data-vos-wa-av");
+            if (pick && !pick.hasAttribute("data-vos-wa-av")) pick.setAttribute("data-vos-wa-av", "");
           }
           // the chat that is open: highlighted (WhatsApp's own selected mark - or the row with the open chat's picture)
           const rowsAll = [...(list || side).querySelectorAll("[role=row],[role=listitem]")];
