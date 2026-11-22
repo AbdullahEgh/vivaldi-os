@@ -3701,6 +3701,47 @@ window.vosBeat = window.vosBeat || (() => {
     } catch (e) { LOG("tile: Vivaldi's split not found", e); }
     return tileApi;
   }
+  /* CLOSE THE APP FROM THE KEYBOARD: Vivaldi's own "Close Tab" (Cmd+W on a Mac, Ctrl+W on Windows - or whatever key it
+     has) closes the app in front as its red button does: a floating window - a split window whole, all its panes -,
+     with its closing animation. Anything else (a full-screen page, the Launchpad): Vivaldi's own close, as always. */
+  let closeCmdPatched = false;
+  function closeAppNow() {
+    closeAppNow.n = (closeAppNow.n || 0) + 1;                       // (how often Vivaldi's close came here)
+    const ap = activePage(), id = ap?.dataset.id;
+    if (!ap || isStart(ap) || lpOn() || mission) return false;
+    const w = winOf(id);
+    if (!w || !floating.has(w) || minimized.has(w) || awayWs(w)) return false;
+    const pg = pageOf(w); if (!pg) return false;
+    act("close", pg);
+    return true;
+  }
+  window.vosCloseApp = closeAppNow;
+  function patchCloseCmd(tries = 0) {
+    if (closeCmdPatched) return;
+    try {
+      let host = null; try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
+      const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
+      let req = null;
+      if (ch?.push) ch.push([["vos-close-" + Date.now()], {}, r => { req = r; }]);
+      for (const mid of Object.keys(req?.m || {})) {
+        let src = ""; try { src = Function.prototype.toString.call(req.m[mid]); } catch (e) { continue; }
+        if (!src.includes('name:"COMMAND_CLOSE_TAB"')) continue;
+        let ex; try { ex = req(mid); } catch (e) { continue; }
+        for (const k of Object.keys(ex || {})) {
+          let v; try { v = ex[k]; } catch (e) { continue; }
+          const c = Array.isArray(v) ? v.find(x => x?.name === "COMMAND_CLOSE_TAB") : null;
+          if (!c || typeof c.action !== "function" || c.__vosOrig) continue;
+          const orig = c.action;
+          c.__vosOrig = orig;
+          c.action = function (...a) { try { if (closeAppNow()) return; } catch (e) {} return orig.apply(this, a); };
+          closeCmdPatched = true;
+        }
+        if (closeCmdPatched) return;
+      }
+    } catch (e) { LOG("close shortcut", e); }
+    if (tries < 10) setTimeout(() => patchCloseCmd(tries + 1), 1500);
+  }
+  setTimeout(patchCloseCmd, 1500);
   /* a split re-arranged from inside: pane `id` goes to `side` of pane `to` - left / right: the panes side by side,
      top / bottom: one above the other (three or more: one row / one column, in the new order) */
   const tabLeaves = (n, out = []) => { if (typeof n === "string") out.push(n); else if (n) { tabLeaves(n.first, out); tabLeaves(n.second, out); } return out; };
