@@ -3563,7 +3563,7 @@ window.vosBeat = window.vosBeat || (() => {
       try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
       const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
       if (!ch?.push) return null;
-      let req = null, tile = null, store = null, setLayout = null, addTo = null, flux = null;
+      let req = null, tile = null, store = null, setLayout = null, addTo = null, flux = null, moveIn = null;
       ch.push([["vos-tile-" + Date.now()], {}, r => { req = r; }]);
       for (const mid of Object.keys(req?.m || {})) {
         let src = "";
@@ -3575,13 +3575,13 @@ window.vosBeat = window.vosBeat || (() => {
         let ex; try { ex = req(mid); } catch (e) { continue; }
         for (const k of Object.keys(ex || {})) {
           let v; try { v = ex[k]; } catch (e) { continue; }
-          if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; if (fs.includes('actionType:"TILE_SET_LAYOUT"')) setLayout = v; if (fs.includes('"PAGE_TILE_ADD_PAGES"')) addTo = v; }
+          if (wantTile && typeof v === "function") { let fs = ""; try { fs = Function.prototype.toString.call(v); } catch (e) {} if (fs.includes("randomUUID") && fs.includes("tiling:")) tile = v; if (fs.includes('actionType:"TILE_SET_LAYOUT"')) setLayout = v; if (fs.includes('"PAGE_TILE_ADD_PAGES"')) addTo = v; if (fs.includes('"PAGE_TILE_RETILE"')) moveIn = v; }
           if (wantStore && v && typeof v.getPageInWindow === "function" && typeof v.getPages === "function") store = v;
           if (wantFlux && v && typeof v.dispatch === "function" && typeof v.register === "function") flux = v;
         }
-        if (tile && store && setLayout && addTo && flux) break;
+        if (tile && store && setLayout && addTo && flux && moveIn) break;
       }
-      if (tile && store) tileApi = { tile, store, setLayout, addTo, dispatch: flux ? a => flux.dispatch(a) : null };
+      if (tile && store) tileApi = { tile, store, setLayout, addTo, moveIn, dispatch: flux ? a => flux.dispatch(a) : null };
     } catch (e) { LOG("tile: Vivaldi's split not found", e); }
     return tileApi;
   }
@@ -3603,24 +3603,40 @@ window.vosBeat = window.vosBeat || (() => {
         const into = n => typeof n === "number"                       // the other pane split in two: the dropped one on that side
           ? (n === iy ? { direction: side === "left" || side === "right" ? "row" : "column", first: side === "left" || side === "top" ? ix : iy, second: side === "left" || side === "top" ? iy : ix, splitPercentage: 50 } : n)
           : { ...n, first: into(n.first), second: into(n.second) };
-        const next = into(cut(tree));
+        let next = into(cut(tree));
         if (!full) dropInfo = { target: String(win), dragged: String(id), src: String(win), kind: "window", t: Date.now() };
+        // Vivaldi lays panes of one direction out in their tabs' order: each pane's number follows where it now is
+        const order = leavesOf(next), byIdx = new Map([...splitOfTab].filter(([k, v]) => v === g).map(([k]) => [tileMeta.get(k)?.index, k]));
+        const renum = n => typeof n === "number" ? order.indexOf(n) : { ...n, first: renum(n.first), second: renum(n.second) };
+        await Promise.all(order.map((oldIdx, newIdx) => new Promise(res => {
+          const tid = byIdx.get(oldIdx);
+          if (tid == null || oldIdx === newIdx) return res();
+          chrome.tabs.get(Number(tid), t => {
+            void chrome.runtime.lastError;
+            let x = {}; try { x = JSON.parse(t?.vivExtData || "{}") || {}; } catch (e) {}
+            if (!x.tiling) return res();
+            x.tiling = { ...x.tiling, index: newIdx };
+            chrome.tabs.update(Number(tid), { vivExtData: JSON.stringify(x) }, () => { void chrome.runtime.lastError; tileMeta.set(String(tid), { ...(tileMeta.get(String(tid)) || {}), index: newIdx }); res(); });
+          });
+        })));
+        next = renum(next);
         api.setLayout(await winId(), next, g);
         tileTrees = { ...tileTrees, [g]: next }; setTimeout(readTiling, 600);
         activate(id); queueRender();
         return true;
       }
-      const order = membersOf(pageOf(win)).filter(m => m !== String(id));
-      const at = order.indexOf(String(to));
-      if (at < 0) return false;
-      order.splice(side === "left" || side === "top" ? at : at + 1, 0, String(id));
-      const nums = order.map(Number), wid = await winId();
-      const list = api.store.getPages(wid)?.filter?.(pg => nums.includes(pg.id))?.sortBy?.(pg => nums.indexOf(pg.id));
-      if (!list || list.size !== nums.length) return false;
-      if (!full) dropInfo = { target: String(win), dragged: String(id), src: String(win), kind: "window", t: Date.now() };   // the window keeps its place (full screen: it stays full screen)
-      await api.tile(list, side === "left" || side === "right" ? "row" : "column");
-      activate(id); queueRender();
-      return true;
+      if (api.moveIn) {                                              // (no tree known: Vivaldi's own move)
+        const wid = await winId(), all = api.store.getPages(wid);
+        const P = x => all?.find?.(pg => pg.id === Number(x)), pg = P(id), ref = P(to), g = pg?.vivExtData?.tiling?.id;
+        if (pg && ref && g && ref.vivExtData?.tiling?.id === g) {
+          if (!full) dropInfo = { target: String(win), dragged: String(id), src: String(win), kind: "window", t: Date.now() };
+          await api.moveIn(g, pg, ref, side);
+          setTimeout(readTiling, 500);
+          activate(id); queueRender();
+          return true;
+        }
+      }
+      return false;                                                  // (never a flat re-split: the layout stays as it is)
     } catch (e) { LOG("rearrange", e); dropInfo = null; render(); return false; }
   }
   async function splitInto(src, target, side, pane) {
@@ -3637,17 +3653,7 @@ window.vosBeat = window.vosBeat || (() => {
         dropInfo = { target: String(target), dragged: String(src), src: String(src), kind: "window", t: Date.now() };   // the split window keeps its place
         lastOver = { id: String(target), t: Date.now() };
         raise(target); render();
-        const prev = await treeOf(g, [...splitOfTab].filter(([k, v]) => v === g).map(([k]) => k)), a0 = ref.vivExtData.tiling.index;
-        await api.addTo(g, adds, ref, side);
-        if (prev && api.setLayout && a0 != null) {                     // the split as it was (nested, its sizes) - only that pane split in two
-          const before = side === "left" || side === "top", ni = before ? a0 : a0 + 1, refNow = before ? a0 + 1 : a0;
-          const shift = n => typeof n === "number" ? (n >= ni ? n + 1 : n) : { ...n, first: shift(n.first), second: shift(n.second) };
-          const put = n => typeof n === "number"
-            ? (n === refNow ? { direction: side === "left" || side === "right" ? "row" : "column", first: before ? ni : refNow, second: before ? refNow : ni, splitPercentage: 50 } : n)
-            : { ...n, first: put(n.first), second: put(n.second) };
-          const next = put(shift(prev));
-          api.setLayout(wid, next, g); tileTrees = { ...tileTrees, [g]: next };
-        }
+        await api.addTo(g, adds, ref, side);                          // Vivaldi's own add: beside that pane, nested as Vivaldi does it
         setTimeout(readTiling, 400);
         queueRender();
         return true;
