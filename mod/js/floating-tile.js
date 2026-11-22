@@ -4561,10 +4561,32 @@ window.vosBeat = window.vosBeat || (() => {
   const SW_QUIET = 700, SW_HUSH = 220, SW_QUIET_AFTER = 280, SW_FLICK = 1.8;   // SW_FLICK: px per ms - faster than a hand guiding it
   let swQuietUntil = 0, swAfter = [], swLastDir = 0;            // swAfter: the last steps after a swipe; swLastDir: its way                                // a finger resting is not a release: only the lift (or a long stop) lets go
   let swHushAt = 0, swHushLast = 0, swLastEvt = 0;
+  /* WINDOWS (and Linux): a mouse wheel - notches, or a touch strip like the Arc Mouse's - and Windows touchpads send short
+     scroll steps, never the long glide a Mac trackpad makes: there a scroll over the Desktops widget is a step - one
+     desktop that way (sideways, or up / down with a plain wheel: down / right = the next one), the same slide; keep
+     scrolling and it steps on, one desktop at a time */
+  const WHEEL_STEPS = !/Mac/i.test(navigator.platform || navigator.userAgent || "");
+  const STEP_AT = 40, STEP_REST = 450, STEP_GAP = 220;
+  let stepAcc = 0, stepLast = 0, stepLock = 0;
+  function wheelStep(dx, dy, now) {
+    const d = Math.abs(dx) >= Math.abs(dy) ? dx : dy;               // the stronger way
+    if (!d) return;
+    if (now - stepLast > STEP_GAP) stepAcc = 0;                      // a new scroll
+    stepLast = now;
+    swQuietUntil = Math.max(swQuietUntil, now + SW_QUIET_AFTER);     // (no hover opening the desktops meanwhile)
+    if (now < stepLock || swiping || sw) { stepAcc = 0; return; }    // the step just taken (its slide)
+    if (Math.sign(d) !== Math.sign(stepAcc)) stepAcc = 0;
+    stepAcc += d;
+    if (Math.abs(stepAcc) < STEP_AT) return;
+    const dir = Math.sign(stepAcc);
+    stepAcc = 0; stepLock = now + STEP_REST;
+    swipeDesk(dir);
+  }
   addEventListener("wheel", ev => {
     if (!ev.target?.closest?.(".vos-chain-vosmission") || document.querySelector("#browser.toolbar-edit-mode")) return;
     const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? innerWidth : 1, dx = ev.deltaX * k, dy = ev.deltaY * k;
     const now = performance.now();
+    if (window.__vosWheelSteps ?? WHEEL_STEPS) { ev.preventDefault(); ev.stopImmediatePropagation(); return wheelStep(dx, dy, now); }
     // after a swipe: what the trackpad still sends (its momentum - only ever fading) is not a swipe; a NEW swipe is:
     // steps growing (fingers pushing again), the other way, or after a pause - so you can swipe on and on, at once
     const gap = now - swLastEvt; swLastEvt = now;
