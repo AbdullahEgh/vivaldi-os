@@ -638,6 +638,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!on) {
       if (veil && !veil.__leaving) {
         const v = veil; veil = null; v.__leaving = true;
+        if (!lpOverlay()) thawUnder();                               // the pages draw again while the veil fades
         v.style.setProperty("pointer-events", "none", "important");
         v.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-out", fill: "forwards" })
           .finished.catch(() => {}).then(() => { v.remove(); focusLift = new Set(); queueRender(); });
@@ -651,7 +652,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (veil.parentElement !== host) host.appendChild(veil);
     place(veil, { x: 0, y: 0, w: s.width, h: s.height }, s, fixedOrigin(host));
     setStyle(veil, "z-index", "999");
-    if (fresh) veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" });
+    if (fresh) { veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" }); if (!lpOverlay()) freezeUnder(); }
   }
 
   /* leave the desktop instantly (no fade of the other windows) for a moment */
@@ -1357,6 +1358,11 @@ window.vosBeat = window.vosBeat || (() => {
     for (const w of windows) {
       if (!origins.has(w.el.parentElement)) origins.set(w.el.parentElement, fixedOrigin(w.el.parentElement));
     }
+    let FRAME = 3;                                   // (a split not drawn: the real split's frame, and its panes' origins - read now, with the rest)
+    if (windows.some(w => vSplit(w.id))) {
+      FRAME = parseFloat(getComputedStyle(b).getPropertyValue("--ft-frame")) || 3;
+      for (const w of windows) { const vs = vSplit(w.id); if (vs) for (const mp of vs.pages) if (!origins.has(mp.parentElement)) origins.set(mp.parentElement, fixedOrigin(mp.parentElement)); }
+    }
     bentoSync(s);
     { const w = curWs(); if (w !== undefined && w !== lastWsShown) { lastWsShown = w; setTimeout(noBlankFront, 150); } }
     // Mission Control over a full-screen page: the desktop shows (its windows too), the page is one of the windows
@@ -1376,7 +1382,7 @@ window.vosBeat = window.vosBeat || (() => {
         : (awayWs(id) && !mission && otherTiles(wsOfTab.get(String(id)), s).get(id)) || pxRect(id, s), o = origins.get(el.parentElement);   // another desktop with Bento on: its place in that Bento (as it shows when you get there)
       const vs = vSplit(id);
       if (vs) {                                                      // a split not drawn: its panes side by side (or one above the other)
-        const F = parseFloat(getComputedStyle(b).getPropertyValue("--ft-frame")) || 3;   // the real split's frame and gap
+        const F = FRAME;                                             // the real split's frame and gap
         const n = vs.pages.length, I = F, G = F, row = vs.layout !== "column";
         let sh = vsShells.get(id);                                   // the window itself behind its panes: its colour, corners, outline, shadow
         if (!sh) { sh = document.createElement("div"); sh.className = "vos-vsplit-shell"; vsShells.set(id, sh); }
@@ -1386,9 +1392,9 @@ window.vosBeat = window.vosBeat || (() => {
         place(sh, r, s, o);
         const each = ((row ? r.w : r.h) - 2 * I - G * (n - 1)) / n;
         const boxes = splitBoxes(splitOfTab.get(String(id)), { x: r.x + I, y: r.y + I, w: r.w - 2 * I, h: r.h - 2 * I }, G);   // as Vivaldi keeps it (nested, its sizes)
-        if (boxes) for (const { id: pid, r: pr } of boxes) { const mp = pageOf(pid); if (mp) place(mp, pr, s, fixedOrigin(mp.parentElement)); }
+        if (boxes) for (const { id: pid, r: pr } of boxes) { const mp = pageOf(pid); if (mp) place(mp, pr, s, origins.get(mp.parentElement) || fixedOrigin(mp.parentElement)); }
         else vs.pages.forEach((mp, i) => place(mp, row ? { x: r.x + I + i * (each + G), y: r.y + I, w: each, h: r.h - 2 * I }
-                                                  : { x: r.x + I, y: r.y + I + i * (each + G), w: r.w - 2 * I, h: each }, s, fixedOrigin(mp.parentElement)));
+                                                  : { x: r.x + I, y: r.y + I + i * (each + G), w: r.w - 2 * I, h: each }, s, origins.get(mp.parentElement) || fixedOrigin(mp.parentElement)));
       } else place(el, r, s, o);
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
@@ -1407,6 +1413,7 @@ window.vosBeat = window.vosBeat || (() => {
       frames.get(id)?.toggleAttribute("data-ft-pip", pip.includes(id));
     }
     if (focusSet.size) focusLift = new Set(focusSet);
+    freezeKeep();
     // a split on this desktop that Vivaldi has not drawn again (back from another desktop): split it again, as it was
     for (const { id } of windows) {
       if (!vSplit(id) || awayWs(id) || swiping || sw || Date.now() - tilingAt < 1500) { vsSince.delete(id); continue; }   // (Mission Control and Bento too: the whole split; a split just made or changed: Vivaldi draws it itself)
@@ -1474,8 +1481,9 @@ window.vosBeat = window.vosBeat || (() => {
     for (const { id, el } of windows) if (!awayWs(id)) for (const pg of (el.classList.contains("webpageview") ? [el] : $$(".webpageview[data-id]", el))) readTone(pg);   // (each page: every 4s at most)
     if (b.hasAttribute("data-ft-maxpage")) readTone(activePage());
     { const ap = activePage(); if (ap && isTiled(ap) && !winOf(ap.dataset.id)) for (const m of membersOf(ap)) readTone(pageOf(m)); }   // a split shown full screen: its grabbers too
-    toneFrames();
+    toneSoon();
   }
+  function toneSoon() { if (!toneSoon.q) toneSoon.q = requestAnimationFrame(() => { toneSoon.q = 0; toneFrames(); }); }   // (hoisted: safe from the first redraw)
 
   /* ---------------- desktop clock: "Mon 16 Nov 3:41" at the top center ---------------- */
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -5303,6 +5311,87 @@ window.vosBeat = window.vosBeat || (() => {
       }, Math.max(0, (shownAt || Date.now()) + ms - Date.now()) + 40);
     }
   }
+  /* (performance) STILL UNDER THE LAUNCHPAD: the open Launchpad blurs everything behind it (44px), so a page moving
+     behind it (a video, a spinner, an ad) makes the graphics card blur the whole screen again on every frame. Once it is
+     open, each page behind it is photographed and the photo takes its place; the page itself rests (hidden: it draws
+     nothing). Under that blur the photo looks the same. Closing, the pages draw again first, then the photos go.
+     A page playing sound stays live (its video keeps moving). */
+  var frozen = new Map();                           // webview -> its photo   (var: a redraw before this line runs finds it empty, not an error)
+  var freezeGen = 0;
+  const lpOverlay = () => !!browserEl()?.hasAttribute("data-launchpad");
+  /* the same under the focus veil (22px): the windows below it rest, the ones lifted over it stay live */
+  const veilOn = () => !!veil && !veil.__leaving && !lpOverlay();
+  const blurOver = () => lpOverlay() || veilOn();
+  const VEIL_Z = 999;
+  const underVeil = pg => { const w = pg.closest("[data-ft-float]"); if (!w) return true; const z = parseInt(w.style.getPropertyValue("z-index"), 10); return !(z >= VEIL_Z); };
+  function freezeUnder() {
+    const gen = ++freezeGen, cap = vivaldi?.thumbnails?.captureTab, host = stack();
+    if (!cap || !host) return;
+    const lp = lpOverlay();
+    setTimeout(() => {                              // after the Launchpad's (or the veil's) own fade in (the pages still move under it)
+      if (gen !== freezeGen || !blurOver()) return;
+      const ss = stackRect(), veilNow = !lpOverlay();
+      for (const wv of $$("webview", host)) {
+        if (frozen.has(wv)) continue;
+        const pg = wv.closest(".webpageview[data-id]"), id = pg?.dataset.id, r = wv.getBoundingClientRect();
+        if (!id || r.width < 60 || r.height < 60 || getComputedStyle(wv).visibility !== "visible") continue;
+        if (veilNow && !underVeil(pg)) continue;                      // lifted over the veil: live
+        if (r.right < ss.left || r.left > ss.right || r.bottom < ss.top || r.top > ss.bottom) continue;
+        chrome.tabs.get(Number(id), t => {
+          void chrome.runtime.lastError;
+          if (!t || t.audible || gen !== freezeGen || !blurOver() || frozen.has(wv)) return;
+          const k = veilNow ? 2 : 3, W = Math.max(64, Math.round(r.width / k)), H = Math.max(64, Math.round(r.height / k));   // a small photo: under the blur nothing finer shows
+          const done = d => {
+            void chrome.runtime.lastError;
+            const url = typeof d === "string" ? d : d?.image || d?.dataUrl || "";
+            if (!url || gen !== freezeGen || !blurOver() || frozen.has(wv) || !wv.isConnected || (!lpOverlay() && !underVeil(pg))) return;
+            const now = wv.getBoundingClientRect();
+            if (Math.abs(now.left - r.left) > 2 || Math.abs(now.top - r.top) > 2 || Math.abs(now.width - r.width) > 2) return;   // it moved meanwhile: left live
+            const c = document.createElement("div"); c.className = "vos-freeze";
+            c.style.setProperty("background-image", `url("${url}")`, "important");
+            c.style.setProperty("border-radius", getComputedStyle(pg).borderTopLeftRadius, "important");
+            const win = pg.closest("[data-ft-float]") || pg, z = getComputedStyle(win).zIndex;
+            host.appendChild(c);
+            place(c, { x: r.left - ss.left, y: r.top - ss.top, w: r.width, h: r.height }, ss);
+            c.style.setProperty("z-index", z && z !== "auto" ? z : "1", "important");
+            frozen.set(wv, c);
+            requestAnimationFrame(() => { if (frozen.get(wv) === c) wv.setAttribute("data-vos-frozen", ""); });   // the photo is drawn: the page rests
+          };
+          try { const q = cap.call(vivaldi.thumbnails, Number(id), { encodeFormat: "jpg", encodeQuality: 80, fullPage: false, width: W, height: H }, done); if (q && typeof q.then === "function") q.then(done, () => {}); } catch (e) {}
+        });
+      }
+    }, lp ? 380 : 300);
+  }
+  /* (each redraw, while the veil is up) a window lifted over the veil is live again at once: its photo goes with it */
+  function freezeKeep() {
+    if (!frozen?.size || lpOverlay()) return;
+    if (!veilOn()) return thawUnder();
+    for (const [wv, c] of [...frozen]) {
+      const pg = wv.closest(".webpageview[data-id]");
+      if (pg && underVeil(pg) && wv.isConnected) continue;
+      wv.removeAttribute("data-vos-frozen"); c.remove(); frozen.delete(wv);
+    }
+  }
+  const dropCover = c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove());
+  function thawUnder() {
+    freezeGen = (freezeGen || 0) + 1;
+    if (!frozen?.size) return;
+    const covers = [...frozen.values()];
+    for (const wv of frozen.keys()) wv.removeAttribute("data-vos-frozen");   // the pages draw again first (under their photos)
+    frozen.clear();
+    setTimeout(() => covers.forEach(dropCover), 160);
+  }
+  const freezeWatch = () => (blurOver() ? freezeUnder() : thawUnder());
+  (function watchLp() {
+    const b = browserEl(); if (!b) return setTimeout(watchLp, 200);
+    new MutationObserver(freezeWatch).observe(b, { attributes: true, attributeFilter: ["data-launchpad"] });
+    vosBeat(() => {                                 // (never left behind)
+      if (blurOver()) return;
+      if (frozen.size) thawUnder();
+      for (const w of $$("webview[data-vos-frozen]")) w.removeAttribute("data-vos-frozen");
+      setTimeout(() => { if (!blurOver() && !frozen.size) for (const c of $$(".vos-freeze")) c.remove(); }, 400);
+    });
+  })();
   /* NO BLINK: Vivaldi draws a desktop's splits only once you are on it, and moving their pages into the split leaves
      each page empty for a moment. Leaving a desktop, its split panes are photographed; arriving, each pane holds its
      photo on top until the page has drawn itself again, then the photo fades. */

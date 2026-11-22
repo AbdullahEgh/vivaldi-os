@@ -1518,3 +1518,9 @@
 /* 1.0.174: the desktop's Launchpad is never see-through - under its wallpaper, the theme's own colour (without a
    wallpaper, Vivaldi's start page beneath showed through it: a second set of icons) */
 #browser #webpage-stack > .lp-layer.lp-desktop { background-image: var(--browserBackgroundImage), linear-gradient(var(--colorBg, #1e1e1e), var(--colorBg, #1e1e1e)) !important; }
+
+/* 1.0.175 (performance): the second hand sweeps in 1200 steps a minute (20 a second, ~0.2px each - still a smooth
+   sweep to the eye); between steps nothing changes, so the clock card's blur is not drawn again on every frame */
+#browser .lp-clock .lp-sh { animation-timing-function: steps(1200, end) !important; }
+#browser .lp-wcard svg.lp-clock.lp-sec { animation-timing-function: steps(1200, end) !important; }
+#browser .lp-wcard svg.lp-clock.lp-sec .lp-sh { animation: none !important; }

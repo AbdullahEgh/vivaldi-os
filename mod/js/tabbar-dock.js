@@ -96,15 +96,17 @@
     let m = Math.max(0, Math.round(marginOf(first) + dx));
     const free = spare(tc);
     if (free != null) m = Math.min(m, Math.max(0, Math.round(marginOf(first) + free - GAP)));
-    first.setAttribute("data-ft-dock", "");
+    if (!first.hasAttribute("data-ft-dock")) first.setAttribute("data-ft-dock", "");
     if (Math.abs(m - marginOf(first)) >= 1) first.style.setProperty("margin-left", m + "px", "important");
-    if (m > 0 && overflowing(tc)) {        // the spacer was already 0: pull back by the overflow
+    if (m > 0 && !(free != null && free > GAP) && overflowing(tc)) {   // the spacer was already 0: pull back by the overflow (with room in the spacer nothing can overflow: not measured again)
       m = Math.max(0, m - (tc.scrollWidth - tc.clientWidth) - GAP);
       first.style.setProperty("margin-left", m + "px", "important");
     }
 
     // still no room with the dock at its leftmost: a tight bar (CSS section 10)
-    const width = tc.clientWidth, lv = TIGHT.filter(a => b.hasAttribute(a)).length;
+    const lv = TIGHT.filter(a => b.hasAttribute(a)).length;
+    if (m > 0 && lv === 0) return;                                  // (room to spare and not tight: nothing more to measure)
+    const width = tc.clientWidth;
     if (m === 0 && overflowing(tc) && lv < TIGHT.length) {
       if (lv === 0 && window.vosFitDate?.()) { queue(); return; }  // the date got shorter: measured again
       tightNeed[lv] = tc.scrollWidth; b.setAttribute(TIGHT[lv], ""); queue();

@@ -1551,3 +1551,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.174: a full-screen split has its window grabber too - centred and narrower, so each pane's own strip stays free beside it */
 #browser[data-vos-fullsplit]:not([data-ft-desktop]):not([data-launchpad]) #webpage-stack > .ft-max-grab { left: 40% !important; right: 40% !important; z-index: 95 !important; }
+
+/* 1.0.175 (performance): a page resting under the open Launchpad - its photo shows in its place (see freezeUnder) */
+#browser#browser#browser#browser#browser webview[data-vos-frozen] { visibility: hidden !important; }
+#browser #webpage-stack > .vos-freeze { pointer-events: none !important; background-size: 100% 100% !important; background-repeat: no-repeat !important; overflow: hidden !important; }
