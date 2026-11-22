@@ -5789,7 +5789,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     if (t.closest?.(".ft-max-grab")) return startMaxDrag(e);        // a full-screen page: drag it out
     { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right, .webpageview > .ft-lights, .tiled[data-ft-float] .webpageview > .ft-inner");   // the window buttons: dragged out of the window, they are put away
-      if (cb && !mission && t.closest?.(".ft-light")) return ctrlDrag(e, cb); }
+      if (cb && !mission) return ctrlDrag(e, cb); }                    // (from a button, or the gaps between them)
     if (t.closest?.(".ft-lights, .ft-right, .ft-inner")) return;
     const bd = t.closest?.(".bento-divider");                       // Bento: a gap between windows
     if (bd && bento.on) {
