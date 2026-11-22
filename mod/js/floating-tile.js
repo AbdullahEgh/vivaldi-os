@@ -5655,48 +5655,95 @@ window.vosBeat = window.vosBeat || (() => {
      then takes the whole width; in a narrow window it is away by itself (while a chat is open), until you show it */
   const WA_CODE = `(() => {
     if (window.__vosWa) { window.__vosWa(); return "again"; }
-    const NARROW = 900, KEY = "vosWaList", mem = {};
+    /* three levels, the button steps through them: 0 all, 1 the chats as their pictures only (every other left panel away),
+       2 only the chat. Kept for a narrow and a wide window apart; narrow starts at 2, wide at 0. */
+    const NARROW = 900, mem = {};
     const get = k => { try { return localStorage.getItem(k); } catch (e) { return mem[k] ?? null; } };
-    const set = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { if (v == null) delete mem[k]; else mem[k] = v; } };
+    const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; } };
+    const key = () => innerWidth < NARROW ? "vosWaLevel:narrow" : "vosWaLevel:wide";
+    const level = () => { const raw = get(key()), v = raw == null || raw === "" ? NaN : Number(raw); return v === 0 || v === 1 || v === 2 ? v : innerWidth < NARROW ? 2 : 0; };
     const st = document.createElement("style"); st.id = "vos-wa";
     st.textContent = [
-      "[data-vos-wa=list][data-vos-wa-off]{display:none!important}",
-      "[data-vos-wa=chat][data-vos-wa-wide]{flex:1 1 auto!important;max-width:none!important;width:auto!important;min-width:0!important}",
-      "#vos-wa-btn{flex:none;width:34px;height:34px;margin:0 6px 0 2px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.75;display:grid;place-items:center;cursor:pointer}",
+      "[data-vos-wa-off]{display:none!important}",
+      "[data-vos-wa-wide]{flex:1 1 auto!important;max-width:none!important;width:auto!important;min-width:0!important;border-left:0!important;box-shadow:none!important}",
+      "[data-vos-wa-fit]{min-width:0!important;max-width:100%!important;width:100%!important}",
+      "[data-vos-wa-thin]{flex:0 0 var(--vos-wa-w,76px)!important;width:var(--vos-wa-w,76px)!important;min-width:var(--vos-wa-w,76px)!important;max-width:var(--vos-wa-w,76px)!important;overflow:hidden!important;border-right:0!important}",
+      "[data-vos-wa-thin] header{display:none!important}",
+      "#vos-wa-btn{flex:none;width:34px;height:34px;margin:0 6px 0 2px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.75;display:grid;place-items:center;cursor:pointer;position:relative;z-index:5}",
       "#vos-wa-btn:hover{opacity:1;background:rgba(127,127,127,.18)}",
-      "#vos-wa-btn svg{width:20px;height:20px}"
+      "#vos-wa-btn svg{width:20px;height:20px}",
+      "#vos-wa-btn.vos-wa-float{position:absolute;top:12px;left:12px;margin:0;z-index:50}",
+      "[data-vos-wa-host]{position:relative!important}"
     ].join("");
     (document.head || document.documentElement).appendChild(st);
-    const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/></svg>';
-    let colList = null, colChat = null;
-    const columns = () => {                         // the chat list's column and the chat's column (side by side in one row)
-      const side = document.getElementById("side"), main = document.getElementById("main");
-      if (!side || !main) return false;
-      let a = side; while (a.parentElement && !a.parentElement.contains(main)) a = a.parentElement;
-      let b = main; while (b.parentElement && b.parentElement !== a.parentElement) b = b.parentElement;
-      if (!a.parentElement || b.parentElement !== a.parentElement) return false;
-      colList = a; colChat = b; return true;
+    const ICONS = [
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M10 4.5v15"/></svg>',
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M7.5 4.5v15"/><circle cx="5.6" cy="9" r=".6" fill="currentColor"/><circle cx="5.6" cy="12" r=".6" fill="currentColor"/><circle cx="5.6" cy="15" r=".6" fill="currentColor"/></svg>',
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/></svg>'];
+    const TITLES = ["Chats: all - click: pictures only", "Chats: pictures only - click: only the chat", "Only the chat - click: show the chats"];
+    const fit = from => {                           // the page follows the window: no part of it wider than it (WhatsApp keeps 748px)
+      for (let e = from; e && e !== document.documentElement; e = e.parentElement)
+        if (!e.hasAttribute("data-vos-wa-fit") && parseFloat(getComputedStyle(e).minWidth) >= 300) e.setAttribute("data-vos-wa-fit", "");
     };
-    const want = () => { const v = get(KEY); return v === "hide" ? false : v === "show" ? true : innerWidth >= NARROW; };
+    const clear = () => document.querySelectorAll("[data-vos-wa-off],[data-vos-wa-wide],[data-vos-wa-thin],[data-vos-wa-host]").forEach(e => { e.removeAttribute("data-vos-wa-off"); e.removeAttribute("data-vos-wa-wide"); e.removeAttribute("data-vos-wa-thin"); e.removeAttribute("data-vos-wa-host"); });
+    const button = (host, float) => {
+      let b = document.getElementById("vos-wa-btn");
+      if (b && b.parentElement !== host) { b.remove(); b = null; }
+      if (!b) {
+        b = document.createElement("button"); b.id = "vos-wa-btn"; b.type = "button";
+        b.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); set(key(), String((level() + 1) % 3)); apply(); }, true);
+        host.insertBefore(b, host.firstChild);
+      }
+      b.classList.toggle("vos-wa-float", !!float);
+      return b;
+    };
     const apply = () => {
-      if (!columns()) {                             // no chat open: the list is all there is
-        document.querySelectorAll("[data-vos-wa-off],[data-vos-wa-wide]").forEach(e => { e.removeAttribute("data-vos-wa-off"); e.removeAttribute("data-vos-wa-wide"); });
-        return;
+      const side = document.getElementById("side"), main = document.getElementById("main");
+      fit(main || side);
+      if (!side) return;
+      clear();                                                       // (measured as WhatsApp lays it out)
+      // the row of columns: the list's column (the first one with a wide column on its right) and that column (the chat - or the empty panel)
+      let colList = null;
+      for (let e = side; e && e.parentElement && e !== document.body; e = e.parentElement) {
+        const r = e.getBoundingClientRect();
+        if ([...e.parentElement.children].some(x => x !== e && x.getBoundingClientRect().left >= r.right - 4 && x.getBoundingClientRect().width > 120)) { colList = e; break; }
       }
-      colList.setAttribute("data-vos-wa", "list"); colChat.setAttribute("data-vos-wa", "chat");
-      const show = want();
-      colList.toggleAttribute("data-vos-wa-off", !show); colChat.toggleAttribute("data-vos-wa-wide", !show);
-      const head = document.querySelector("#main header");
-      if (head && !head.querySelector("#vos-wa-btn")) {
-        const b = document.createElement("button"); b.id = "vos-wa-btn"; b.type = "button"; b.innerHTML = icon;
-        b.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); set(KEY, want() ? "hide" : "show"); apply(); }, true);
-        head.insertBefore(b, head.firstChild);
+      if (!colList) return;
+      const row = colList.parentElement;
+      let colChat = main; if (colChat) while (colChat.parentElement && colChat.parentElement !== row) colChat = colChat.parentElement;
+      if (!colChat || colChat.parentElement !== row) colChat = [...row.children].filter(x => x !== colList && x.getBoundingClientRect().width > 120).sort((p, q) => q.getBoundingClientRect().left - p.getBoundingClientRect().left)[0] || null;   // the empty panel: the right-most wide one
+      if (!colChat) return;
+      let lv = level(); if (!main && lv === 2) lv = 1;               // no chat open: the chats stay (as pictures at least)
+      const cl = colChat.getBoundingClientRect().left;
+      if (lv >= 1) {
+        // every other left panel away: the drawer in that row, the icon bar beside the row
+        for (const x of row.children) if (x !== colList && x !== colChat && x.getBoundingClientRect().left < cl + 4) x.setAttribute("data-vos-wa-off", "");
+        for (let e = row; e && e.id !== "app"; e = e.parentElement) {
+          const par = e.parentElement; if (!par) break;
+          for (const x of par.children) if (x !== e && !x.contains(colChat) && x.getBoundingClientRect().right <= colChat.getBoundingClientRect().left + 4 && x.getBoundingClientRect().height > 200) x.setAttribute("data-vos-wa-off", "");
+        }
+        colChat.setAttribute("data-vos-wa-wide", "");
+        if (lv === 2) colList.setAttribute("data-vos-wa-off", "");
+        else {                                                       // the chats as their pictures: only the list, a narrow strip
+          colList.setAttribute("data-vos-wa-thin", "");
+          const list = side.querySelector("[role=grid],[role=listbox]");
+          if (list) for (const x of side.children) if (!x.contains(list)) x.setAttribute("data-vos-wa-off", "");
+          // as wide as a picture with the same room on both sides (its own left gap, again on its right)
+          const pic = [...(list || side).querySelectorAll("img")].find(im => { const r = im.getBoundingClientRect(); return r.width >= 28 && r.width <= 80 && Math.abs(r.width - r.height) < 4; });
+          if (pic) {
+            const r = pic.getBoundingClientRect(), gap = Math.max(6, r.left - colList.getBoundingClientRect().left);
+            const w = Math.round(gap * 2 + r.width) + "px";
+            if (colList.style.getPropertyValue("--vos-wa-w") !== w) colList.style.setProperty("--vos-wa-w", w);
+          }
+        }
       }
-      const b = document.getElementById("vos-wa-btn"); if (b) b.title = show ? "Hide the chats" : "Show the chats";
+      const head = main ? main.querySelector("header") : null;
+      if (!head) colChat.setAttribute("data-vos-wa-host", "");
+      const b = head ? button(head, false) : button(colChat, true);
+      b.innerHTML = ICONS[lv]; b.title = TITLES[lv];
     };
-    let lastNarrow = innerWidth < NARROW;
-    addEventListener("resize", () => { const n = innerWidth < NARROW; if (n !== lastNarrow) { lastNarrow = n; set(KEY, null); } apply(); });   // crossing the width: back to automatic
-    let q = 0; new MutationObserver(() => { if (!q) q = requestAnimationFrame(() => { q = 0; apply(); }); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
+    addEventListener("resize", () => apply());
+    let q = 0; new MutationObserver(ms => { if (ms.every(m => [...m.addedNodes, ...m.removedNodes].every(n => n.id === "vos-wa-btn"))) return; if (!q) q = requestAnimationFrame(() => { q = 0; apply(); }); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
     window.__vosWa = apply; apply(); return "set";
   })()`;
   function waHook(wv) {
