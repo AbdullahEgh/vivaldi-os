@@ -5311,7 +5311,7 @@ window.vosBeat = window.vosBeat || (() => {
       const pg = pageOf(pid), sh = paneShots.get(pid), r = pg?.getBoundingClientRect();
       if (!pg || !sh || !r || r.width < 20 || Date.now() - sh.at > 10 * 60000) continue;
       const win = pg.closest("[data-ft-float]") || pg, cs = getComputedStyle(pg);
-      const c = document.createElement("div"); c.className = "vos-pane-cover";
+      const c = document.createElement("div"); c.className = "vos-pane-cover"; c.dataset.pid = pid;
       c.style.setProperty("background-image", `url("${sh.url}")`, "important");
       c.style.setProperty("border-radius", cs.borderTopLeftRadius, "important");
       host.appendChild(c);
@@ -5319,7 +5319,25 @@ window.vosBeat = window.vosBeat || (() => {
       c.style.setProperty("z-index", getComputedStyle(win).zIndex || "100", "important");   // just over its window (after it), under the windows in front
       out.push(c);
     }
-    return () => setTimeout(() => out.forEach(c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove())), 420);
+    // the photos go only once every pane is really drawn in its split (Vivaldi may draw it later - a split alone on its
+    // desktop is drawn once it is brought to the front) and has had a moment to paint; never longer than 3 s
+    const pids = out.map(c => c.dataset.pid);
+    return () => {
+      if (!out.length) return;
+      const t0 = Date.now();
+      let drawnAt = 0;
+      const check = () => {
+        const drawn = pids.every(pid => isTiled(pageOf(pid)));
+        if (drawn && !drawnAt) drawnAt = Date.now();
+        if (!drawn) drawnAt = 0;
+        if ((drawnAt && Date.now() - drawnAt >= 380) || Date.now() - t0 > 3000) {
+          out.forEach(c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove()));
+          return;
+        }
+        setTimeout(check, 60);
+      };
+      setTimeout(check, 60);
+    };
   }
   async function switchWs(sp, list) {
     const was = curWs();
@@ -5370,7 +5388,7 @@ window.vosBeat = window.vosBeat || (() => {
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
       vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
-      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act, get perf() { return perf; }, paneShots, splitPanesOn, shootPanes,
+      splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act, get perf() { return perf; }, paneShots, splitPanesOn, shootPanes, waCode: () => WA_CODE,
     } });
   } catch (e) {}
   async function wsByTab(sp) {
@@ -5633,6 +5651,64 @@ window.vosBeat = window.vosBeat || (() => {
     };
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
   }
+  /* WHATSAPP WEB: its chat list can be put away - a button at the start of the chat's header hides / shows it, the chat
+     then takes the whole width; in a narrow window it is away by itself (while a chat is open), until you show it */
+  const WA_CODE = `(() => {
+    if (window.__vosWa) { window.__vosWa(); return "again"; }
+    const NARROW = 900, KEY = "vosWaList", mem = {};
+    const get = k => { try { return localStorage.getItem(k); } catch (e) { return mem[k] ?? null; } };
+    const set = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { if (v == null) delete mem[k]; else mem[k] = v; } };
+    const st = document.createElement("style"); st.id = "vos-wa";
+    st.textContent = [
+      "[data-vos-wa=list][data-vos-wa-off]{display:none!important}",
+      "[data-vos-wa=chat][data-vos-wa-wide]{flex:1 1 auto!important;max-width:none!important;width:auto!important;min-width:0!important}",
+      "#vos-wa-btn{flex:none;width:34px;height:34px;margin:0 6px 0 2px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.75;display:grid;place-items:center;cursor:pointer}",
+      "#vos-wa-btn:hover{opacity:1;background:rgba(127,127,127,.18)}",
+      "#vos-wa-btn svg{width:20px;height:20px}"
+    ].join("");
+    (document.head || document.documentElement).appendChild(st);
+    const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/></svg>';
+    let colList = null, colChat = null;
+    const columns = () => {                         // the chat list's column and the chat's column (side by side in one row)
+      const side = document.getElementById("side"), main = document.getElementById("main");
+      if (!side || !main) return false;
+      let a = side; while (a.parentElement && !a.parentElement.contains(main)) a = a.parentElement;
+      let b = main; while (b.parentElement && b.parentElement !== a.parentElement) b = b.parentElement;
+      if (!a.parentElement || b.parentElement !== a.parentElement) return false;
+      colList = a; colChat = b; return true;
+    };
+    const want = () => { const v = get(KEY); return v === "hide" ? false : v === "show" ? true : innerWidth >= NARROW; };
+    const apply = () => {
+      if (!columns()) {                             // no chat open: the list is all there is
+        document.querySelectorAll("[data-vos-wa-off],[data-vos-wa-wide]").forEach(e => { e.removeAttribute("data-vos-wa-off"); e.removeAttribute("data-vos-wa-wide"); });
+        return;
+      }
+      colList.setAttribute("data-vos-wa", "list"); colChat.setAttribute("data-vos-wa", "chat");
+      const show = want();
+      colList.toggleAttribute("data-vos-wa-off", !show); colChat.toggleAttribute("data-vos-wa-wide", !show);
+      const head = document.querySelector("#main header");
+      if (head && !head.querySelector("#vos-wa-btn")) {
+        const b = document.createElement("button"); b.id = "vos-wa-btn"; b.type = "button"; b.innerHTML = icon;
+        b.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); set(KEY, want() ? "hide" : "show"); apply(); }, true);
+        head.insertBefore(b, head.firstChild);
+      }
+      const b = document.getElementById("vos-wa-btn"); if (b) b.title = show ? "Hide the chats" : "Show the chats";
+    };
+    let lastNarrow = innerWidth < NARROW;
+    addEventListener("resize", () => { const n = innerWidth < NARROW; if (n !== lastNarrow) { lastNarrow = n; set(KEY, null); } apply(); });   // crossing the width: back to automatic
+    let q = 0; new MutationObserver(() => { if (!q) q = requestAnimationFrame(() => { q = 0; apply(); }); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
+    window.__vosWa = apply; apply(); return "set";
+  })()`;
+  function waHook(wv) {
+    if (!wv || wv.__vosWaHook || typeof wv.executeScript !== "function") return;
+    const src = wv.getAttribute("src") || "";
+    if (!/^https:\/\/web\.whatsapp\.com\//.test(src)) return;
+    wv.__vosWaHook = true;
+    const run = () => { try { wv.executeScript({ code: WA_CODE }, () => void chrome.runtime.lastError); } catch (e) {} };
+    wv.addEventListener("loadstop", () => setTimeout(run, 400));
+    run();
+  }
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const wv of document.querySelectorAll("#webpage-stack webview")) if (!wv.__vosWaHook) waHook(wv); });
   /* SMART GRABBERS: the colour at the top of each page, read from the page now and then (and when it loads):
      its grabbers are white on a dark page, dark on a light one (CSS: data-vos-tone) */
   const TONE_CODE = "(() => { if (document.getElementById('vos-dark')) return ['rgb(24, 24, 24)', '', 'dark']; const solid = c => { const m = /rgba?\\(([\\d.]+), ([\\d.]+), ([\\d.]+)(?:, ([\\d.]+))?/.exec(c || ''); return !!m && (m[4] == null || +m[4] >= 0.5); }; let e = document.elementFromPoint(innerWidth / 2, 6), fg = ''; while (e) { const cs = getComputedStyle(e); if (!fg) fg = cs.color; if (solid(cs.backgroundColor)) return [cs.backgroundColor, fg]; e = e.parentElement; } const r = getComputedStyle(document.documentElement), b = getComputedStyle(document.body || document.documentElement); const c = [b.backgroundColor, r.backgroundColor].find(solid) || ''; return [c, fg || b.color, r.colorScheme]; })()";   // see-through colours (a faint tint over the page) are skipped: the page's own colour counts
