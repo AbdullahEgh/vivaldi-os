@@ -67,6 +67,15 @@ if img.startswith("chrome://vivaldi-data/local-image/"):
         if os.path.realpath(src) != os.path.realpath(dst): shutil.copyfile(src, dst)
         cfg["wallpaper"] = {"id": wid, "file": "wallpaper" + ext}
 
+# a theme whose picture is no plain Vivaldi picture of this Mac (Bento OS's dimmed / blurred copy is a thumbnail, and
+# it lives only here): in the package it shows the packaged wallpaper - a fresh install is never left without one
+if cfg.get("wallpaper") and os.path.exists(os.path.join(mod, "settings", cfg["wallpaper"].get("file", "wallpaper.jpg"))):
+    canon = "chrome://vivaldi-data/local-image/" + cfg["wallpaper"]["id"]
+    for t in system + user:
+        bi = t.get("backgroundImage") or ""
+        if bi.startswith("chrome://vivaldi-data/thumbnail/") or (bi.startswith("chrome://vivaldi-data/local-image/") and bi != canon and bi.rsplit("/", 1)[1] not in mapping):
+            t["backgroundImage"] = canon
+
 # the tab bar is kept exactly as you set it (Home only if you put it there)
 
 cfg["set"] = out

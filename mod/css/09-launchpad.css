@@ -1514,3 +1514,7 @@
 
 /* 1.0.160: on the Launchpad the old wallpaper fades inside it, under its icons (its own picture is never cleared) */
 #browser #webpage-stack > .lp-layer > .vos-wall-old.vos-wall-old-in { position: absolute !important; inset: 0 !important; z-index: -1 !important; pointer-events: none !important; background-attachment: fixed !important; }
+
+/* 1.0.174: the desktop's Launchpad is never see-through - under its wallpaper, the theme's own colour (without a
+   wallpaper, Vivaldi's start page beneath showed through it: a second set of icons) */
+#browser #webpage-stack > .lp-layer.lp-desktop { background-image: var(--browserBackgroundImage), linear-gradient(var(--colorBg, #1e1e1e), var(--colorBg, #1e1e1e)) !important; }

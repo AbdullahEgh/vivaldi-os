@@ -1453,6 +1453,7 @@ window.vosBeat = window.vosBeat || (() => {
     b.toggleAttribute("data-vos-empty", emptyHere);                    // a desktop with no tab at all
     b.toggleAttribute("data-ft-home", emptyHere || (!!act && isStart(act)));   // the Launchpad page (or a desktop still without one): the Launchpad   // an empty desktop: only its wallpaper (+ opens the Launchpad)   // the Start Page or an empty desktop: the Launchpad
     b.toggleAttribute("data-ft-maxpage", !!act && !desktop && !isStart(act) && !isTiled(act));   // a full-screen page
+    b.toggleAttribute("data-vos-fullsplit", !!act && !desktop && !isStart(act) && isTiled(act) && !winOf(actId));   // a split full screen (its window grabber too)
     ensureMaxGrab();
     if (selected && !pageOf(selected)) selected = null;              // closed
     const selId = selected ?? actId;
@@ -2884,6 +2885,16 @@ window.vosBeat = window.vosBeat || (() => {
         }
         vstore.set("vosDesksChain2", true);
       }
+      if (!(await vstore.get("vosOrder1"))) {                       // once: Bento first, then the Desktops, at the far left of the tab bar
+        const tb = await prefGet("vivaldi.toolbars.tabbar_before");
+        if (Array.isArray(tb)) {
+          const lead = [BENTO_CHAIN, "COMMAND_vosmission"].filter(n => tb.includes(n));   // (only the ones on the tab bar: none is added here)
+          const rest = tb.filter(x => !lead.includes(x));
+          const next = [...lead, ...rest];
+          if (JSON.stringify(next) !== JSON.stringify(tb)) await prefSet("vivaldi.toolbars.tabbar_before", next);
+        }
+        vstore.set("vosOrder1", true);
+      }
       vstore.set("vosBentoChain2", true);
       chainReady = true;
     } catch (e) { LOG("bento chain", e); }
@@ -3732,7 +3743,8 @@ window.vosBeat = window.vosBeat || (() => {
   }
   function startMaxDrag(e) {
     const page = activePage(), id = page?.dataset.id;
-    if (!id || floating.has(id) || isTiled(page) || isStart(page)) return;
+    const split = isTiled(page) && !winOf(id);                        // a split full screen: the whole split floats (its layout as it is)
+    if (!id || floating.has(id) || (isTiled(page) && !split) || isStart(page)) return;
     e.preventDefault(); e.stopPropagation();
     const pid = e.pointerId, x0 = e.clientX, y0 = e.clientY;
     const move = ev => {
@@ -3744,6 +3756,7 @@ window.vosBeat = window.vosBeat || (() => {
       const px = ev.clientX - ss.left, py = ev.clientY - ss.top;
       setPx(id, clampRect({ x: px - w / 2, y: Math.max(MARGIN, py - 14), w, h }, ss), ss);
       if (bento.on) { bento.skip.add(id); backToBento.add(id); }    // under the pointer, not in a Bento slot, while held
+      if (split) { for (const [a, ids] of groupMemory) if (ids.has(id)) groupMemory.delete(a); groupFloat.add(id); }
       floatNow(id, page);
       render();
       const el = targetOf(pageOf(id));

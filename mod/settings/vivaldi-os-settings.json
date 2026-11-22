@@ -997,7 +997,13 @@
       "visible": true
     },
     "vivaldi.theme": {
-      "dim_blurred": false
+      "dim_blurred": false,
+      "schedule": {
+        "o_s": {
+          "dark": "Vivaldi2",
+          "light": "Vivaldi1"
+        }
+      }
     },
     "vivaldi.themes.current": "Vivaldi1",
     "vivaldi.toolbars.navigation": [
@@ -1245,7 +1251,7 @@
       "accentOnWindow": true,
       "accentSaturationLimit": 1,
       "alpha": 1,
-      "backgroundImage": "chrome://vivaldi-data/thumbnail/YUDPDXJOYP32PUCUTXC5DW6AIKAND75R.jpg",
+      "backgroundImage": "chrome://vivaldi-data/local-image/RATXNDJ2O4JNNEND3DRZZCKMA6G4736G.jpg",
       "backgroundPosition": "stretch",
       "backgroundSource": "",
       "blur": 10,
@@ -1272,7 +1278,7 @@
       "accentOnWindow": true,
       "accentSaturationLimit": 1,
       "alpha": 0,
-      "backgroundImage": "chrome://vivaldi-data/thumbnail/YUDPDXJOYP32PUCUTXC5DW6AIKAND75R.jpg",
+      "backgroundImage": "chrome://vivaldi-data/local-image/RATXNDJ2O4JNNEND3DRZZCKMA6G4736G.jpg",
       "backgroundPosition": "stretch",
       "backgroundSource": "",
       "blur": 6,

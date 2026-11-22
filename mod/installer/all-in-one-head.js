@@ -61,8 +61,20 @@
     /* the themes, exactly as in the package; the wallpaper is stored for each
        theme that uses it (custom-vivaldi-os-wallpaper.jpg, next to this file) */
     const wall = CFG.wallpaper ? "chrome://vivaldi-data/local-image/" + CFG.wallpaper.id : "";
-    const usesWall = t => wall && t.backgroundImage === wall;
-    const clean = list => (list || []).map(t => (usesWall(t) ? { ...t, backgroundImage: "" } : t));
+    // a theme that already shows a picture of its own keeps it (an update never replaces your wallpaper); the others
+    // get the packaged one
+    const now = {};
+    for (const path of ["vivaldi.themes.system", "vivaldi.themes.user"]) {
+      const list = await new Promise(r => { try { vivaldi.prefs.get(path, v => r(v?.value ?? v)); } catch (e) { r(null); } });
+      for (const t of Array.isArray(list) ? list : []) now[t.id] = t;
+    }
+    const loads = u => new Promise(r => { const i = new Image(); i.onload = () => r(i.naturalWidth > 0); i.onerror = () => r(false); i.src = u; setTimeout(() => r(false), 4000); });
+    const ownIds = new Set();                        // (a picture that is really there - not one only another computer has)
+    for (const t of Object.values(now)) { const b = t?.backgroundImage || ""; if (b && !/^\/resources\//.test(b) && await loads(b)) ownIds.add(t.id); }
+    const own = t => ownIds.has(t.id);
+    const usesWall = t => wall && t.backgroundImage === wall && !own(t);
+    const clean = list => (list || []).map(t => own(t) ? { ...t, backgroundImage: now[t.id].backgroundImage, backgroundPosition: now[t.id].backgroundPosition, backgroundSource: now[t.id].backgroundSource }
+                                                         : usesWall(t) ? { ...t, backgroundImage: "" } : t);
     if (CFG.systemThemes?.length) prefSet("vivaldi.themes.system", clean(CFG.systemThemes));
     if (CFG.userThemes?.length) prefSet("vivaldi.themes.user", clean(CFG.userThemes));
     const current = CFG.set?.["vivaldi.themes.current"];

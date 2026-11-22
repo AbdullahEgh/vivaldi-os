@@ -57,10 +57,14 @@ function run(argv) {
   if (!Array.isArray(sys) || !sys.length) {
     prefs.vivaldi.themes.system = cfg.systemThemes;
   } else {
+    // a theme that already shows a picture of its own keeps it (your wallpaper - and Bento OS's dimmed / blurred
+    // copy of it - is never replaced by an update); one with none gets the packaged wallpaper
+    const own = b => !!b && !/^\/resources\//.test(b);
     for (const id of cfg.themeIds) {
       const t = cfg.systemThemes.find(x => x.id === id);
       const i = sys.findIndex(x => x.id === id);
-      if (i >= 0) sys[i] = t; else sys.push(t);
+      if (i >= 0) sys[i] = own(sys[i].backgroundImage) ? { ...t, backgroundImage: sys[i].backgroundImage, backgroundPosition: sys[i].backgroundPosition, backgroundSource: sys[i].backgroundSource } : t;
+      else sys.push(t);
     }
   }
   for (const [k, v] of Object.entries(cfg.set)) setPath(prefs, k, v);
