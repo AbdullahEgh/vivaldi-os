@@ -1947,22 +1947,25 @@ window.vosBeat = window.vosBeat || (() => {
   };
   for (const t of ["pointerup", "pointercancel", "pointermove"]) addEventListener(t, btnLetGo, { capture: true, passive: true });
 
-  /* PUT THE BUTTONS AWAY: drag a window's buttons (the traffic lights, or the scale button) out of the window and let
-     go - they are gone from it; they come back once the mouse has left the window and come in again. Let go inside:
-     they glide back to their place. Their corners never change. A press without moving is a click (or a hold). */
+  /* PUT THE BUTTONS AWAY: drag a window's buttons (the traffic lights, or the scale button) away - down into the
+     window, or out of it - and let go: they are gone from it; they come back once the mouse has left the window and
+     come in again. Only nudged (let go near their place): they glide back. Their corners never change. A press
+     without moving is a click (or a hold). */
+  const CTRL_AWAY = 44;                                              // px from its place: let go there, it is put away
   function ctrlDrag(e, box, kind) {
     const win = box.closest("[data-ft-float]") || box.closest(".webpageview"); if (!win || e.button !== 0) return;
     const sx = e.clientX, sy = e.clientY, pid = e.pointerId;
     let moving = false, out = false;
     const outside = (x, y) => { const r = win.getBoundingClientRect(); return x < r.left - 2 || x > r.right + 2 || y < r.top - 2 || y > r.bottom + 2; };
+    const gone = (x, y) => Math.hypot(x - sx, y - sy) >= CTRL_AWAY || outside(x, y);   // far enough (down into the window, or out of it)
     const move = ev => {
       if (ev.pointerId !== pid) return;
       const dx = ev.clientX - sx, dy = ev.clientY - sy;
       if (!moving && Math.hypot(dx, dy) < 8) return;
       if (!moving) { moving = true; box.setAttribute("data-vos-ctrl-drag", ""); }
       ev.preventDefault();
-      out = outside(ev.clientX, ev.clientY);
-      box.toggleAttribute("data-vos-ctrl-out", out);                // out of the window: it fades (let go: gone)
+      out = gone(ev.clientX, ev.clientY);
+      box.toggleAttribute("data-vos-ctrl-out", out);                // far enough: it fades (let go: gone)
       box.style.setProperty("transform", `translate(${dx}px, ${dy}px)`, "important");
     };
     const up = ev => {
@@ -1972,7 +1975,7 @@ window.vosBeat = window.vosBeat || (() => {
       const swallow = c => { c.preventDefault(); c.stopPropagation(); c.stopImmediatePropagation(); };   // the click on letting go is not a click
       addEventListener("click", swallow, { capture: true, once: true });
       setTimeout(() => removeEventListener("click", swallow, true), 400);
-      const away = ev.type === "pointerup" && outside(ev.clientX, ev.clientY);
+      const away = ev.type === "pointerup" && gone(ev.clientX, ev.clientY);
       box.removeAttribute("data-vos-ctrl-drag"); box.removeAttribute("data-vos-ctrl-out");
       if (away) {
         const t = box.style.getPropertyValue("transform");
