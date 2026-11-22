@@ -138,14 +138,20 @@ def split(k, v):
     # a toolbar with Command Chain buttons: the chains are personal (not shipped), and a
     # toolbar naming a chain that does not exist breaks Vivaldi's tab bar - the public
     # toolbar leaves them out (the mod adds its own Bento chain itself), yours keeps them
-    if k.startswith("vivaldi.toolbars.") and isinstance(v, list) and any(isinstance(x, str) and x.startswith("COMMAND_") for x in v):
+    # (Bento OS's own buttons - COMMAND_vos... - stay in the public toolbar: the installers create those chains first)
+    own_chain = lambda x: isinstance(x, str) and x.startswith("COMMAND_") and not x.startswith("COMMAND_vos")
+    if k.startswith("vivaldi.toolbars.") and isinstance(v, list) and any(own_chain(x) for x in v):
         mine[k] = v
-        generic[k] = [x for x in v if not (isinstance(x, str) and x.startswith("COMMAND_"))]
+        generic[k] = [x for x in v if not own_chain(x)]
         return
     generic[k] = v
 for k, v in out.items(): split(k, v)
 out = generic
 cfg["set"] = out
+# Bento OS's tab bar buttons (Command Chains with fixed names): created by the installers before a toolbar names them
+cfg["osChains"] = [{"category": "CATEGORY_COMMAND_CHAIN", "chain": [], "key": k, "label": l, "name": "COMMAND_" + k}
+                   for k, l in [("vosbento", "OS · Bento"), ("vosmission", "OS · Desktops"), ("vostimer", "OS · Timer"),
+                                ("vosdate", "OS · Date"), ("vosdark", "OS · Dark Mode")]]
 json.dump({"_about": "Personal Vivaldi settings of this Mac (never in a release): applied over the mod's by the installers when this folder is next to mod/.",
            "set": mine}, open(os.path.join(personal, "personal-settings.json"), "w"), indent=2, ensure_ascii=False)
 # the bookmarks seed: yours -> personal; the mod gets a neutral starter set

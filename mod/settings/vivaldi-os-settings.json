@@ -1031,10 +1031,14 @@
     "vivaldi.toolbars.tabbar_after": [
       "NewTab",
       "FlexibleSpacer",
+      "COMMAND_vostimer",
+      "COMMAND_vosdate",
       "Clock",
       "PanelToggle"
     ],
     "vivaldi.toolbars.tabbar_before": [
+      "COMMAND_vosbento",
+      "COMMAND_vosmission",
       "FlexibleSpacer",
       "Back",
       "AddressField"
@@ -1613,5 +1617,42 @@
   "_aboutUpdatesOnce": "Additions to the default setup for machines installed before them. Each id is applied once per machine (recorded in User Data/VivaldiOS/updates-once.done); 'insert' puts an item in a toolbar before another one, unless it is already there.",
   "updatesOnce": [],
   "userThemes": [],
-  "_synced": "visual settings copied from the Mac by sync-settings-from-mac.py"
+  "_synced": "visual settings copied from the Mac by sync-settings-from-mac.py",
+  "osChains": [
+    {
+      "category": "CATEGORY_COMMAND_CHAIN",
+      "chain": [],
+      "key": "vosbento",
+      "label": "OS · Bento",
+      "name": "COMMAND_vosbento"
+    },
+    {
+      "category": "CATEGORY_COMMAND_CHAIN",
+      "chain": [],
+      "key": "vosmission",
+      "label": "OS · Desktops",
+      "name": "COMMAND_vosmission"
+    },
+    {
+      "category": "CATEGORY_COMMAND_CHAIN",
+      "chain": [],
+      "key": "vostimer",
+      "label": "OS · Timer",
+      "name": "COMMAND_vostimer"
+    },
+    {
+      "category": "CATEGORY_COMMAND_CHAIN",
+      "chain": [],
+      "key": "vosdate",
+      "label": "OS · Date",
+      "name": "COMMAND_vosdate"
+    },
+    {
+      "category": "CATEGORY_COMMAND_CHAIN",
+      "chain": [],
+      "key": "vosdark",
+      "label": "OS · Dark Mode",
+      "name": "COMMAND_vosdark"
+    }
+  ]
 }

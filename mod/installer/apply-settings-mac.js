@@ -67,6 +67,15 @@ function run(argv) {
       else sys.push(t);
     }
   }
+  // Bento OS's tab bar buttons are Command Chains: they exist before a toolbar names them (a toolbar naming a
+  // missing chain breaks Vivaldi's tab bar) - added to your own chains, none of yours touched
+  if (Array.isArray(cfg.osChains)) {
+    prefs.vivaldi = prefs.vivaldi || {};
+    const cc = prefs.vivaldi.chained_commands = prefs.vivaldi.chained_commands || {};
+    const list = Array.isArray(cc.command_list) ? cc.command_list : [];
+    for (const c of cfg.osChains) if (!list.some(x => x && x.name === c.name)) list.push(c);
+    cc.command_list = list;
+  }
   for (const [k, v] of Object.entries(cfg.set)) setPath(prefs, k, v);
   // the tab bar items are only a starting point: set on the first install,
   // then your own arrangement (Clock, extra buttons...) is never touched again

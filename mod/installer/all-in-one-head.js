@@ -45,6 +45,13 @@
         for (const k of Object.keys(v)) walk(path + "." + k, v[k]);
       } else leaves.push([path, v]);
     };
+    if (Array.isArray(CFG.osChains)) {                       // Bento OS's tab bar buttons exist before a toolbar names them
+      const cur = await prefGet("vivaldi.chained_commands.command_list");
+      const list = Array.isArray(cur) ? [...cur] : [];
+      let add = false;
+      for (const c of CFG.osChains) if (!list.some(x => x && x.name === c.name)) { list.push(c); add = true; }
+      if (add) prefSet("vivaldi.chained_commands.command_list", list);
+    }
     for (const group of [CFG.set || {}, CFG.setOnce || {}])
       for (const [k, v] of Object.entries(group)) walk(k.replace(/^account_values\./, ""), v);
     for (const [path, v] of leaves) {

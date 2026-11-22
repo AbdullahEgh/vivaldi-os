@@ -184,6 +184,20 @@ if (-not $themes.ContainsKey('system') -or @($themes['system']).Count -eq 0) {
   }
   $themes['system'] = $list.ToArray()
 }
+#   Bento OS's tab bar buttons are Command Chains: they exist before a toolbar names them
+#   (a toolbar naming a missing chain breaks Vivaldi's tab bar) - added to your own, none of yours touched
+if ($cfg['osChains']) {
+  if (-not $prefs['vivaldi'].ContainsKey('chained_commands')) { $prefs['vivaldi']['chained_commands'] = New-Dict }
+  $cc = $prefs['vivaldi']['chained_commands']
+  $cl = New-Object System.Collections.ArrayList
+  if ($cc.ContainsKey('command_list') -and $cc['command_list']) { $cl.AddRange(@($cc['command_list'])) }
+  foreach ($c in @($cfg['osChains'])) {
+    $has = $false
+    foreach ($x in $cl) { if ($x -and $x['name'] -eq $c['name']) { $has = $true } }
+    if (-not $has) { [void]$cl.Add($c) }
+  }
+  $cc['command_list'] = $cl.ToArray()
+}
 foreach ($k in $cfg['set'].Keys) { Set-JsonPath $prefs $k $cfg['set'][$k] }
 #   the tab bar items are only a starting point: set on the first install,
 #   then your own arrangement is never touched again
