@@ -5670,6 +5670,7 @@ window.vosBeat = window.vosBeat || (() => {
       "[data-vos-wa-thin]{flex:0 0 var(--vos-wa-w,76px)!important;width:var(--vos-wa-w,76px)!important;min-width:var(--vos-wa-w,76px)!important;max-width:var(--vos-wa-w,76px)!important;overflow:hidden!important;box-sizing:border-box!important;border-right:1px solid var(--border-stronger,rgba(134,150,160,.24))!important}",
       "[data-vos-wa-thin] [role=grid] *,[data-vos-wa-thin] [role=listbox] *{visibility:hidden!important}",
       "[data-vos-wa-thin] [data-vos-wa-av],[data-vos-wa-thin] [data-vos-wa-av] *{visibility:visible!important}",
+      "[data-vos-wa-thin] [data-vos-wa-sel]{visibility:visible!important;background:var(--background-default-active,rgba(134,150,160,.22))!important;border-radius:14px!important}",
       "[data-vos-wa-thin] header{display:none!important}",
       "#vos-wa-btn{flex:none;width:34px;height:34px;margin:0 6px 0 2px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.75;display:grid;place-items:center;cursor:pointer;position:relative;z-index:5}",
       "#vos-wa-btn:hover{opacity:1;background:rgba(127,127,127,.18)}",
@@ -5742,9 +5743,19 @@ window.vosBeat = window.vosBeat || (() => {
             }
             if (best) best.el.setAttribute("data-vos-wa-av", "");
           }
+          // the chat that is open: highlighted (WhatsApp's own selected mark - or the row with the open chat's picture)
+          const rowsAll = [...(list || side).querySelectorAll("[role=row],[role=listitem]")];
+          let selRow = rowsAll.find(rw => rw.getAttribute("aria-selected") === "true" || rw.querySelector("[aria-selected=true]"));
+          if (!selRow && main) {
+            const hp = main.querySelector("header img")?.getAttribute("src");
+            if (hp) selRow = rowsAll.find(rw => [...rw.querySelectorAll("img")].some(im => im.getAttribute("src") === hp));
+          }
+          for (const rw of rowsAll) { const on = rw === selRow; if (rw.hasAttribute("data-vos-wa-sel") !== on) rw.toggleAttribute("data-vos-wa-sel", on); }
           const pic = [...(list || side).querySelectorAll("img")].find(im => { const r = im.getBoundingClientRect(); return r.width >= 28 && r.width <= 80 && Math.abs(r.width - r.height) < 4; });
+          for (let e = side; e && e !== colList.parentElement; e = e.parentElement) if (e.scrollLeft) e.scrollLeft = 0;   // (never scrolled sideways)
           if (pic) {
-            const r = pic.getBoundingClientRect(), gap = Math.max(6, r.left - colList.getBoundingClientRect().left);
+            const row = pic.closest("[role=row],[role=listitem]") || colList;
+            const r = pic.getBoundingClientRect(), gap = Math.max(6, Math.min(30, r.left - row.getBoundingClientRect().left));   // its own row's left room
             const w = Math.round(gap * 2 + r.width + 1) + "px";      // (+ its 1px line)
             if (colList.style.getPropertyValue("--vos-wa-w") !== w) colList.style.setProperty("--vos-wa-w", w);
           }
