@@ -2556,9 +2556,10 @@ window.vosBeat = window.vosBeat || (() => {
     bentoHot();
   }
 
-  function bentoToggle(force) {
+  function bentoToggle(force, keep) {
     const on = force ?? !bento.on;
     if (on === bento.on) return;
+    const kept = !on && keep ? new Map([...bento.rects].filter(([id]) => floating.has(id) && !awayWs(id)).map(([id, r]) => [id, { ...r }])) : null;   // (as Bento has them now)
     bTransition(() => {
       if (on) {
         bento.on = true; bento.pre = {}; bento.skip = new Set(); bento.shape = ""; bento.undo = []; bento.redo = [];
@@ -2567,8 +2568,10 @@ window.vosBeat = window.vosBeat || (() => {
         bento.root = members.length ? (bRestore(members, bArea()) || bActivate(members.map(bLeaf), bArea())) : null;
       } else {
         bento.on = false; bento.root = null; bento.shape = ""; bento.undo = []; bento.redo = []; bentoDrag = null; bento.memo.clear();
-        for (const id of floating) {                // every window back to where it was before Bento
-          if (bento.pre[id]) frac[id] = bento.pre[id];
+        const ss = stackRect();
+        for (const id of floating) {                // every window back to where it was before Bento (held: where Bento put it)
+          if (kept?.has(id)) setPx(id, kept.get(id), ss);
+          else if (bento.pre[id]) frac[id] = bento.pre[id];
           persist(id);
         }
         bento.pre = {};
@@ -3034,6 +3037,21 @@ window.vosBeat = window.vosBeat || (() => {
       if (key === "vostimer" && !wrap.previousElementSibling?.classList?.contains("vos-tm-mini")) window.vosTimer?.paint?.();   // the ring takes its place
     }
   }
+  const BENTO_HOLD = 550;
+  function bentoHoldable(el) {                      // held (Bento on): off, the layout kept - the click on letting go is not a click
+    el.addEventListener("pointerdown", ev => {
+      if (ev.button !== 0 || editingToolbar()) return;
+      clearTimeout(el.__vosHold); el.__vosHeld = false;
+      if (!bento.on) return;
+      el.__vosHold = setTimeout(() => {
+        el.__vosHeld = true;
+        el.animate([{ scale: 1 }, { scale: 0.86 }, { scale: 1 }], { duration: 280, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // (it took)
+        bentoToggle(false, true);
+      }, BENTO_HOLD);
+    }, true);
+    for (const t of ["pointerup", "pointercancel", "pointerleave"]) el.addEventListener(t, () => clearTimeout(el.__vosHold), true);
+  }
+  const bentoHeld = el => { if (!el.__vosHeld) return false; el.__vosHeld = false; return true; };
   function bentoButton() {
     osWidgets();
     const chain = chainButton();
@@ -3044,7 +3062,8 @@ window.vosBeat = window.vosBeat || (() => {
         wrap.__vosBento = true;
         wrap.classList.add("bento-toggle", "vos-bento-chain");
         wrap.addEventListener("pointerdown", ev => { if (!editingToolbar()) ev.stopPropagation(); }, true);
-        wrap.addEventListener("click", ev => { if (editingToolbar()) return; ev.preventDefault(); ev.stopPropagation(); bentoToggle(); }, true);
+        wrap.addEventListener("click", ev => { if (editingToolbar()) return; ev.preventDefault(); ev.stopPropagation(); if (bentoHeld(wrap)) return; bentoToggle(); }, true);
+        bentoHoldable(wrap);
       }
       let ic = chain.querySelector(":scope > .vos-bento-ic");
       if (!ic) { ic = document.createElement("span"); ic.className = "vos-bento-ic"; chain.appendChild(ic); ic.__on = null; }
@@ -3062,7 +3081,8 @@ window.vosBeat = window.vosBeat || (() => {
       btn.className = "button-toolbar bento-toggle";
       btn.innerHTML = `<button class="ToolbarButton-Button" type="button" title="Bento: organize the windows" aria-label="Bento">${bentoIcon(false)}</button>`;
       btn.addEventListener("pointerdown", ev => ev.stopPropagation(), true);
-      btn.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); bentoToggle(); });
+      btn.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); if (bentoHeld(btn)) return; bentoToggle(); });
+      bentoHoldable(btn);
       const homeLabel = v => /^(go to )?home ?page\b/i.test((v || "").trim());
       const home = [...bar.children].find(ch => [ch, ch.querySelector("button")].some(x => x && (homeLabel(x.getAttribute("title")) || homeLabel(x.getAttribute("aria-label")))));
       const first = home || [...bar.children].find(ch => ch !== btn && !/spacer/i.test(ch.className));
