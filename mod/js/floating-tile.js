@@ -1947,9 +1947,9 @@ window.vosBeat = window.vosBeat || (() => {
   };
   for (const t of ["pointerup", "pointercancel", "pointermove"]) addEventListener(t, btnLetGo, { capture: true, passive: true });
 
-  /* THE WINDOW BUTTONS HAVE A PLACE OF YOUR CHOOSING: drag the traffic lights along a window's top edge - to the
-     centre, or back to the left; the scale button the same - to the centre, or back to the right. Every window
-     follows it, and it is kept. A press without moving is a click (or a hold), as always. */
+  /* THE WINDOW BUTTONS ON YOUR SIDE: drag the traffic lights to the other side of a window - they go there (left or
+     right); the scale button the same. Every window (and full-screen page, and split) follows it, and it is kept.
+     A press without moving is a click (or a hold), as always. */
   const CTRL_KEY = "vosCtrlAt";
   let ctrlAt = { lights: "left", scale: "right" };
   function ctrlApply() {
@@ -1958,11 +1958,11 @@ window.vosBeat = window.vosBeat || (() => {
     if (b.dataset.vosScale !== ctrlAt.scale) b.dataset.vosScale = ctrlAt.scale;
   }
   setTimeout(() => vstore.get(CTRL_KEY).then(v => {            // (once everything is set up)
-    try { const o = typeof v === "string" ? JSON.parse(v) : v; if (o?.lights === "center" || o?.lights === "left") ctrlAt.lights = o.lights; if (o?.scale === "center" || o?.scale === "right") ctrlAt.scale = o.scale; } catch (e) {}
+    try { const o = typeof v === "string" ? JSON.parse(v) : v; if (o?.lights === "left" || o?.lights === "right") ctrlAt.lights = o.lights; if (o?.scale === "left" || o?.scale === "right") ctrlAt.scale = o.scale; } catch (e) {}
     ctrlApply();
   }), 0);
   function ctrlDrag(e, box, kind) {
-    const win = box.closest("[data-ft-float]"); if (!win || e.button !== 0) return;
+    const win = box.closest("[data-ft-float]") || box.closest(".webpageview"); if (!win || e.button !== 0) return;
     const sx = e.clientX, sy = e.clientY, pid = e.pointerId;
     let moving = false;
     const move = ev => {
@@ -1972,7 +1972,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (!moving) { moving = true; box.setAttribute("data-vos-ctrl-drag", ""); browserEl()?.setAttribute("data-vos-ctrl-drag", kind); }
       ev.preventDefault();
       const wr = win.getBoundingClientRect(), f = (ev.clientX - wr.left) / wr.width;
-      const to = kind === "lights" ? (f > 0.3 ? "center" : "left") : (f < 0.7 ? "center" : "right");
+      const to = f < 0.5 ? "left" : "right";                      // the side it is on
       box.style.setProperty("transform", `translateX(${dx}px)`, "important");
       if (box.dataset.vosCtrlTo !== to) box.dataset.vosCtrlTo = to;   // (where it lands, if let go now)
     };
@@ -5773,8 +5773,8 @@ window.vosBeat = window.vosBeat || (() => {
       return;
     }
     if (t.closest?.(".ft-max-grab")) return startMaxDrag(e);        // a full-screen page: drag it out
-    { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right");   // a window's buttons: dragged along the top, they move
-      if (cb && !mission) return ctrlDrag(e, cb, cb.classList.contains("ft-lights") ? "lights" : "scale"); }
+    { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right, .webpageview > .ft-lights, .tiled[data-ft-float] .webpageview > .ft-inner");   // the window buttons: dragged to the other side, they go there
+      if (cb && !mission && t.closest?.(".ft-light")) return ctrlDrag(e, cb, cb.classList.contains("ft-lights") ? "lights" : "scale"); }
     if (t.closest?.(".ft-lights, .ft-right, .ft-inner")) return;
     const bd = t.closest?.(".bento-divider");                       // Bento: a gap between windows
     if (bd && bento.on) {
