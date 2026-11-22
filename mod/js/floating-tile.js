@@ -5667,7 +5667,9 @@ window.vosBeat = window.vosBeat || (() => {
       "[data-vos-wa-off]{display:none!important}",
       "[data-vos-wa-wide]{flex:1 1 auto!important;max-width:none!important;width:auto!important;min-width:0!important;border-left:0!important;box-shadow:none!important}",
       "[data-vos-wa-fit]{min-width:0!important;max-width:100%!important;width:100%!important}",
-      "[data-vos-wa-thin]{flex:0 0 var(--vos-wa-w,76px)!important;width:var(--vos-wa-w,76px)!important;min-width:var(--vos-wa-w,76px)!important;max-width:var(--vos-wa-w,76px)!important;overflow:hidden!important;border-right:0!important}",
+      "[data-vos-wa-thin]{flex:0 0 var(--vos-wa-w,76px)!important;width:var(--vos-wa-w,76px)!important;min-width:var(--vos-wa-w,76px)!important;max-width:var(--vos-wa-w,76px)!important;overflow:hidden!important;box-sizing:border-box!important;border-right:1px solid var(--border-stronger,rgba(134,150,160,.24))!important}",
+      "[data-vos-wa-thin] [role=grid] *,[data-vos-wa-thin] [role=listbox] *{visibility:hidden!important}",
+      "[data-vos-wa-thin] [data-vos-wa-av],[data-vos-wa-thin] [data-vos-wa-av] *{visibility:visible!important}",
       "[data-vos-wa-thin] header{display:none!important}",
       "#vos-wa-btn{flex:none;width:34px;height:34px;margin:0 6px 0 2px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.75;display:grid;place-items:center;cursor:pointer;position:relative;z-index:5}",
       "#vos-wa-btn:hover{opacity:1;background:rgba(127,127,127,.18)}",
@@ -5729,10 +5731,21 @@ window.vosBeat = window.vosBeat || (() => {
           const list = side.querySelector("[role=grid],[role=listbox]");
           if (list) for (const x of side.children) if (!x.contains(list)) x.setAttribute("data-vos-wa-off", "");
           // as wide as a picture with the same room on both sides (its own left gap, again on its right)
+          // in each row only its picture shows (a photo, or WhatsApp's own default picture): the left-most square of picture size
+          for (const rowEl of (list || side).querySelectorAll("[role=row],[role=listitem]")) {
+            if (rowEl.querySelector("[data-vos-wa-av]")) continue;
+            const rr = rowEl.getBoundingClientRect();
+            let best = null;
+            for (const el of rowEl.querySelectorAll("img,svg,span,div")) {
+              const r = el.getBoundingClientRect();
+              if (r.width >= 28 && r.width <= 80 && Math.abs(r.width - r.height) < 3 && r.left - rr.left < 40 && (!best || r.width > best.r.width || (r.width === best.r.width && r.left < best.r.left))) best = { el, r };
+            }
+            if (best) best.el.setAttribute("data-vos-wa-av", "");
+          }
           const pic = [...(list || side).querySelectorAll("img")].find(im => { const r = im.getBoundingClientRect(); return r.width >= 28 && r.width <= 80 && Math.abs(r.width - r.height) < 4; });
           if (pic) {
             const r = pic.getBoundingClientRect(), gap = Math.max(6, r.left - colList.getBoundingClientRect().left);
-            const w = Math.round(gap * 2 + r.width) + "px";
+            const w = Math.round(gap * 2 + r.width + 1) + "px";      // (+ its 1px line)
             if (colList.style.getPropertyValue("--vos-wa-w") !== w) colList.style.setProperty("--vos-wa-w", w);
           }
         }
@@ -5740,7 +5753,8 @@ window.vosBeat = window.vosBeat || (() => {
       const head = main ? main.querySelector("header") : null;
       if (!head) colChat.setAttribute("data-vos-wa-host", "");
       const b = head ? button(head, false) : button(colChat, true);
-      b.innerHTML = ICONS[lv]; b.title = TITLES[lv];
+      if (!b.firstChild) b.innerHTML = ICONS[0];                     // one icon at every level
+      b.title = TITLES[lv];
     };
     addEventListener("resize", () => apply());
     let q = 0; new MutationObserver(ms => { if (ms.every(m => [...m.addedNodes, ...m.removedNodes].every(n => n.id === "vos-wa-btn"))) return; if (!q) q = requestAnimationFrame(() => { q = 0; apply(); }); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
