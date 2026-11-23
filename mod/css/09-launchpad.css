@@ -1533,3 +1533,19 @@
    with a see-through tab bar, where it took a theme colour Vivaldi works out later), and no fade of its own */
 #browser.color-behind-tabs-on .vos-upd-tag { background: var(--colorAccentBgDark) !important; color: var(--colorAccentFg) !important; transition: none !important; }
 #browser .vos-upd-tag { transition: none !important; }
+
+/* 1.0.204: Change Icon - macOSicons search (or your own image) */
+#browser .lp-iconpick { position: fixed !important; left: 50% !important; top: 50% !important; translate: -50% -50% !important; z-index: 100060 !important;
+  width: min(460px, 92vw) !important; max-height: 72vh !important; overflow: auto !important; box-sizing: border-box !important; padding: 14px !important;
+  border-radius: 16px !important; background: var(--lp-ios-bg, rgba(242, 242, 247, 0.92)) !important; color: var(--lp-wg-text, #000) !important;
+  backdrop-filter: blur(40px) saturate(1.6) !important; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(0, 0, 0, 0.15) !important; }
+#browser .lp-iconpick .lp-ip-head, #browser .lp-iconpick .lp-ip-key { display: flex !important; gap: 8px !important; align-items: center !important; }
+#browser .lp-iconpick .lp-ip-key { margin-top: 10px !important; }
+#browser .lp-iconpick .lp-ip-key[hidden] { display: none !important; }
+#browser .lp-iconpick input { flex: 1 !important; min-width: 0 !important; height: 30px !important; padding: 0 10px !important; border-radius: 8px !important; border: 0 !important; background: var(--lp-chip, rgba(118, 118, 128, 0.12)) !important; color: inherit !important; font: 13px -apple-system, "Segoe UI", system-ui, sans-serif !important; }
+#browser .lp-iconpick .lp-ip-msg { font: 12px -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.7 !important; margin: 8px 2px 0 !important; min-height: 14px !important; }
+#browser .lp-iconpick .lp-ip-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)) !important; gap: 8px !important; margin-top: 8px !important; }
+#browser .lp-iconpick .lp-ip-cell { border: 0 !important; background: transparent !important; padding: 6px !important; border-radius: 12px !important; cursor: pointer !important; }
+#browser .lp-iconpick .lp-ip-cell:hover { background: var(--lp-chip, rgba(118, 118, 128, 0.16)) !important; }
+#browser .lp-iconpick .lp-ip-cell img { width: 64px !important; height: 64px !important; display: block !important; margin: auto !important; }
+#browser .lp-iconpick .lp-ip-link { font: 12px -apple-system, "Segoe UI", system-ui, sans-serif !important; white-space: nowrap !important; color: var(--lp-blue, #007aff) !important; }

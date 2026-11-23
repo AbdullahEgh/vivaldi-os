@@ -94,6 +94,7 @@ window.vosBeat = window.vosBeat || (() => {
   const pipZoomWas = new Map();     // page id -> its scale before it was held small (given back after)
   const pipAspect = new Map();      // id -> its height / width (its own shape, kept at any width)
   let pipDrag = null;                               // { id, r, mid, side }: a pinned window held and moved
+  let pipPrio = null;                               // the pinned window whose height you set last: it keeps it, the others give room
   /* a pinned window is a miniature of the window it was: its page at (pinned width / normal width) - the same layout,
      only smaller - so pinning and unpinning only zoom the same picture (nothing reflows half way); the scale you
      choose with its scale button while pinned wins */
@@ -879,10 +880,13 @@ window.vosBeat = window.vosBeat || (() => {
       return out;
     }
     const W = Math.max(...all.map(wOf)), order = [...tops, ...bots.slice().reverse()];   // one column, top to bottom
-    const k = (avail - PIP_GAP * (order.length - 1)) / order.reduce((a, p) => a + hOf(p), 0);
+    const room = avail - PIP_GAP * (order.length - 1), prio = order.includes(pipPrio) ? pipPrio : null;
+    // the one you resized last keeps its height (as far as the others' smallest allows); the others share what is left
+    const hp = prio ? Math.min(hOf(prio), room - 60 * (order.length - 1)) : 0;
+    const k = (room - hp) / Math.max(1, order.reduce((a, p) => a + (p === prio ? 0 : hOf(p)), 0));
     let y = MARGIN;
     order.forEach((p, i) => {
-      const h = i === order.length - 1 ? s.height - MARGIN - y : Math.max(40, Math.round(hOf(p) * k));
+      const h = i === order.length - 1 ? s.height - MARGIN - y : p === prio ? Math.round(hp) : Math.max(40, Math.round(hOf(p) * k));
       out.set(p, { x: xOf(W), y, w: W, h: Math.max(40, h), k }); y += h + PIP_GAP;
     });
     return out;
@@ -961,14 +965,18 @@ window.vosBeat = window.vosBeat || (() => {
     place(slotEl, { x: slot.x + (slot.w - w) / 2, y: Math.max(2, slot.y - 2), w, h: 4 }, ss);
     setStyle(slotEl, "z-index", "2100");
   }
+  function cornerAt(x, y) {                         // a corner of the desktop (72px of both its edges)
+    const ss = stackRect(), lx = x - ss.left, ly = y - ss.top, C = 72;
+    const h = lx <= C ? "l" : lx >= ss.width - C ? "r" : null, v = ly <= C ? "t" : ly >= ss.height - C ? "b" : null;
+    return h && v ? v + h : null;
+  }
   function pinZoneAt(x, y, id) {
     if (pip.includes(id) || mission) return null;
     const ss = stackRect(), ly = y - ss.top, raw = x - ss.left;
     if (x < 0 || x > innerWidth || ly < 0 || ly > ss.height) return null;
     const lx = Math.max(0, Math.min(ss.width, raw));
     if (raw <= 1 || raw >= ss.width - 2) return null;               // the very left / right edge, all along it: the half-screen snap, as always
-    { const C = 72, h = lx <= C ? "l" : lx >= ss.width - C ? "r" : null, v = ly <= C ? "t" : ly >= ss.height - C ? "b" : null;
-      if (h && v) return v + h; }                                   // a corner of the desktop (just inside the edge): pinned there
+    { const k = cornerAt(x, y); if (k) return k + "!"; }             // a corner of the desktop: pinned there, as it is ("!": a corner)
     for (const side of ["l", "r"]) {                                // onto that side's pinned windows
       const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
       if (!col.length) continue;
@@ -980,7 +988,7 @@ window.vosBeat = window.vosBeat || (() => {
                                                      // the point where it is held (ox, oy: in its own box), so it stays under the pointer
     for (const e of [el, frames.get(id)]) {
       if (!e) continue;
-      if (!c) { e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); continue; }
+      if (!c) { e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); e.removeAttribute("data-vos-pinlook"); continue; }   // (all of it: its own glide setting too - else Mission Control could not move it smoothly)
       const m = pinMem.get(id), W = cornerW(c, id) ?? (m?.c?.[1] === c[1] && m.w ? m.w : Math.min(PIP_START_W, el.offsetWidth));
       const k = Math.max(0.15, Math.min(1, W / Math.max(1, el.offsetWidth))), o = e === el ? 0 : RING;
       e.setAttribute("data-vos-pinlook", "");
@@ -2075,7 +2083,8 @@ window.vosBeat = window.vosBeat || (() => {
         const f = (last.clientX - s0.left) / s0.width, side = f <= 0.3 ? "l" : f >= 0.7 ? "r" : null, z = side || "m";
         if (z !== zone) morph(z, side);
         pipDrag.mid = !side; if (side) pipDrag.side = side;
-        pipDrag.slot = side ? pinSlot(side, last.clientY, id) : null; slotShow(pipDrag.slot);   // where it goes between the others
+        pipDrag.corner = cornerAt(last.clientX, last.clientY);       // a corner: there, as it is (no line)
+        pipDrag.slot = side && !pipDrag.corner ? pinSlot(side, last.clientY, id) : null; slotShow(pipDrag.slot);   // where it goes between the others
         const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
         el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
         return;
@@ -2084,7 +2093,8 @@ window.vosBeat = window.vosBeat || (() => {
         const W = Math.max(160, Math.min(s0.width * 0.85, w0 + (how.includes("r") ? dx : -dx)));
         for (const p of pip) if ((pipCorner.get(p) || "bl")[1] === c[1]) pipW.set(p, W);   // a free resize: that side's windows (both corners) take the width, each keeps its height
       }
-      if (/[tb]/.test(how)) {                       // the height: only this one (its shape changes)
+      if (/[tb]/.test(how)) {                       // the height: only this one (its shape changes) - the others keep theirs while there is room
+        pipPrio = id;
         pipH.set(id, Math.max(100, Math.min(s0.height - 2 * MARGIN, h0 + (how.includes("b") ? dy : -dy))));
         pipAspect.set(id, pipH.get(id) / Math.max(1, pipW.get(id)));
       }
@@ -2112,7 +2122,7 @@ window.vosBeat = window.vosBeat || (() => {
       const to = (ev.clientY < sr.top + sr.height / 2 ? "t" : "b") + d.side;
       flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
         unlook(); pipDrag = null;
-        const to2 = d.slot?.corner || to;
+        const to2 = d.corner || d.slot?.corner || to;
         { const w = cornerW(to2, id); if (w) pipFit(id, to2, w); }   // that side's width, its own shape
         pipCorner.set(id, to2);
         if (d.slot) pinOrder(id, d.slot); else { pip.splice(pip.indexOf(id), 1); pip.push(id); }   // between the ones it was dropped between
@@ -2987,8 +2997,9 @@ window.vosBeat = window.vosBeat || (() => {
       setStyle(el, "z-index", "2000");
       place(el, bentoDrag.rect, ss); placeFrame(id, el, bentoDrag.rect, ss);
       { const pz = desk ? null : pinZoneAt(last.cx, last.cy, id);
-        bSlot = pz ? pinSlot(pz[1], last.cy, id) : null; slotShow(bSlot);
-        const pc = bSlot ? bSlot.corner : pz;
+        const atC = !!pz && pz.endsWith("!"), pz2 = atC ? pz.slice(0, 2) : pz;
+        bSlot = pz2 && !atC ? pinSlot(pz2[1], last.cy, id) : null; slotShow(bSlot);
+        const pc = bSlot ? bSlot.corner : pz2;
         if (pc !== bPin) { bPin = pc; pinLook(el, id, pc, sx - ss.left - r0.x, sy - ss.top - r0.y); }
         if (pc) { show(null); proposal = null; key = ""; clearTimeout(holdTimer); return; } }
       if (desk) {                                                    // the desktops are down: which one is under the pointer
@@ -3552,7 +3563,8 @@ window.vosBeat = window.vosBeat || (() => {
     let pinAt = null;                                                // over a corner or a side's pinned windows: it shrinks; let go - pinned there
     let pinSl = null;
     const pinShow = (c, x, y) => {
-      pinSl = c ? pinSlot(c[1], y, id) : null; slotShow(pinSl);
+      const atCorner = !!c && c.endsWith("!"); if (atCorner) c = c.slice(0, 2);
+      pinSl = c && !atCorner ? pinSlot(c[1], y, id) : null; slotShow(pinSl);   // (a corner: no line - just that corner)
       if (c) { setStyle(el, "z-index", "2050"); const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // above the pinned windows while over them
       if (pinSl) c = pinSl.corner;
       if (c !== pinAt) pinLook(el, id, c, gx0, gy0);

@@ -1583,3 +1583,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.201: a pinned window dragged across: scaled and trimmed by the graphics card (quick), its real size set at the release */
 #browser #webpage-stack [data-vos-pinlook] { transition: scale 0.16s cubic-bezier(0.2, 0.9, 0.25, 1), clip-path 0.16s cubic-bezier(0.2, 0.9, 0.25, 1) !important; will-change: transform; }
+
+/* 1.0.204: a full-screen app under the windows (another app chosen) keeps its square corners */
+#browser#browser #webpage-stack .webpageview[data-ft-under] { border-radius: 0 !important; clip-path: none !important; }
+
+/* 1.0.204: Mission Control moves every window smoothly - also one just dragged toward a corner and away */
+#browser#browser[data-vos-mission-anim] #webpage-stack [data-ft-float][data-vos-pinlook], #browser#browser[data-vos-mission-anim] .ft-frame[data-vos-pinlook] {
+  transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), left 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }

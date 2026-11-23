@@ -52,6 +52,12 @@
       for (const c of CFG.osChains) if (!list.some(x => x && x.name === c.name)) { list.push(c); add = true; }
       if (add) prefSet("vivaldi.chained_commands.command_list", list);
     }
+    try {                                                    // a Mac's shortcuts that came with an earlier package: Ctrl again
+      if (!/Mac/i.test(navigator.platform || "")) {
+        const acts = await prefGet("vivaldi.actions"), j = JSON.stringify(acts || null);
+        if (acts && /"meta\+/.test(j)) prefSet("vivaldi.actions", JSON.parse(j.replace(/"meta\+/g, '"ctrl+').replace(/\+meta\+/g, "+ctrl+")));
+      }
+    } catch (e) {}
     for (const group of [CFG.set || {}, first ? (CFG.setOnce || {}) : {}])   // (first-install settings - e.g. the theme - only the first time: never undoing your choice)
       for (const [k, v] of Object.entries(group)) walk(k.replace(/^account_values\./, ""), v);
     for (const [path, v] of leaves) {

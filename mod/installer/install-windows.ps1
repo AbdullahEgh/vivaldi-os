@@ -199,6 +199,11 @@ if ($cfg['osChains']) {
   $cc['command_list'] = $cl.ToArray()
 }
 foreach ($k in $cfg['set'].Keys) { Set-JsonPath $prefs $k $cfg['set'][$k] }
+#   a Mac's keyboard shortcuts that came with an earlier package (Cmd keys): Ctrl again - shortcuts of your own stay
+if ($prefs['vivaldi'] -and $prefs['vivaldi'].ContainsKey('actions')) {
+  $aj = $json.Serialize([VivaldiOsJson]::Plain($prefs['vivaldi']['actions']))
+  if ($aj -match '"meta\+') { $prefs['vivaldi']['actions'] = $json.DeserializeObject(($aj -replace '"meta\+', '"ctrl+') -replace '\+meta\+', '+ctrl+') }
+}
 #   the tab bar items are only a starting point: set on the first install,
 #   then your own arrangement is never touched again
 $onceMark = Join-Path $wpDir 'set-once.done'

@@ -151,6 +151,7 @@ out = generic
 # the package only gives a first install its theme (setOnce), and never this Mac's reading of its own system
 # appearance (Windows would be told "light" while it is dark)
 out.pop("vivaldi.system.desktop_theme_color", None)
+out.pop("vivaldi.actions", None)                   # the keyboard shortcuts: each computer's own (a Mac's Cmd keys are not Windows' Ctrl)
 if "vivaldi.themes.current" in out:
     cfg["setOnce"] = {**(cfg.get("setOnce") or {}), "vivaldi.themes.current": out.pop("vivaldi.themes.current")}
 if isinstance(out.get("vivaldi.theme"), dict):                      # its parts, without the schedule (whose turn is Dark Mode's)

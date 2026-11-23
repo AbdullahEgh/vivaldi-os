@@ -61,6 +61,80 @@
     try { if (lp) render(); } catch (e) {}
   }
   const moveIcon = (from, to) => { if (from && to && from !== to && customIcons[from]) { const d = customIcons[from]; delete customIcons[from]; setIcon(to, d); } };
+  /* CHANGE ICON: icons from macOSicons.com, searched by the app's name (with your own free API key - kept on this
+     computer only, never in Bento OS), or an image of your own. Searches are remembered (the free key has 50 a month) */
+  const MI_KEY = "vosMacIconsKey", MI_CACHE = "vosMacIconsCache", MI_API = "https://api.macosicons.com/api/v1/search";
+  const stGet = k => new Promise(r => { try { chrome.storage.local.get(k, o => { void chrome.runtime.lastError; r(o?.[k]); }); } catch (e) { r(undefined); } });
+  const stSet = (k, v) => { try { chrome.storage.local.set({ [k]: v }, () => void chrome.runtime.lastError); } catch (e) {} };
+  async function macIcons(q) {
+    const key = String(q || "").trim().toLowerCase();
+    if (!key) return [];
+    const cache = (await stGet(MI_CACHE)) || {};
+    if (cache[key]) return cache[key].hits;
+    const api = await stGet(MI_KEY);
+    if (!api) throw new Error("nokey");
+    const r = await fetch(MI_API, { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": api }, body: JSON.stringify({ query: String(q).trim() }) });
+    if (r.status === 401 || r.status === 403) throw new Error("badkey");
+    if (r.status === 429) throw new Error("limit");
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    const hits = (j.hits || []).filter(h => h?.lowResPngUrl).slice(0, 24).map(h => ({ n: h.appName || "", u: h.lowResPngUrl }));
+    cache[key] = { hits, t: Date.now() };
+    const keys = Object.keys(cache).sort((a, b) => cache[b].t - cache[a].t);
+    for (const k of keys.slice(80)) delete cache[k];               // (the last 80 searches)
+    stSet(MI_CACHE, cache);
+    return hits;
+  }
+  function iconFrom(url, src, done) {               // an image (a file, or a picture's address) -> the bookmark's 128px icon
+    const draw = im => {
+      const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
+      const iw = im.naturalWidth || im.width || S, ih = im.naturalHeight || im.height || S;
+      const g = c.getContext("2d"), k = Math.max(S / iw, S / ih), w = iw * k, h = ih * k;
+      g.imageSmoothingQuality = "high";
+      g.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);             // filled, centred (as an app icon)
+      setIcon(url, c.toDataURL("image/png"));
+      done?.();
+    };
+    if (src instanceof Blob) return createImageBitmap(src).then(draw).catch(() => {});
+    return fetch(src).then(r => r.blob()).then(b => createImageBitmap(b)).then(draw).catch(() => {});
+  }
+  function iconPicker(url, name, done) {
+    document.querySelector(".lp-iconpick")?.remove();
+    const host = lp?.layer || document.getElementById("browser"); if (!host) return;
+    const box = document.createElement("div"); box.className = "lp-iconpick";
+    box.innerHTML = `<div class="lp-ip-head"><input class="lp-ip-q" type="search" spellcheck="false" placeholder="Search macOSicons"><button type="button" class="lp-btn lp-ip-up">Upload Image…</button></div>
+      <div class="lp-ip-msg"></div><div class="lp-ip-grid"></div>
+      <div class="lp-ip-key" hidden><input class="lp-ip-k" type="password" spellcheck="false" autocomplete="off" placeholder="Your macOSicons API key"><button type="button" class="lp-btn lp-btn-main lp-ip-ks">Save</button>
+      <a class="lp-ip-link" href="https://macosicons.com/developers" target="_blank" rel="noopener">Get a free key</a></div>`;
+    const q = box.querySelector(".lp-ip-q"), msg = box.querySelector(".lp-ip-msg"), grid = box.querySelector(".lp-ip-grid"), keyRow = box.querySelector(".lp-ip-key");
+    const close = () => { box.remove(); removeEventListener("keydown", esc, true); removeEventListener("pointerdown", out, true); };
+    const esc = ev => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } };
+    const out = ev => { if (!box.contains(ev.target)) close(); };
+    const search = async () => {
+      grid.textContent = ""; msg.textContent = "Searching…"; keyRow.hidden = true;
+      try {
+        const hits = await macIcons(q.value);
+        msg.textContent = hits.length ? "" : "No icons found.";
+        for (const h of hits) {
+          const b = document.createElement("button"); b.type = "button"; b.className = "lp-ip-cell"; b.title = h.n;
+          const im = document.createElement("img"); im.src = h.u; im.alt = ""; im.decoding = "async"; im.loading = "lazy"; b.appendChild(im);
+          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { close(); done?.(); }); });
+          grid.appendChild(b);
+        }
+      } catch (e) {
+        const m = String(e?.message || e);
+        if (m === "nokey" || m === "badkey") { msg.textContent = m === "nokey" ? "To search macOSicons, add your API key (once):" : "That API key was not accepted - check it:"; keyRow.hidden = false; }
+        else msg.textContent = m === "limit" ? "This month's searches are used up - Upload Image… still works." : "Couldn't reach macOSicons.";
+      }
+    };
+    q.value = name || ""; q.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); search(); } });
+    box.querySelector(".lp-ip-up").addEventListener("click", ev => { ev.stopPropagation(); close(); pickIcon(url, done); });
+    box.querySelector(".lp-ip-ks").addEventListener("click", ev => { ev.stopPropagation(); const v = box.querySelector(".lp-ip-k").value.trim(); if (v) { stSet(MI_KEY, v); search(); } });
+    box.addEventListener("pointerdown", ev => ev.stopPropagation()); box.addEventListener("click", ev => ev.stopPropagation());
+    host.appendChild(box);
+    setTimeout(() => { addEventListener("keydown", esc, true); addEventListener("pointerdown", out, true); q.focus(); q.select(); }, 0);
+    if (q.value) search(); else stGet(MI_KEY).then(k => { if (!k) { msg.textContent = "To search macOSicons, add your API key (once):"; keyRow.hidden = false; } });
+  }
   function pickIcon(url, done) {
     const inp = document.createElement("input");
     inp.type = "file"; inp.accept = "image/*"; inp.style.display = "none";
@@ -562,7 +636,7 @@
       add("Open in New Window", () => { closeMenu(); openUrl(n.url, true); close(); });
       sep();
       add("Edit…", () => { closeMenu(); editSheet(n); });
-      add("Change Icon…", () => { closeMenu(); pickIcon(n.url); });
+      add("Change Icon…", () => { closeMenu(); iconPicker(n.url, nameOf(n)); });
       if (ownIcon(n.url)) add("Use the Site's Icon", () => { closeMenu(); setIcon(n.url, null); });
       add("Copy Address", () => { closeMenu(); navigator.clipboard?.writeText(n.url).catch(() => {}); });
     }
@@ -1182,7 +1256,7 @@
       d.className = "lp-col lp-col-details";
       const big = document.createElement("div"); big.className = "lp-det-icon";
       if (n) big.appendChild(siteIcon(n.url, icon, "lp-favicon")); else big.innerHTML = GLYPH.go;
-      if (n?.url) { big.classList.add("lp-det-icon-pick"); big.title = "Click to choose an icon"; big.addEventListener("click", ev => { ev.stopPropagation(); pickIcon(n.url, () => draw()); }); }
+      if (n?.url) { big.classList.add("lp-det-icon-pick"); big.title = "Click to choose an icon"; big.addEventListener("click", ev => { ev.stopPropagation(); iconPicker(n.url, n.title, () => draw()); }); }
       const form = document.createElement("form"); form.className = "lp-det-form";
       const field = (label, value, ph) => {
         const l = document.createElement("label"); l.className = "lp-field";
@@ -1351,7 +1425,7 @@
           P.path = chain; P.sel = n.id; P.draft = null;
           draw().then(() => { const i = cols.querySelectorAll(".lp-col-details input")[1]; i?.focus(); i?.select(); });
         });
-        add("Change Icon…", () => pickIcon(n.url, () => draw()));
+        add("Change Icon…", () => iconPicker(n.url, n.title, () => draw()));
         if (ownIcon(n.url)) add("Use the Site's Icon", () => { setIcon(n.url, null); draw(); });
         add("Copy Address", () => navigator.clipboard?.writeText(n.url).catch(() => {}));
         sep();
@@ -2298,7 +2372,7 @@
     setTimeout(() => (tmPop ? closeTmPop() : openTmPop()), 0);
   } };
   window.vosLaunchpad = { open, close, toggle: () => (lp && !lp.desktop ? close() : (lp && close(true, true), open())), bookmarks: () => folderPicker(),
-                          icons: { set: setIcon, get: ownIcon },
+                          icons: { set: setIcon, get: ownIcon, picker: (url, name) => iconPicker(url, name) },
                           get isOpen() { return !!lp && !lp.desktop; } };
 
   /* ---------------- the desktop: the Launchpad on the wallpaper ---------------- */
