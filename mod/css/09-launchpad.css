@@ -1528,3 +1528,8 @@
 /* 1.0.192: the big icon in the bookmark manager - a click chooses your own icon */
 #browser .lp-det-icon.lp-det-icon-pick { cursor: pointer !important; }
 #browser .lp-det-icon.lp-det-icon-pick:hover { filter: brightness(1.08) !important; }
+
+/* 1.0.194: the "New Update" button changes colour WITH the tab bar - the same accent the bar is painted with (also
+   with a see-through tab bar, where it took a theme colour Vivaldi works out later), and no fade of its own */
+#browser.color-behind-tabs-on .vos-upd-tag { background: var(--colorAccentBgDark) !important; color: var(--colorAccentFg) !important; transition: none !important; }
+#browser .vos-upd-tag { transition: none !important; }

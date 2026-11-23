@@ -815,19 +815,112 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* the corner stacks: in each corner the newest sits at the corner, the earlier ones pushed
      away from it (no overlap); one width per corner, a height per window */
-  function pipRect(id, s) {
-    const c = pipCorner.get(id) || "bl", bottom = c[0] === "b";
-    const W = Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(id) || 360));
-    const x = c[1] === "r" ? s.width - MARGIN - W : MARGIN;
-    let edge = bottom ? s.height - MARGIN : MARGIN;
-    for (const p of [...pip].reverse()) {
-      if ((pipCorner.get(p) || "bl") !== c) continue;
-      const h = Math.max(100, Math.min(s.height - 2 * MARGIN, pipH.get(p) || s.height * PIP_K));
-      const y = bottom ? edge - h : edge;
-      if (p === id) return { x, y: Math.max(0, Math.min(s.height - h, y)), w: W, h };
-      if (!awayWs(p) && !minimized.has(p)) edge = bottom ? y - PIP_GAP : y + h + PIP_GAP;   // only the ones on this desktop take room
+  /* the corner stacks of one side (left or right): the newest at its corner, the earlier ones pushed away from it.
+     Never on top of each other: when they no longer fit the height - or the top stack and the bottom stack meet -
+     the side is ONE column: one width, the heights shrunk alike to fit, one gap between each */
+  function pipSide(side, s) {
+    const out = new Map(), avail = s.height - 2 * MARGIN;
+    const live = p => !awayWs(p) && !minimized.has(p);
+    const on = c => [...pip].reverse().filter(p => live(p) && (pipCorner.get(p) || "bl") === c);   // newest first (at the corner)
+    const tops = on("t" + side), bots = on("b" + side), all = [...tops, ...bots];
+    if (!all.length) return out;
+    const wOf = p => Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(p) || 360));
+    const hOf = p => Math.max(100, Math.min(avail, pipH.get(p) || s.height * PIP_K));
+    const xOf = w => side === "r" ? s.width - MARGIN - w : MARGIN;
+    const need = all.reduce((a, p) => a + hOf(p), 0) + PIP_GAP * (all.length - 1);
+    if (need <= avail) {                                            // they fit: each at its corner, its own size
+      let y = MARGIN;
+      for (const p of tops) { const w = wOf(p), h = hOf(p); out.set(p, { x: xOf(w), y, w, h, k: 1 }); y += h + PIP_GAP; }
+      let yb = s.height - MARGIN;
+      for (const p of bots) { const w = wOf(p), h = hOf(p); yb -= h; out.set(p, { x: xOf(w), y: yb, w, h, k: 1 }); yb -= PIP_GAP; }
+      return out;
     }
-    return { x, y: MARGIN, w: W, h: 240 };
+    const W = Math.max(...all.map(wOf)), order = [...tops, ...bots.slice().reverse()];   // one column, top to bottom
+    const k = (avail - PIP_GAP * (order.length - 1)) / order.reduce((a, p) => a + hOf(p), 0);
+    let y = MARGIN;
+    order.forEach((p, i) => {
+      const h = i === order.length - 1 ? s.height - MARGIN - y : Math.max(40, Math.round(hOf(p) * k));
+      out.set(p, { x: xOf(W), y, w: W, h: Math.max(40, h), k }); y += h + PIP_GAP;
+    });
+    return out;
+  }
+  /* the line between two held windows one above the other: ONE edge - dragged, one grows and the other gives the
+     same room (as Bento's lines) */
+  function pipDividers(s) {
+    const host = stack(), want = new Set();
+    if (host && !mission && !cover) {
+      const o = fixedOrigin(host);
+      for (const side of ["l", "r"]) {
+        const col = [...pipSide(side, s)].sort((a, b) => a[1].y - b[1].y);
+        for (let i = 0; i + 1 < col.length; i++) {
+          const [a, ra] = col[i], [b, rb] = col[i + 1], gap = rb.y - (ra.y + ra.h);
+          if (gap < 0 || gap > PIP_GAP + 2) continue;               // not neighbours (the top and the bottom stack apart)
+          const key = a + ":" + b; want.add(key);
+          let el = host.querySelector(`:scope > .vos-pip-hdiv[data-key="${key}"]`);
+          if (!el) { el = document.createElement("div"); el.className = "vos-pip-hdiv"; el.dataset.key = key; host.appendChild(el); }
+          el.dataset.a = a; el.dataset.b = b; el.dataset.k = String(ra.k || 1);
+          const x = Math.min(ra.x, rb.x), w = Math.max(ra.x + ra.w, rb.x + rb.w) - x;
+          place(el, { x, y: ra.y + ra.h - 3, w, h: gap + 6 }, s, o);
+          setStyle(el, "z-index", "1999");
+        }
+      }
+    }
+    for (const el of document.querySelectorAll(".vos-pip-hdiv")) if (!want.has(el.dataset.key)) el.remove();
+  }
+  function pipRowResize(e, a, b, k) {
+    const pid = e.pointerId, y0 = e.clientY, s0 = stackRect(), avail = s0.height - 2 * MARGIN;
+    const ha = Math.max(100, Math.min(avail, pipH.get(a) || s0.height * PIP_K)), hb = Math.max(100, Math.min(avail, pipH.get(b) || s0.height * PIP_K));
+    const shield = document.createElement("div"); shield.className = "ft-shield"; shield.style.cursor = "ns-resize"; document.body.appendChild(shield);
+    let frame = 0, last = null;
+    const apply = () => {
+      if (!last) return;
+      const MIN = 100, d = Math.max(MIN - ha, Math.min(hb - MIN, (last.clientY - y0) / (k || 1)));   // in their own heights; neither below 100px
+      pipH.set(a, Math.round(ha + d)); pipH.set(b, Math.round(hb - d));
+      render();
+    };
+    const move = ev => { if (ev.pointerId !== pid) return; last = ev; if (!frame) frame = requestAnimationFrame(() => { frame = 0; apply(); }); };
+    const up = ev => {
+      if (ev.pointerId !== pid) return;
+      removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+      shield.remove(); cancelAnimationFrame(frame); frame = 0;
+      if (ev.type === "pointerup") { last = ev; apply(); }
+      persist(a); persist(b);
+    };
+    addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+  }
+  function pipRect(id, s) {
+    const c = pipCorner.get(id) || "bl", r = pipSide(c[1], s).get(id);
+    if (r) return r;
+    const W = Math.max(160, Math.min(s.width - 2 * MARGIN, pipW.get(id) || 360)), h = Math.max(100, Math.min(s.height - 2 * MARGIN, pipH.get(id) || 240));   // (one away: at its corner)
+    return { x: c[1] === "r" ? s.width - MARGIN - W : MARGIN, y: c[0] === "b" ? s.height - MARGIN - h : MARGIN, w: W, h };
+  }
+  /* Bento on, a corner stack beside it: dragging the edge between them makes that side's held windows wider or
+     narrower (each keeps its shape) and Bento takes the rest - only that side changes */
+  function pipColumnResize(e, side) {
+    const pid = e.pointerId;
+    const shield = document.createElement("div"); shield.className = "ft-shield"; shield.style.cursor = "ew-resize"; document.body.appendChild(shield);
+    let frame = 0, last = null;
+    const apply = () => {
+      if (!last) return;
+      const ss = stackRect(), x = last.clientX - ss.left;
+      const W = Math.round(Math.max(160, Math.min(ss.width * 0.45, side === "l" ? x - MARGIN - BGAP / 2 : ss.width - x - MARGIN - BGAP / 2)));
+      for (const p of pip) { const c = pipCorner.get(p) || "bl"; if (c[1] === side && !awayWs(p)) pipFit(p, c, W); }
+      render();
+    };
+    const move = ev => {
+      if (ev.pointerId !== pid) return;
+      last = ev;
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; apply(); });
+    };
+    const up = ev => {
+      if (ev.pointerId !== pid) return;
+      removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+      shield.remove(); cancelAnimationFrame(frame); frame = 0;
+      if (ev.type === "pointerup") { last = ev; apply(); }             // where it was let go (even if no frame was drawn meanwhile)
+      for (const p of pip) if ((pipCorner.get(p) || "bl")[1] === side) persist(p);
+      render();
+    };
+    addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
   }
   function setPx(id, r, s = stackRect()) {
     frac[id] = { x: r.x / s.width, y: r.y / s.height, w: r.w / s.width, h: r.h / s.height };
@@ -1454,6 +1547,7 @@ window.vosBeat = window.vosBeat || (() => {
     b.toggleAttribute("data-ft-wins", mcOver || windows.some(w => !awayWs(w.id)));   // windows on this desktop (js/launchpad.js)
     veilFor(focusSet.size > 0, s);
     bentoAfterPlace(s);
+    pipDividers(s);
     {
       const live = new Set(windows.map(w => w.id));
       for (const [id, f] of frames) if (!live.has(id)) { f.remove(); frames.delete(id); }
@@ -2570,6 +2664,20 @@ window.vosBeat = window.vosBeat || (() => {
         if (!el) { el = document.createElement("div"); el.className = "bento-divider"; el.dataset.id = d.id; host.appendChild(el); }
         el.dataset.axis = d.axis;
         place(el, d.r, s, o);
+        setStyle(el, "z-index", "950");
+      }
+    }
+    if (host && bento.on && bento.layout) {                          // the edge to the corner stack: it resizes both
+      const o = fixedOrigin(host), area = bArea(s);
+      for (const side of ["l", "r"]) {
+        const ids = [...pipSide(side, s).keys()];
+        if (!ids.length || (side === "l" ? area.x <= MARGIN : s.width - area.x - area.w <= MARGIN)) continue;
+        const id = "pip-" + side; want.add(id);
+        let el = host.querySelector(`:scope > .bento-divider[data-id="${id}"]`);
+        if (!el) { el = document.createElement("div"); el.className = "bento-divider vos-pip-divider"; el.dataset.id = id; host.appendChild(el); }
+        el.dataset.axis = "h"; el.dataset.side = side;
+        const x = side === "l" ? area.x - BGAP : area.x + area.w;
+        place(el, { x, y: MARGIN, w: BGAP, h: s.height - 2 * MARGIN }, s, o);
         setStyle(el, "z-index", "950");
       }
     }
@@ -5709,7 +5817,7 @@ window.vosBeat = window.vosBeat || (() => {
     Object.defineProperty(window, "__vosQA", { configurable: true, value: {
       curWs, toDesk, newDesk, switchWs, swipeTo, openWsStrip, closeWsStrip, desksNow, wsOfTab, wsPending, floating, minimized,
       pageOf, targetOf, awayWs, vivWs, prefGet, tabsQuery, render, get zOrder() { return zOrder; },
-      vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
+      vivWsStore, vivActiveWs, emptySwitch, swipeDesk, holdAct, pip, pipCorner, pipH, focusSet, toggleFocus, get sw() { return sw; }, toNewDeskNow, toOtherWindow, dropBlanks,
       get wsStrip() { return wsStrip; }, get mission() { return mission; }, get swiping() { return swiping; },
       splitInto, splitTargetAt, vivTile, swStart, swMove, get mcMax() { return mcMax; }, get cover() { return cover; }, get bentoOn() { return !!bento.on; }, get underId() { return underId; }, deskFronts, fullOf, splitPreview, groupFloat, splitOfTab, tileMeta, vSplit, act, get perf() { return perf; }, paneShots, splitPanesOn, shootPanes, waCode: () => WA_CODE,
     } });
@@ -5860,7 +5968,10 @@ window.vosBeat = window.vosBeat || (() => {
     { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right, .webpageview > .ft-lights, .tiled[data-ft-float] .webpageview > .ft-inner");   // the window buttons: dragged out of the window, they are put away
       if (cb && !mission) return ctrlDrag(e, cb); }                    // (from a button, or the gaps between them)
     if (t.closest?.(".ft-lights, .ft-right, .ft-inner")) return;
+    { const ph = t.closest?.(".vos-pip-hdiv");                      // the line between two held windows: both
+      if (ph) { e.preventDefault(); e.stopPropagation(); return pipRowResize(e, ph.dataset.a, ph.dataset.b, Number(ph.dataset.k) || 1); } }
     const bd = t.closest?.(".bento-divider");                       // Bento: a gap between windows
+    if (bd && bento.on && bd.classList.contains("vos-pip-divider")) { e.preventDefault(); e.stopPropagation(); return pipColumnResize(e, bd.dataset.side); }
     if (bd && bento.on) {
       e.preventDefault(); e.stopPropagation();
       const ss = stackRect(), hit = bHit(bento.handles, { x: e.clientX - ss.left, y: e.clientY - ss.top });
