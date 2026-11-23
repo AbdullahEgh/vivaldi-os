@@ -2596,6 +2596,9 @@
   /* DARK MODE: Vivaldi's dark theme or its light theme (the two the wallpapers belong to), chosen here -
      it then stays (no longer following the system's appearance) */
   async function isDarkNow() {
+    const b = document.getElementById("browser");                  // what is shown: Vivaldi marks its window light or dark
+    if (b?.classList.contains("theme-dark")) return true;
+    if (b?.classList.contains("theme-light")) return false;
     const cur = await themeInUse();
     const all = [...((await pref("vivaldi.themes.system")) || []), ...((await pref("vivaldi.themes.user")) || [])];
     return darkTheme(all.find(t => t?.id === cur));
@@ -2666,7 +2669,15 @@
   }
   /* FOLLOW THE SYSTEM: when macOS / Windows changes between light and dark, Vivaldi follows - with the same
      smooth switch (the mod switches it, so the pages fade instead of jumping; nothing is reloaded) */
-  const osDark = async () => { const c = await pref("vivaldi.system.desktop_theme_color"); return c === "dark" || c === 1 || (c !== "light" && c !== 0 && c !== 2 && matchMedia("(prefers-color-scheme: dark)").matches); };
+  /* the system's own appearance (macOS / Windows): Vivaldi's reading of it - never the window's "prefers-color-scheme",
+     which follows the websites' setting (light or dark chosen here) once it is no longer automatic */
+  const osDark = async () => {
+    const c = await pref("vivaldi.system.desktop_theme_color");
+    if (c === "dark" || c === 1) return true;
+    if (c === "light" || c === 0) return false;
+    const auto = (await pref("vivaldi.PreferredColorScheme")) === 0;
+    return auto ? matchMedia("(prefers-color-scheme: dark)").matches : !!lastOs;
+  };
   let lastOs = null;
   async function followOs() {
     const d = await osDark();

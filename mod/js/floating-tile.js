@@ -93,6 +93,9 @@ window.vosBeat = window.vosBeat || (() => {
   const PIP_K = 0.55, PIP_START_W = 300, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
   const pipZoomWas = new Map();     // page id -> its scale before it was held small (given back after)
   const pipAspect = new Map();      // id -> its height / width (its own shape, kept at any width)
+  let pipDrag = null;                               // { id, r, mid, side }: a pinned window held and moved
+  const pipOrder = new Map();                       // (a restart: each pinned window's place in its stack)
+  const pinMem = new Map();                         // id -> where it was pinned last { c, w, h, o }: pinned again, it goes back there
   const cornerW = (c, except) => { const o = pip.find(p => p !== except && (pipCorner.get(p) || "bl")[1] === c[1] && pipW.has(p)); return o ? pipW.get(o) : null; };   // one width per side (both corners of it)
   function pipFit(id, c, w) {                       // this one at that corner's width, its own shape
     const W = Math.max(160, Math.round(w)), a = pipAspect.get(id) || (pipH.get(id) && pipW.get(id) ? pipH.get(id) / pipW.get(id) : 0.75);
@@ -701,8 +704,10 @@ window.vosBeat = window.vosBeat || (() => {
         const pc = pip.includes(id) ? (pipCorner.get(id) || "bl") : null;
         const want = floating.has(id) ? { r: frac[id] || bento.pre[id], nt: noTitle.has(id), g: groupFloat.has(id) || undefined,
                                           z: zoomOf[id] ? +zoomOf[id].toFixed(3) : undefined,
-                                          h: pc ? { c: pc, h: Math.round(pipH.get(id) || 240), w: Math.round(pipW.get(id) || 360) } : undefined,   // held small: its corner and size
+                                          h: pc ? { c: pc, h: Math.round(pipH.get(id) || 240), w: Math.round(pipW.get(id) || 360), o: pip.indexOf(id),
+                                                    z: pipUserZoom.has(id) ? +pipUserZoom.get(id).toFixed(3) : undefined, b: pipZoomWas.has(id) ? +Number(pipZoomWas.get(id)).toFixed(3) : undefined } : undefined,   // pinned: its corner, size, place in the stack, page scale
                                           m: minimized.has(id) && minKind.get(id) === "float" ? 1 : undefined,   // minimized: so again after a restart
+                                          lp: !pc && pinMem.has(id) ? pinMem.get(id) : undefined,   // where it was pinned last (pinned again: there)
  } : undefined;
         if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want)) return;
         if (want) ext[EXT_KEY] = want; else delete ext[EXT_KEY];
@@ -747,15 +752,20 @@ window.vosBeat = window.vosBeat || (() => {
         if (f.h && !pip.includes(id)) {                               // held small before the restart: so again
           const c = /^[tb][lr]$/.test(f.h.c) ? f.h.c : "bl";
           pipCorner.set(id, c); if (f.h.h) pipH.set(id, f.h.h); if (f.h.w) pipW.set(id, f.h.w);
+          if (f.h.b > 0) pipZoomWas.set(id, f.h.b);                  // its page's own scale, and the scale it had while pinned
+          if (f.h.z > 0) pipUserZoom.set(id, f.h.z);
+          pipOrder.set(id, Number.isFinite(f.h.o) ? f.h.o : 999);
           pip.push(id);
         }
-        if (f.m && !f.h) { minimized.add(id); minKind.set(id, "float"); }   // minimized before the restart: so again (its tab brings it back)
+        if (f.m && !f.h) { minimized.add(id); minKind.set(id, "float"); }
+        if (f.lp && /^[tb][lr]$/.test(f.lp.c || "")) pinMem.set(id, f.lp);   // minimized before the restart: so again (its tab brings it back)
         noTitle.add(id);                                          // floating windows never show a title bar
         if (f.g) groupFloat.add(id);
         if (f.z && Math.abs(f.z - 1) > 0.01) zoomOf[id] = f.z;
         floating.add(id); raise(id);
         any = true;
       }
+      pip.sort((a, b) => (pipOrder.get(a) ?? 999) - (pipOrder.get(b) ?? 999));   // each in its place in its stack, as before
       // every site tab is a window after a restart: a tab whose saved window was
       // lost (or that was never floated) becomes one too; a split, one window
       const isSite = t => /^https?:/i.test(t.url || t.pendingUrl || "");
@@ -804,6 +814,7 @@ window.vosBeat = window.vosBeat || (() => {
   function pxRect(id, s = stackRect()) {
     if (bentoDrag?.id === id) return bentoDrag.rect;              // Bento: being dragged
     if (cover === id) return { x: -s.left, y: -s.top, w: innerWidth, h: innerHeight };   // the whole Vivaldi window
+    if (pipDrag?.id === id) return pipDrag.r;                       // a pinned window being dragged: where (and how big) it shows
     if (pip.includes(id)) return pipRect(id, s);                    // the corner stack
     if (bento.rects.has(id)) return bento.rects.get(id);           // Bento: its slot
     if (!frac[id]) {                                                    // cascade new windows
@@ -820,7 +831,7 @@ window.vosBeat = window.vosBeat || (() => {
      the side is ONE column: one width, the heights shrunk alike to fit, one gap between each */
   function pipSide(side, s) {
     const out = new Map(), avail = s.height - 2 * MARGIN;
-    const live = p => !awayWs(p) && !minimized.has(p);
+    const live = p => !awayWs(p) && !minimized.has(p) && p !== pipDrag?.id;   // (one being dragged: the others close up)
     const on = c => [...pip].reverse().filter(p => live(p) && (pipCorner.get(p) || "bl") === c);   // newest first (at the corner)
     const tops = on("t" + side), bots = on("b" + side), all = [...tops, ...bots];
     if (!all.length) return out;
@@ -888,6 +899,16 @@ window.vosBeat = window.vosBeat || (() => {
     };
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
   }
+  function pinBack(id, c, r) {                     // pinned: back where it was the last time (else as given)
+    const m = pinMem.get(id), corner = c || m?.c || "bl", same = m && m.c?.[1] === corner[1];
+    pipAspect.set(id, same && m.w && m.h ? m.h / m.w : r.height / Math.max(1, r.width));
+    pipFit(id, corner, cornerW(corner, id) ?? (same && m.w ? m.w : Math.min(PIP_START_W, r.width)));
+    if (same && m.h && !cornerW(corner, id)) pipH.set(id, m.h);
+    pipCorner.set(id, corner);
+    const at = m && m.c === corner && Number.isFinite(m.o) ? m.o : null, mates = pip.filter(p => (pipCorner.get(p) || "bl") === corner);
+    if (at != null && at < mates.length) pip.splice(pip.indexOf(mates[at]), 0, id); else pip.push(id);   // its place in that stack
+    pipZoom(id, true);
+  }
   function pipRect(id, s) {
     const c = pipCorner.get(id) || "bl", r = pipSide(c[1], s).get(id);
     if (r) return r;
@@ -895,7 +916,7 @@ window.vosBeat = window.vosBeat || (() => {
     return { x: c[1] === "r" ? s.width - MARGIN - W : MARGIN, y: c[0] === "b" ? s.height - MARGIN - h : MARGIN, w: W, h };
   }
   /* Bento on, a corner stack beside it: dragging the edge between them makes that side's held windows wider or
-     narrower (each keeps its shape) and Bento takes the rest - only that side changes */
+     narrower (only their width - each keeps its height) and Bento takes the rest - only that side changes */
   function pipColumnResize(e, side) {
     const pid = e.pointerId;
     const shield = document.createElement("div"); shield.className = "ft-shield"; shield.style.cursor = "ew-resize"; document.body.appendChild(shield);
@@ -904,7 +925,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (!last) return;
       const ss = stackRect(), x = last.clientX - ss.left;
       const W = Math.round(Math.max(160, Math.min(ss.width * 0.45, side === "l" ? x - MARGIN - BGAP / 2 : ss.width - x - MARGIN - BGAP / 2)));
-      for (const p of pip) { const c = pipCorner.get(p) || "bl"; if (c[1] === side && !awayWs(p)) pipFit(p, c, W); }
+      for (const p of pip) { const c = pipCorner.get(p) || "bl"; if (c[1] === side && !awayWs(p)) { pipW.set(p, W); if (pipH.has(p)) pipAspect.set(p, pipH.get(p) / W); } }   // only the width: each keeps its height
       render();
     };
     const move = ev => {
@@ -1413,7 +1434,7 @@ window.vosBeat = window.vosBeat || (() => {
 
     const front = topWindow(null);
     if (cover && (!floating.has(cover) || minimized.has(cover) || front !== cover)) cover = null;   // another window came up: full view ends
-    for (const p of [...pip]) if (!floating.has(p) || (!pageOf(p) && !awayWs(p))) pipOff(p);   // (one on another desktop keeps its place)
+    for (const p of [...pip]) if (!floating.has(p)) pipOff(p);   // (closed. One not drawn yet - a restart loads it a moment later - or on another desktop keeps its place)
     if (cover) coverWas = cover;
     else if (coverWas) { coverWas = null; coverTill = Date.now() + 450; setTimeout(queueRender, 470); }   // it glides back first
     b.toggleAttribute("data-ft-cover", !!cover || Date.now() < coverTill);   // (before anything is measured: the page area stops clipping)
@@ -1798,6 +1819,7 @@ window.vosBeat = window.vosBeat || (() => {
         const i = steps.findIndex(z => Math.abs(z - now) < 0.02), z = steps[(i + 1) % steps.length];
         pipUserZoom.set(id, z);
         webviewsOf(id).forEach(wv => { zoomSet.delete(wv); setWebZoom(wv, z); });
+        persist(id);                                                 // (kept after a restart too)
         return;
       }
       const steps = [1, 0.85, 0.7, 0.55], now = zoomOf[id] || 1;
@@ -1911,6 +1933,7 @@ window.vosBeat = window.vosBeat || (() => {
     raise(id); activate(splitFocus.get(id) || id); render();
     const c = pipCorner.get(id) || "bl", s0 = stackRect(), r0 = pxRect(id, s0);
     const w0 = r0.w, h0 = r0.h, sx = e.clientX, sy = e.clientY, pid = e.pointerId;
+    const gx = Math.max(0, Math.min(1, (sx - s0.left - r0.x) / Math.max(1, w0))), gy = Math.max(0, Math.min(1, (sy - s0.top - r0.y) / Math.max(1, h0)));   // where it was held, in it
     const shield = document.createElement("div");
     shield.className = "ft-shield"; shield.style.cursor = CURSOR[how] || "grabbing";
     document.body.appendChild(shield);
@@ -1919,10 +1942,17 @@ window.vosBeat = window.vosBeat || (() => {
       frame = 0;
       if (!last) return;
       const dx = last.clientX - sx, dy = last.clientY - sy;
-      if (how === "move") {                                          // it follows the pointer, to whichever corner
-        moved = moved || Math.hypot(dx, dy) > 4;
-        const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
-        el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
+      if (how === "move") {                                          // it follows the pointer: at a side, pinned (that side's size);
+        moved = moved || Math.hypot(dx, dy) > 4;                     // in the middle, its normal size - nothing decided until the release
+        if (!moved) return;
+        const x = last.clientX - s0.left, y = last.clientY - s0.top, f = x / s0.width;
+        const side = f <= 0.3 ? "l" : f >= 0.7 ? "r" : null;
+        let w, h;
+        if (!side) { const n = frac[id] || { w: 0.5, h: 0.6 }; w = n.w * s0.width; h = n.h * s0.height; }
+        else { w = cornerW(side + side, id) ?? w0; h = w * (h0 / Math.max(1, w0)); }
+        const r = { x: x - gx * w, y: Math.max(0, y - gy * h), w, h };
+        pipDrag = { id, r, mid: !side, side };
+        render();
         return;
       }
       if (/[lr]/.test(how)) {                       // the width: every window in this corner follows, each in its own shape
@@ -1939,19 +1969,24 @@ window.vosBeat = window.vosBeat || (() => {
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame); frame = 0;
+      if (ev.type === "pointerup") { last = ev; apply(); }           // where it was let go (even when no frame was drawn meanwhile)
       shield.remove();
       removeEventListener("pointermove", onMove, true); removeEventListener("pointerup", onUp, true); removeEventListener("pointercancel", onUp, true);
-      if (how !== "move") return render();
-      const f = frames.get(id), clear = () => { el.style.removeProperty("translate"); f?.style.removeProperty("translate"); };
-      if (!moved || ev.type !== "pointerup") return clear();
-      const sr = stackRect();
-      const to = (ev.clientY < sr.top + sr.height / 2 ? "t" : "b") + (ev.clientX < sr.left + sr.width / 2 ? "l" : "r");
-      const els = pip.map(p => targetOf(pageOf(p)));
+      if (how !== "move") { persist(id); return render(); }
+      const d = pipDrag?.id === id ? pipDrag : null;
+      if (!moved || ev.type !== "pointerup" || !d) { pipDrag = null; return render(); }
+      const sr = stackRect(), els = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
+      if (d.mid) {                                                   // let go in the middle: no longer pinned - a window there, its normal size
+        flip(els, () => { pipDrag = null; pipOff(id); setPx(id, clampRect(d.r, sr), sr); persist(id); raise(id); render(); });
+        return;
+      }
+      const to = (ev.clientY < sr.top + sr.height / 2 ? "t" : "b") + d.side;
       flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
-        clear();
-        { const w = cornerW(to, id); if (w) pipFit(id, to, w); }   // that corner's width, its own shape
-        pipCorner.set(id, to); persist(id);
+        pipDrag = null;
+        { const w = cornerW(to, id); if (w) pipFit(id, to, w); }   // that side's width, its own shape
+        pipCorner.set(id, to);
         pip.splice(pip.indexOf(id), 1); pip.push(id);
+        persist(id);
         render();
       });
     };
@@ -1965,7 +2000,7 @@ window.vosBeat = window.vosBeat || (() => {
     webviewsOf(id).forEach(wv => {
       const pid = wv.closest(".webpageview")?.dataset.id || id, own = pageZoom[pid] ?? zoomOf[id];
       if (on) {
-        const put = z => { const was = Number(z) > 0 ? Number(z) : (own ?? 1); if (!pipZoomWas.has(pid)) pipZoomWas.set(pid, was); setWebZoom(wv, pipZoomWas.get(pid) * PIP_K); };
+        const put = z => { const was = Number(z) > 0 ? Number(z) : (own ?? 1); if (!pipZoomWas.has(pid)) pipZoomWas.set(pid, pipZoomWas.get(id) ?? was); setWebZoom(wv, pipUserZoom.get(id) ?? pipZoomWas.get(pid) * PIP_K); };   // (a restart: the saved scales)
         try { wv.getZoom(put); } catch (_) { put(own ?? 1); }
       } else {
         const was = pipZoomWas.get(pid); pipZoomWas.delete(pid); pipUserZoom.delete(id);
@@ -1977,6 +2012,8 @@ window.vosBeat = window.vosBeat || (() => {
   function pipOff(id) {
     const i = pip.indexOf(id);
     if (i < 0) return false;
+    { const c = pipCorner.get(id) || "bl"; pinMem.set(id, { c, w: Math.round(pipW.get(id) || 0) || undefined, h: Math.round(pipH.get(id) || 0) || undefined,
+        o: pip.filter(p => (pipCorner.get(p) || "bl") === c).indexOf(id) }); }   // its place, for the next time
     pip.splice(i, 1); pipZoom(id, false); pipH.delete(id); pipW.delete(id); pipAspect.delete(id); pipCorner.delete(id);
     persist(id);
     return true;
@@ -2031,10 +2068,7 @@ window.vosBeat = window.vosBeat || (() => {
       flip([el, ...others], () => {
         if (!pipOff(win)) {
           if (cover === win) cover = null;
-          const c = "bl";
-          pipAspect.set(win, r.height / Math.max(1, r.width));
-          pipFit(win, c, cornerW(c, win) ?? Math.min(PIP_START_W, r.width));   // that corner's width (300 to start), its own shape
-          pipCorner.set(win, c); pip.push(win); pipZoom(win, true);
+          pinBack(win, null, r);                                     // where it was pinned last (else the bottom left, 300 wide)
           persist(win);
         }
         render();
@@ -3372,8 +3406,32 @@ window.vosBeat = window.vosBeat || (() => {
       if (!wsStrip) openWsStrip().then(() => { if (ended && wsStrip) closeWsStrip(); });   // let go meanwhile: not after
     };
     const shake = shaker();
+    let pinAt = null, pinPrev = null;                                // over a side with pinned windows: let go - pinned there
+    const pinShow = c => {
+      pinAt = c;
+      if (!c) { pinPrev?.remove(); pinPrev = null; return; }
+      const host = stack(); if (!host) return;
+      if (!pinPrev) { pinPrev = document.createElement("div"); pinPrev.className = "ft-snap-preview vos-pin-preview"; host.appendChild(pinPrev); }
+      const ss = stackRect(), er = el.getBoundingClientRect(), W = cornerW(c, id) ?? Math.min(PIP_START_W, er.width), H = Math.max(100, W * er.height / Math.max(1, er.width));
+      place(pinPrev, { x: c[1] === "r" ? ss.width - MARGIN - W : MARGIN, y: c[0] === "b" ? ss.height - MARGIN - H : MARGIN, w: W, h: H }, ss);
+      setStyle(pinPrev, "z-index", "1950");
+    };
+    const pinZone = (x, y) => {
+      if (how !== "move" || deskDrop || inMission || pip.includes(id)) return null;
+      const ss = stackRect(), lx = x - ss.left, ly = y - ss.top;
+      for (const side of ["l", "r"]) {
+        const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
+        if (!col.length) continue;
+        const near = side === "l" ? lx <= Math.max(...col.map(r => r.x + r.w)) + 24 : lx >= Math.min(...col.map(r => r.x)) - 24;
+        if (near) return (ly < ss.height / 2 ? "t" : "b") + side;
+      }
+      return null;
+    };
     const snapCheck = (x, y) => {
       if (how !== "move" || deskDrop) return;
+      { const pz = pinZone(x, y);
+        if (pz) { clearTimeout(zoneTimer); clearTimeout(deskTimer); if (shown) { snapPreview(null); shown = null; } zone = null; if (pz !== pinAt) pinShow(pz); return; }
+        if (pinAt) pinShow(null); }
       const z = snapZone(x, y);
       if (z === zone) return;
       zone = z;
@@ -3520,6 +3578,17 @@ window.vosBeat = window.vosBeat || (() => {
         const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
         if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY, target); }
       }
+      { const c = pinAt; pinShow(null);
+        if (c && ev.type === "pointerup" && floating.has(id) && !pip.includes(id)) {   // pinned there, beside the others
+          if (backToBento.delete(id)) bento.skip.delete(id);
+          const r = el.getBoundingClientRect(), others = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
+          flip([el, ...others], () => {
+            if (cover === id) cover = null;
+            pinBack(id, c, r);                                       // that side (its last size there, if it was)
+            persist(id); render();
+          });
+          return;
+        } }
       const snap = ev.type === "pointerup" ? shown : null;
       if (shown) snapPreview(null, null, !!snap);
       persist(id);
