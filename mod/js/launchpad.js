@@ -48,6 +48,43 @@
   const HOLD = 380;                                 // ms to hold over an icon before it makes a folder
   const icon = url => `chrome://favicon2/?size=64&scaleFactor=2x&pageUrl=${encodeURIComponent(url)}&allowGoogleServerFallback=0`;
   const mini = url => `chrome://favicon2/?size=16&scaleFactor=2x&pageUrl=${encodeURIComponent(url)}&allowGoogleServerFallback=0`;
+  /* YOUR OWN ICON for a bookmark: an image you choose (right-click > Change Icon..., in the Launchpad or the bookmark
+     manager - or a click on the big icon there), made a 128px square, kept on this computer by its address */
+  const ICON_KEY = "vosIconsCustom";
+  let customIcons = {};
+  try { chrome.storage.local.get(ICON_KEY, o => { void chrome.runtime.lastError; customIcons = o?.[ICON_KEY] || {}; if (Object.keys(customIcons).length) setTimeout(() => { try { if (lp) render(); } catch (e) {} }, 0); }); } catch (e) {}
+  const ownIcon = url => (url && customIcons[url]) || null;
+  function setIcon(url, data) {
+    if (!url) return;
+    if (data) customIcons[url] = data; else delete customIcons[url];
+    try { chrome.storage.local.set({ [ICON_KEY]: customIcons }, () => void chrome.runtime.lastError); } catch (e) {}
+    try { if (lp) render(); } catch (e) {}
+  }
+  const moveIcon = (from, to) => { if (from && to && from !== to && customIcons[from]) { const d = customIcons[from]; delete customIcons[from]; setIcon(to, d); } };
+  function pickIcon(url, done) {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "image/*"; inp.style.display = "none";
+    document.body.appendChild(inp);
+    inp.addEventListener("change", () => {
+      const f = inp.files?.[0]; inp.remove();
+      if (!f) return;
+      const u = URL.createObjectURL(f), im = new Image();
+      im.onload = () => {
+        const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
+        const g = c.getContext("2d"), k = Math.max(S / (im.naturalWidth || S), S / (im.naturalHeight || S));
+        const w = (im.naturalWidth || S) * k, h = (im.naturalHeight || S) * k;
+        g.imageSmoothingQuality = "high";
+        g.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);              // filled, centred (as an app icon)
+        URL.revokeObjectURL(u);
+        setIcon(url, c.toDataURL("image/png"));
+        done?.();
+      };
+      im.onerror = () => URL.revokeObjectURL(u);
+      im.src = u;
+    });
+    setTimeout(() => inp.remove(), 120000);                          // (never chosen: not left behind)
+    inp.click();
+  }
   const host = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
   const isFolder = n => !n.url;
   const nameOf = n => n.title || host(n.url) || "Untitled";
@@ -170,7 +207,7 @@
     const i = document.createElement("img");
     i.className = cls; i.alt = ""; i.draggable = false;
     i.decoding = "async";                           // decoded off the main thread: opening never stutters
-    i.src = src(url);
+    i.src = ownIcon(url) || src(url);               // your own icon first
     i.onerror = () => {                             // no icon: the site's first letter
       const d = document.createElement("span");
       d.className = cls + " lp-letter";
@@ -525,6 +562,8 @@
       add("Open in New Window", () => { closeMenu(); openUrl(n.url, true); close(); });
       sep();
       add("Edit…", () => { closeMenu(); editSheet(n); });
+      add("Change Icon…", () => { closeMenu(); pickIcon(n.url); });
+      if (ownIcon(n.url)) add("Use the Site's Icon", () => { closeMenu(); setIcon(n.url, null); });
       add("Copy Address", () => { closeMenu(); navigator.clipboard?.writeText(n.url).catch(() => {}); });
     }
     sep();
@@ -614,6 +653,7 @@
         try { if (u) new URL(u); } catch (e) { addr.setCustomValidity("Not a web address"); addr.reportValidity(); return; }
         if (u && u !== n.url) changes.url = u;
       }
+      if (changes.url) moveIcon(n.url, changes.url);                 // your icon goes with it
       if (Object.keys(changes).length) chrome.bookmarks.update(n.id, changes, () => void chrome.runtime.lastError);
       closeSheet();
     };
@@ -1142,6 +1182,7 @@
       d.className = "lp-col lp-col-details";
       const big = document.createElement("div"); big.className = "lp-det-icon";
       if (n) big.appendChild(siteIcon(n.url, icon, "lp-favicon")); else big.innerHTML = GLYPH.go;
+      if (n?.url) { big.classList.add("lp-det-icon-pick"); big.title = "Click to choose an icon"; big.addEventListener("click", ev => { ev.stopPropagation(); pickIcon(n.url, () => draw()); }); }
       const form = document.createElement("form"); form.className = "lp-det-form";
       const field = (label, value, ph) => {
         const l = document.createElement("label"); l.className = "lp-field";
@@ -1164,13 +1205,23 @@
           if (t !== (n.title || "")) ch.title = t;
           if (u && u !== n.url) ch.url = u;
           P.edit = false;
+          if (ch.url) moveIcon(n.url, ch.url);                       // your icon goes with it
           if (Object.keys(ch).length) await bm("update", n.id, ch);
           return true;
         };
-        for (const i of [name, addr]) i.addEventListener("blur", () => setTimeout(() => { if (!form.contains(document.activeElement)) save().then(ok => ok && draw()); }, 0));
+        let cancelling = false;
+        for (const i of [name, addr]) i.addEventListener("blur", () => setTimeout(() => { if (cancelling) { cancelling = false; return; } if (!form.contains(document.activeElement)) save().then(ok => ok && draw()); }, 0));
         form.onsubmit = ev => { ev.preventDefault(); save().then(ok => ok && draw()); };
-        btn("Open", "lp-btn-main", () => { openUrl(n.url); close(); });
-        btn("New Tab", "", () => { openUrl(n.url, true); close(); });
+        // looking at it: Open / New Tab; editing it: Cancel / Save
+        const bOpen = btn("Open", "lp-btn-main", () => { openUrl(n.url); close(); });
+        const bTab = btn("New Tab", "", () => { openUrl(n.url, true); close(); });
+        const bCancel = btn("Cancel", "", () => { name.value = n.title || ""; addr.value = n.url || ""; addr.setCustomValidity(""); P.edit = false; document.activeElement?.blur?.(); editing(false); });
+        bCancel.addEventListener("pointerdown", () => { cancelling = true; });   // (before the field's blur: nothing saved)
+        const bSave = btn("Save", "lp-btn-main", null, "submit");
+        const shown = (b, on) => b.style.setProperty("display", on ? "" : "none", "important");
+        const editing = on => { shown(bOpen, !on); shown(bTab, !on); shown(bCancel, on); shown(bSave, on); };
+        editing(false);
+        for (const i of [name, addr]) i.addEventListener("focus", () => editing(true));
       } else {                                         // a new bookmark, not saved yet
         name.addEventListener("focus", () => { P.edit = true; });
         form.onsubmit = async ev => {
@@ -1300,6 +1351,8 @@
           P.path = chain; P.sel = n.id; P.draft = null;
           draw().then(() => { const i = cols.querySelectorAll(".lp-col-details input")[1]; i?.focus(); i?.select(); });
         });
+        add("Change Icon…", () => pickIcon(n.url, () => draw()));
+        if (ownIcon(n.url)) add("Use the Site's Icon", () => { setIcon(n.url, null); draw(); });
         add("Copy Address", () => navigator.clipboard?.writeText(n.url).catch(() => {}));
         sep();
         add("Delete", () => { P.confirm = n; drawFoot(); }, "lp-danger");
@@ -2244,7 +2297,8 @@
     paintMini(); ensureTick();
     setTimeout(() => (tmPop ? closeTmPop() : openTmPop()), 0);
   } };
-  window.vosLaunchpad = { open, close, toggle: () => (lp && !lp.desktop ? close() : (lp && close(true, true), open())),
+  window.vosLaunchpad = { open, close, toggle: () => (lp && !lp.desktop ? close() : (lp && close(true, true), open())), bookmarks: () => folderPicker(),
+                          icons: { set: setIcon, get: ownIcon },
                           get isOpen() { return !!lp && !lp.desktop; } };
 
   /* ---------------- the desktop: the Launchpad on the wallpaper ---------------- */

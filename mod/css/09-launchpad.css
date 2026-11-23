@@ -1524,3 +1524,7 @@
 #browser .lp-clock .lp-sh { animation-timing-function: steps(1200, end) !important; }
 #browser .lp-wcard svg.lp-clock.lp-sec { animation-timing-function: steps(1200, end) !important; }
 #browser .lp-wcard svg.lp-clock.lp-sec .lp-sh { animation: none !important; }
+
+/* 1.0.192: the big icon in the bookmark manager - a click chooses your own icon */
+#browser .lp-det-icon.lp-det-icon-pick { cursor: pointer !important; }
+#browser .lp-det-icon.lp-det-icon-pick:hover { filter: brightness(1.08) !important; }
