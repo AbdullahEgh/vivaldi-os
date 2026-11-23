@@ -1554,3 +1554,6 @@
 #browser .lp-tile:has(> img.lp-own) { background: transparent !important; overflow: hidden !important; }
 #browser .lp-tile > img.lp-own { width: 100% !important; height: 100% !important; border-radius: inherit !important; object-fit: cover !important; }
 #browser .lp-det-icon img.lp-own { border-radius: var(--lp-round-icon, 16px) !important; object-fit: cover !important; }
+
+/* 1.0.207: your own icon - the same size as the others, no ring or shadow of a tile around it */
+#browser .lp-tile:has(> img.lp-own) { box-shadow: none !important; }

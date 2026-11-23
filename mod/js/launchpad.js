@@ -89,7 +89,8 @@
     const draw = im => {                             // (trim: the share of each side that is only margin - cut off)
       const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
       const iw = im.naturalWidth || im.width || S, ih = im.naturalHeight || im.height || S;
-      const sx = iw * trim, sy = ih * trim, sw = iw - 2 * sx, sh = ih - 2 * sy;
+      let sx = iw * trim, sy = ih * trim, sw = iw - 2 * sx, sh = ih - 2 * sy;
+      { const b = opaqueBox(im, iw, ih); if (b) { sx = b.x; sy = b.y; sw = b.w; sh = b.h; } }   // only what is really there (no see-through border)
       const g = c.getContext("2d"), k = Math.max(S / sw, S / sh), w = sw * k, h = sh * k;
       g.imageSmoothingQuality = "high";
       g.drawImage(im, sx, sy, sw, sh, (S - w) / 2, (S - h) / 2, w, h);   // filled, centred (as an app icon)
@@ -99,6 +100,25 @@
     if (src instanceof Blob) return createImageBitmap(src).then(draw).catch(() => {});
     return fetch(src).then(r => r.blob()).then(b => createImageBitmap(b)).then(draw).catch(() => {});
   }
+  function opaqueBox(im, iw, ih) {                 // the part of a picture that is not see-through (its border left out)
+    try {
+      const N = 128, c = document.createElement("canvas"); c.width = c.height = N;
+      const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0, N, N);
+      const d = g.getImageData(0, 0, N, N).data;
+      let x0 = N, y0 = N, x1 = -1, y1 = -1;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (d[(y * N + x) * 4 + 3] > 200) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 < 0 || (x0 === 0 && y0 === 0 && x1 === N - 1 && y1 === N - 1)) return null;   // nothing see-through around it
+      const kx = iw / N, ky = ih / N;
+      return { x: x0 * kx, y: y0 * ky, w: (x1 - x0 + 1) * kx, h: (y1 - y0 + 1) * ky };
+    } catch (e) { return null; }
+  }
+  setTimeout(async () => {                          // icons set before: their see-through border trimmed too (once)
+    try {
+      if (await stGet("vosIconsTrim1")) return;
+      for (const [u, data] of Object.entries(customIcons)) await new Promise(r => { const im = new Image(); im.onload = () => { const b = opaqueBox(im, im.naturalWidth, im.naturalHeight); if (b) iconFrom(u, data, r); else r(); }; im.onerror = r; im.src = data; });
+      stSet("vosIconsTrim1", true);
+    } catch (e) {}
+  }, 6000);
   function iconPicker(url, name, done) {
     document.querySelector(".lp-iconpick")?.remove();
     const host = lp?.layer || document.getElementById("browser"); if (!host) return;
@@ -2408,7 +2428,17 @@
   })();
   /* the wallpaper is the background image of the theme in use: Vivaldi's own
      "Select Image..." of that theme's Background (the same picker and storage) */
-  const pref = async path => { try { const v = await vivaldi.prefs.get(path); return v && typeof v === "object" && "value" in v ? v.value : v; } catch (e) { return undefined; } };
+  const pref = path => new Promise(res => {         // (Vivaldi answers with a callback - or a promise: either)
+    const norm = v => v && typeof v === "object" && "value" in v ? v.value : v;
+    let done = false; const fin = v => { if (!done) { done = true; res(norm(v)); } };
+    try { const r = vivaldi.prefs.get(path, v => { void chrome.runtime.lastError; fin(v); }); if (r && typeof r.then === "function") r.then(fin, () => fin(undefined)); } catch (e) { fin(undefined); }
+    setTimeout(() => fin(undefined), 3000);
+  });
+  const prefPut = (path, value) => new Promise(res => {
+    let done = false; const fin = ok => { if (!done) { done = true; res(ok); } };
+    try { const r = vivaldi.prefs.set({ path, value }, () => { fin(!chrome.runtime.lastError); }); if (r && typeof r.then === "function") r.then(() => fin(true), () => fin(false)); } catch (e) { fin(false); }
+    setTimeout(() => fin(true), 3000);
+  });
   async function themeInUse() {                    // as Vivaldi decides it: schedule off / by the system / by time
     const en = await pref("vivaldi.theme.schedule.enabled");
     if (en === "system" || en === 1) {
@@ -2695,7 +2725,7 @@
     // the theme itself, directly: Vivaldi's own schedule (by the system, or by time - also when it is only Vivaldi's
     // default, never written down) is turned off, else it keeps choosing the theme by itself; Bento OS follows the
     // system's appearance on its own (followOs)
-    const put = async (path, value) => { try { await vivaldi.prefs.set({ path, value }); return true; } catch (e) { return false; } };
+    const put = prefPut;
     if (t.en !== "off" && t.en !== 0) { if (!(await put("vivaldi.theme.schedule.enabled", "off"))) await put("vivaldi.theme.schedule.enabled", 0); }
     await put("vivaldi.themes.current", target);
     await put("vivaldi.theme.schedule.o_s", { ...(t.os || {}), light: target, dark: target });   // (and if a schedule still decides: it decides this one)
@@ -2742,8 +2772,8 @@
   });
   let dissolving = false;
   async function dissolve(fn) {
-    if (dissolving) return;
-    dissolving = true;
+    if (dissolving && Date.now() - dissolving < 6000) return;        // (one still running - never stuck: after 6s a click works again)
+    dissolving = Date.now();
     const b = document.getElementById("browser"), wait = ms => new Promise(r => setTimeout(r, ms));
     const bg = () => (b ? getComputedStyle(b).getPropertyValue("--colorBg").trim().toLowerCase() : "");
     try {

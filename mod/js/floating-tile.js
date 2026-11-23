@@ -942,7 +942,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!col.length) return null;
     let i = col.findIndex(([, r]) => ly < r.y + r.h / 2); if (i < 0) i = col.length;
     const V = col.map(([p]) => p), nTop = V.filter(p => (pipCorner.get(p) || "bl")[0] === "t").length;
-    const corner = (nTop === 0 ? "b" : nTop === V.length ? "t" : i < nTop ? "t" : i > nTop ? "b" : ly < ss.height / 2 ? "t" : "b") + side;   // with its neighbours
+    const corner = (i < nTop ? "t" : i > nTop ? "b" : ly < ss.height / 2 ? "t" : "b") + side;   // between the top ones: top; between the bottom ones: bottom; else where it is dropped
     const last = col[col.length - 1][1];
     const yAt = i === 0 ? col[0][1].y - PIP_GAP / 2 : i === col.length ? last.y + last.h + PIP_GAP / 2 : (col[i - 1][1].y + col[i - 1][1].h + col[i][1].y) / 2;
     const x = Math.min(...col.map(([, r]) => r.x)), w = Math.max(...col.map(([, r]) => r.x + r.w)) - x;
@@ -980,6 +980,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (ly < 0 || ly > ss.height) return null;                      // (the top edge: full screen)
     const lx = Math.max(0, Math.min(ss.width, raw));
     if (raw <= 1 || raw >= ss.width - 2) return null;               // the very left / right edge, all along it: the half-screen snap, as always
+    if (raw < 40 || raw > ss.width - 40) return null;               // (near the edge: the snap's - no shrinking on the way)
     for (const side of ["l", "r"]) {                                // onto that side's pinned windows
       const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
       if (!col.length) continue;
@@ -2064,14 +2065,16 @@ window.vosBeat = window.vosBeat || (() => {
       else { W = cornerW(side + side, id) ?? w0; H = W * pinAspect; }
       const k = Math.max(W / Math.max(1, w0), H / Math.max(1, h0));  // big enough for both; the rest trimmed away
       look = { k, W, H };
-      const cr = Math.max(0, w0 - W / k), cb = Math.max(0, h0 - H / k);
+      const cr = Math.max(0, w0 - W / k), cb = Math.max(0, h0 - H / k), same = cr < w0 * 0.04 && cb < h0 * 0.04;
+      const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12;
       for (const [e2, o] of [[el, 0], [frames.get(id), RING]]) {
         if (!e2) continue;
         e2.setAttribute("data-vos-pinlook", "");
         e2.style.setProperty("transform-origin", `${Math.round(gx * w0 + o)}px ${Math.round(gy * h0 + o)}px`, "important");
         e2.style.setProperty("scale", String(+k.toFixed(4)), "important");
-        if (e2 === el) e2.style.setProperty("clip-path", `inset(0 ${cr.toFixed(1)}px ${cb.toFixed(1)}px 0 round ${Math.round(12 / k)}px)`, "important");
-        else e2.style.setProperty("opacity", z === "m" ? "0" : "1", "important");   // (its resize ring: not while it changes shape)
+        if (e2 !== el) continue;
+        if (same) e2.style.removeProperty("clip-path");               // the same shape: just bigger (its own corners)
+        else e2.style.setProperty("clip-path", `inset(0 ${cr.toFixed(1)}px ${cb.toFixed(1)}px 0 round ${(rad / k).toFixed(1)}px)`, "important");   // (corners as round as a window's)
       }
     };
     const unlook = () => { for (const e2 of [el, frames.get(id)]) { if (!e2) continue; for (const k of ["translate", "scale", "transform-origin", "clip-path", "opacity"]) e2.style.removeProperty(k); e2.removeAttribute("data-vos-pinlook"); } };
@@ -2322,8 +2325,23 @@ window.vosBeat = window.vosBeat || (() => {
   const HOLD_MS = 1400, SLOP = 4, ZMIN = 0.4, ZMAX = 2;
   const zoomSet = new WeakMap();                     // webview -> the zoom we gave it
   const webviewsOf = id => { const el = targetOf(pageOf(id)); return el ? $$("webview", el) : []; };
+  function zoomHear(wv) {                           // a zoom you set (Ctrl + / -, a pinch): it stays this page's zoom
+    if (!wv || wv.__vosZoomHear || typeof wv.addEventListener !== "function") return;
+    wv.__vosZoomHear = true;
+    wv.addEventListener("zoomchange", ev => {
+      const z = +Number(ev.newZoomFactor).toFixed(3);
+      if (!(z > 0) || Math.abs(z - (zoomSet.get(wv) ?? -1)) < 0.002) return;   // (one Bento OS set)
+      zoomSet.set(wv, z);
+      const pid = wv.closest(".webpageview")?.dataset.id, id = pid && (winOf(pid) || pid);
+      if (!pid) return;
+      if (id && pip.includes(id)) pipUserZoom.set(id, z); else pageZoom[pid] = z;
+      if (id) persist(id);
+    });
+  }
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const wv of document.querySelectorAll("#webpage-stack webview")) zoomHear(wv); });
   function setWebZoom(wv, z) {
     if (!wv || typeof wv.setZoom !== "function") return;
+    zoomHear(wv);
     if (!wv.__ftZoomHook) {                          // a new page in it starts at its own zoom: re-apply
       wv.__ftZoomHook = true;
       wv.addEventListener("loadcommit", ev => { if (ev.isTopLevel) { zoomSet.delete(wv); setTimeout(syncZooms, 60); } });
@@ -4061,6 +4079,13 @@ window.vosBeat = window.vosBeat || (() => {
     return true;
   }
   window.vosCloseApp = closeAppNow;
+  setTimeout(() => {
+    if (/Mac/i.test(navigator.platform || "")) return;
+    prefGet("vivaldi.actions").then(acts => {
+      const j = JSON.stringify(acts || null);
+      if (acts && /"meta\+/.test(j)) prefSet("vivaldi.actions", JSON.parse(j.replace(/"meta\+/g, '"ctrl+').replace(/\+meta\+/g, "+ctrl+")));
+    }).catch(() => {});
+  }, 5000);
   function patchCloseCmd(tries = 0) {
     if (closeCmdPatched) return;
     try {
@@ -6465,9 +6490,10 @@ window.vosBeat = window.vosBeat || (() => {
       const top = Math.min(...roots.map(x => x.l));
       for (const x of roots.filter(x => x.l === top)) {
         const t = own(x.e).split("\\n")[0].trim().replace(/\\s+\\d+$/, "");
-        if (t && !/^favou?rites$/i.test(t) && t.length < 60) return t;
+        if (t && !/^(favou?rites|inbox|drafts|sent items|sent|deleted items|junk e-?mail|archive|notes|outbox|conversation history|rss (feeds|subscriptions)|search folders)$/i.test(t) && t.length < 60) return t;
       }
-      return "";
+      const m = /^(?:mail|outlook|inbox)\\s*[-–]\\s*(.+?)\\s*[-–]\\s*outlook/i.exec(document.title || "");   // "Mail - Name - Outlook"
+      return m ? m[1] : "";
     };
     const apply = () => {
       const l = label(), n = mailbox();
