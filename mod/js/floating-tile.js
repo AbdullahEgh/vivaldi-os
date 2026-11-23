@@ -3101,6 +3101,7 @@ window.vosBeat = window.vosBeat || (() => {
     let deskT = 0, desk = false, deskOn = null, bEnded = false;      // held longer: the desktops come down - drop it on one
     let leavingB = false;                                            // past the edge of this Vivaldi window
     let bPin = null, bSlot = null, bColSide = null, bColAt = 0, bColT = 0;   // over a corner or the pinned windows: let go - pinned (out of Bento)
+    const bFling = [];                                               // (its last moments: flicked toward a corner - pinned there)
     const shake = shaker();
     const show = (r, conflict) => {
       if (!r) { preview.removeAttribute("data-show"); return; }
@@ -3168,6 +3169,7 @@ window.vosBeat = window.vosBeat || (() => {
     const onMove = ev => {
       if (ev.pointerId !== pid) return;
       last = { cx: ev.clientX, cy: ev.clientY, x: ev.clientX - ss.left, y: ev.clientY - ss.top };
+      bFling.push([ev.timeStamp, ev.clientX, ev.clientY]); while (bFling.length > 2 && ev.timeStamp - bFling[0][0] > 110) bFling.shift();
       const out = isOutside(ev);                                     // past the edge of this Vivaldi window
       if (out !== leavingB) { leavingB = out; if (out) { show(null); dragOutStart(id, el, ev); } else dragOutCancel(); }
       if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
@@ -3198,6 +3200,13 @@ window.vosBeat = window.vosBeat || (() => {
         ntrace("bento drop", { card: toCard ? (toCard.classList.contains("vos-ws-more") ? "new" : toCard.dataset.ws) : null });
         closeWsStrip(); proposal = null;
       }
+      let flickC = null;                                             // flicked toward a corner (worked out first: past the edge too)
+      if (!bPin && ev.type === "pointerup" && bFling.length >= 3) {
+        const [t0, x0, y0] = bFling[0], [t1, x1, y1] = bFling[bFling.length - 1], dt = t1 - t0;
+        const vx = (x1 - x0) / Math.max(1, dt), vy = (y1 - y0) / Math.max(1, dt);
+        if (dt >= 24 && ev.timeStamp - t1 <= 70 && Math.hypot(vx, vy) > 1.43 && Math.abs(vx) > 0.5 && Math.abs(vy) > 0.5) flickC = (vy < 0 ? "t" : "b") + (vx < 0 ? "l" : "r");
+      }
+      if (flickC && leavingB) { leavingB = false; dragOutCancel(); }   // (a flick that went past the edge: still a pin)
       const away = leavingB && ev.type === "pointerup";             // let go outside: to another Vivaldi window
       const awayTo = leavingB ? dragOutEnd(ev.screenX, ev.screenY, away) : null;
       if (away) proposal = null;
@@ -3209,6 +3218,10 @@ window.vosBeat = window.vosBeat || (() => {
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
       removeEventListener("keydown", onKey, true);
+      if (flickC && !away && !full && !toCard) {                     // flicked toward a corner: pinned there
+        const ss2 = stackRect(), w = cornerW(flickC, id) ?? Math.min(PIP_START_W, el.offsetWidth);
+        bSlot = pinSlot(flickC[1], flickC[0] === "t" ? ss2.top + 2 : ss2.bottom - 2, id) || emptySlot(flickC, w); bPin = bSlot.corner;
+      }
       { const c = bPin && ev.type === "pointerup" && !away && !full && !toCard ? bPin : null;
         if (bPin && !c) pinLook(el, id, null);
         slotShow(null);
@@ -3760,6 +3773,8 @@ window.vosBeat = window.vosBeat || (() => {
       const vx = (x1 - x0) / dt, vy = (y1 - y0) / dt, FAST = 1.1;    // px per ms: a flick (a plain move is far slower)
       if (Math.abs(vx) > FAST && Math.abs(vx) > 1.6 * Math.abs(vy)) return vx < 0 ? "left" : "right";   // flicked sideways: that half
       if (vy < -1.5 * FAST && -vy > 1.6 * Math.abs(vx)) return "full";   // flicked up (harder): full screen
+      // flicked toward a corner (on the diagonal, fast): pinned there - with the others of that corner, if any
+      if (Math.hypot(vx, vy) > 1.3 * FAST && Math.abs(vx) > 0.5 && Math.abs(vy) > 0.5 && !pip.includes(id)) return "pin:" + (vy < 0 ? "t" : "b") + (vx < 0 ? "l" : "r");
       return null;
     };
     const onMove = ev => {
@@ -3869,6 +3884,8 @@ window.vosBeat = window.vosBeat || (() => {
         }
         if (inMission) { if (wasHeld) { missionGlide(); queueRender(); } return; }   // let go elsewhere: it glides back
       }
+      { const f0 = ev.type === "pointerup" && leaving && !deskDrop && !inMission ? fling(ev) : null;   // a corner flick past the edge: still a pin
+        if (typeof f0 === "string" && f0.startsWith("pin:")) { leaving = false; dragOutCancel(); } }
       if (leaving) {                                                // let go outside: to the Vivaldi window under it
         const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
         if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY, target); }
@@ -3877,7 +3894,15 @@ window.vosBeat = window.vosBeat || (() => {
         const sl = pinSl; slotShow(null);
         if (c && ev.type === "pointerup" && floating.has(id) && !pip.includes(id)) { pinAt = null; persist(id); pinInto(id, c, sl); return; }   // pinned there, between the others
         if (c) pinShow(null); }
-      const snap = ev.type === "pointerup" ? (shown || (!deskDrop && !leaving && !inMission ? fling(ev) : null)) : null;   // (thrown: the same snap)
+      let snap = ev.type === "pointerup" ? (shown || (!deskDrop && !leaving && !inMission ? fling(ev) : null)) : null;   // (thrown: the same snap)
+      if (typeof snap === "string" && snap.startsWith("pin:")) {     // thrown into a corner: pinned there (it flies in)
+        const c = snap.slice(4), ss2 = stackRect();
+        const w = cornerW(c, id) ?? Math.min(PIP_START_W, el.offsetWidth);
+        const sl = pinSlot(c[1], c[0] === "t" ? ss2.top + 2 : ss2.bottom - 2, id) || emptySlot(c, w);
+        if (shown) snapPreview(null);
+        persist(id); pinInto(id, sl.corner, sl);
+        return;
+      }
       if (shown) snapPreview(null, null, !!snap);
       persist(id);
       const toBento = backToBento.delete(id);
