@@ -6313,8 +6313,15 @@ window.vosBeat = window.vosBeat || (() => {
       const ss = stackRect(), hit = bHit(bento.handles, { x: e.clientX - ss.left, y: e.clientY - ss.top });
       return hit && bentoResize(e, [hit.d], hit.d.axis === "h" ? "ew-resize" : "ns-resize", hit.root);
     }
-    if (t.closest?.(".ft-veil") && focusSet.size) {                 // a click outside the windows in focus
+    if (t.closest?.(".ft-veil") && focusSet.size) {                 // a click outside the windows in focus: focus ends - nothing else
       e.preventDefault(); e.stopPropagation();
+      // the rest of that click (its release) would land on the window under the fading veil and bring it up: swallowed
+      const eat = ev => { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation(); };
+      const types = ["pointerup", "mouseup", "click", "dblclick", "auxclick"];
+      const off = () => { for (const ty of types) removeEventListener(ty, eat, true); };
+      addEventListener("pointerup", () => setTimeout(off, 0), { capture: true, once: true });   // (first: it still hears the release)
+      for (const ty of types) addEventListener(ty, eat, true);
+      setTimeout(off, 1500);                                         // (never left on)
       return endFocus();
     }
     const grab = t.closest?.(".ft-frame > .ft-grab");                // outside grab strip: moves the window
