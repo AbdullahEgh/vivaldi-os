@@ -90,7 +90,7 @@
       const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
       const iw = im.naturalWidth || im.width || S, ih = im.naturalHeight || im.height || S;
       let sx = iw * trim, sy = ih * trim, sw = iw - 2 * sx, sh = ih - 2 * sy;
-      { const b = opaqueBox(im, iw, ih); if (b) { sx = b.x; sy = b.y; sw = b.w; sh = b.h; } }   // only what is really there (no see-through border)
+      if (!trim) { const b = opaqueBox(im, iw, ih); if (b) { sx = b.x; sy = b.y; sw = b.w; sh = b.h; } }   // your own picture: its see-through border trimmed (a macOSicons one: its standard margin only)
       const g = c.getContext("2d"), k = Math.max(S / sw, S / sh), w = sw * k, h = sh * k;
       g.imageSmoothingQuality = "high";
       g.drawImage(im, sx, sy, sw, sh, (S - w) / 2, (S - h) / 2, w, h);   // filled, centred (as an app icon)
@@ -100,13 +100,13 @@
     if (src instanceof Blob) return createImageBitmap(src).then(draw).catch(() => {});
     return fetch(src).then(r => r.blob()).then(b => createImageBitmap(b)).then(draw).catch(() => {});
   }
-  function opaqueBox(im, iw, ih) {                 // the part of a picture that is not see-through (its border left out)
+  function opaqueBox(im, iw, ih) {                 // the part of a picture that is not see-through (only a fully see-through border left out)
     try {
       const N = 128, c = document.createElement("canvas"); c.width = c.height = N;
       const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0, N, N);
       const d = g.getImageData(0, 0, N, N).data;
       let x0 = N, y0 = N, x1 = -1, y1 = -1;
-      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (d[(y * N + x) * 4 + 3] > 200) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (d[(y * N + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       if (x1 < 0 || (x0 === 0 && y0 === 0 && x1 === N - 1 && y1 === N - 1)) return null;   // nothing see-through around it
       const kx = iw / N, ky = ih / N;
       return { x: x0 * kx, y: y0 * ky, w: (x1 - x0 + 1) * kx, h: (y1 - y0 + 1) * ky };
@@ -130,7 +130,7 @@
     const q = box.querySelector(".lp-ip-q"), msg = box.querySelector(".lp-ip-msg"), grid = box.querySelector(".lp-ip-grid"), keyRow = box.querySelector(".lp-ip-key");
     const close = () => { box.remove(); removeEventListener("keydown", esc, true); removeEventListener("pointerdown", out, true); };
     const esc = ev => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } };
-    const out = ev => { if (!box.contains(ev.target)) close(); };
+    const out = ev => { if (box.contains(ev.target)) return; if (lp) lp.swallow = true; ev.stopPropagation(); close(); };   // (only the popup: the Launchpad stays)
     const search = async () => {
       grid.textContent = ""; msg.textContent = "Searching…"; keyRow.hidden = true;
       try {
@@ -2428,16 +2428,26 @@
   })();
   /* the wallpaper is the background image of the theme in use: Vivaldi's own
      "Select Image..." of that theme's Background (the same picker and storage) */
-  const pref = path => new Promise(res => {         // (Vivaldi answers with a callback - or a promise: either)
+  /* Vivaldi's settings: asked the way it answers - a promise (this Vivaldi), or a callback (if it ever wants one) -
+     never both in one call (Vivaldi turns that down, and the answer would be empty) */
+  const pref = path => new Promise(res => {
     const norm = v => v && typeof v === "object" && "value" in v ? v.value : v;
     let done = false; const fin = v => { if (!done) { done = true; res(norm(v)); } };
-    try { const r = vivaldi.prefs.get(path, v => { void chrome.runtime.lastError; fin(v); }); if (r && typeof r.then === "function") r.then(fin, () => fin(undefined)); } catch (e) { fin(undefined); }
-    setTimeout(() => fin(undefined), 3000);
+    try {
+      const r = vivaldi.prefs.get(path);
+      if (r && typeof r.then === "function") { r.then(fin, () => fin(undefined)); setTimeout(() => fin(undefined), 4000); return; }
+      if (r !== undefined) return fin(r);
+    } catch (e) {}
+    try { vivaldi.prefs.get(path, v => { void chrome.runtime.lastError; fin(v); }); setTimeout(() => fin(undefined), 4000); } catch (e) { fin(undefined); }
   });
   const prefPut = (path, value) => new Promise(res => {
     let done = false; const fin = ok => { if (!done) { done = true; res(ok); } };
-    try { const r = vivaldi.prefs.set({ path, value }, () => { fin(!chrome.runtime.lastError); }); if (r && typeof r.then === "function") r.then(() => fin(true), () => fin(false)); } catch (e) { fin(false); }
-    setTimeout(() => fin(true), 3000);
+    try {
+      const r = vivaldi.prefs.set({ path, value });
+      if (r && typeof r.then === "function") { r.then(() => fin(true), () => fin(false)); setTimeout(() => fin(true), 4000); return; }
+      return fin(true);
+    } catch (e) {}
+    try { vivaldi.prefs.set({ path, value }, () => fin(!chrome.runtime.lastError)); setTimeout(() => fin(true), 4000); } catch (e) { fin(false); }
   });
   async function themeInUse() {                    // as Vivaldi decides it: schedule off / by the system / by time
     const en = await pref("vivaldi.theme.schedule.enabled");
@@ -2718,28 +2728,27 @@
     const t = await modeThemes();
     const target = on ? t.dark : t.light;
     if (!target) return;
-    // the same as the system's appearance: Vivaldi simply follows the system again (its own light / dark pair, the
-    // websites automatic); the other one: held until the system comes round to it
-    const follow = false;                                            // what you choose is what you get: that theme, and the websites the same
-                                                                     // (the system changing later still switches it: followOs)
-    // the theme itself, directly: Vivaldi's own schedule (by the system, or by time - also when it is only Vivaldi's
-    // default, never written down) is turned off, else it keeps choosing the theme by itself; Bento OS follows the
-    // system's appearance on its own (followOs)
-    const put = prefPut;
-    if (t.en !== "off" && t.en !== 0) { if (!(await put("vivaldi.theme.schedule.enabled", "off"))) await put("vivaldi.theme.schedule.enabled", 0); }
-    await put("vivaldi.themes.current", target);
-    await put("vivaldi.theme.schedule.o_s", { ...(t.os || {}), light: target, dark: target });   // (and if a schedule still decides: it decides this one)
+    // Vivaldi's own Appearance does it: its theme schedule "by the system" (Settings > Themes) stays on, with your light
+    // and dark theme. The same as the system's appearance: Vivaldi simply follows the system (the websites automatic too);
+    // the other look: held - both of the schedule's places point at it - until the system itself changes, then it
+    // follows the system again (followOs)
+    let sysDark = on; try { sysDark = await osDark(); } catch (e) {}
+    const follow = on === sysDark, put = prefPut;
+    if (t.en !== "system" && t.en !== 1) { if (!(await put("vivaldi.theme.schedule.enabled", "system"))) await put("vivaldi.theme.schedule.enabled", 1); }
+    const pairOs = follow ? { ...(t.os || {}), light: t.light, dark: t.dark } : { ...(t.os || {}), light: target, dark: target };
+    await put("vivaldi.theme.schedule.o_s", pairOs);
+    await put("vivaldi.themes.current", target);                     // (Vivaldi's own choice when no schedule decides)
     for (let i = 0; i < 3; i++) {                                    // it took? (else again - the other way of writing it)
       await new Promise(r => setTimeout(r, 120));
-      if ((await themeInUse()) === target && (await pref("vivaldi.themes.current")) === target) break;
-      await put("vivaldi.theme.schedule.enabled", i % 2 ? 0 : "off"); await put("vivaldi.themes.current", target);
+      if ((await themeInUse()) === target) break;
+      await put("vivaldi.theme.schedule.enabled", i % 2 ? 1 : "system"); await put("vivaldi.theme.schedule.o_s", { light: target, dark: target });
     }
-    vstore.set("vosDarkDiag", JSON.stringify({ on, target, inUse: await themeInUse(), current: await pref("vivaldi.themes.current"), schedule: await pref("vivaldi.theme.schedule.enabled"),
+    vstore.set("vosDarkDiag", JSON.stringify({ on, follow, target, inUse: await themeInUse(), schedule: await pref("vivaldi.theme.schedule.enabled"),
       os: await pref("vivaldi.theme.schedule.o_s"), system: await pref("vivaldi.system.desktop_theme_color"), cls: document.getElementById("browser")?.className.match(/theme-(dark|light)/)?.[0], t: Date.now() }));   // (a record, to see what Vivaldi did)
     const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();
     try {                                            // websites: their own dark (or light) look - nothing forced on them
-      if (await pref("vivaldi.appearance.force_dark_mode_theme")) await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });
-      await vivaldi.prefs.set({ path: "vivaldi.PreferredColorScheme", value: follow ? 0 : on ? 2 : 1 });   // 0 automatic (the system's), 1 light, 2 dark
+      if (await pref("vivaldi.appearance.force_dark_mode_theme")) await put("vivaldi.appearance.force_dark_mode_theme", false);
+      await put("vivaldi.PreferredColorScheme", follow ? 0 : on ? 2 : 1);   // 0 automatic (the system's), 1 light, 2 dark
       vstore.set("vosSchemeWas", null);
       darkWeb = false; darkPagesAll();              // (a dark style of an earlier version: taken out)
     } catch (e) { console.warn("Bento OS: websites' dark mode", e); }
@@ -2805,8 +2814,9 @@
     if (lastOs === null) { lastOs = d; return; }
     if (d === lastOs) return;
     lastOs = d;
+    // the system changed: Vivaldi follows it again (your held look ends) - with the smooth switch when the look changes
     if ((await isDarkNow()) !== d) window.vosAppearance.set(d);
-    else setDark(d).catch(() => {});                 // already that look (held): from now on it simply follows the system
+    else setDark(d).catch(() => {});                 // already that look: now it simply follows the system
   }
   setTimeout(followOs, 1200);
   try { vivaldi.prefs.onChanged.addListener(p => { if (/desktop_theme_color/.test(String(p?.path ?? p ?? ""))) setTimeout(followOs, 30); }); } catch (e) {}

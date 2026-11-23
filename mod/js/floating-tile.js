@@ -858,13 +858,14 @@ window.vosBeat = window.vosBeat || (() => {
      Never on top of each other: when they no longer fit the height - or the top stack and the bottom stack meet -
      the side is ONE column: one width, the heights shrunk alike to fit, one gap between each */
   let pipSideCache = null;                          // (during a redraw: each side's column worked out once)
-  function pipSide(side, s) {
-    if (pipSideCache) { const k = side + s.width + "x" + s.height, c = pipSideCache.get(k); if (c) return c; const m = pipSideNow(side, s); pipSideCache.set(k, m); return m; }
-    return pipSideNow(side, s);
+  function pipSide(side, s, ws) {                   // (ws: another desktop's - for its preview)
+    if (pipSideCache) { const k = side + s.width + "x" + s.height + "@" + ws, c = pipSideCache.get(k); if (c) return c; const m = pipSideNow(side, s, ws); pipSideCache.set(k, m); return m; }
+    return pipSideNow(side, s, ws);
   }
-  function pipSideNow(side, s) {
+  function pipSideNow(side, s, ws) {
     const out = new Map(), avail = s.height - 2 * MARGIN;
-    const live = p => !awayWs(p) && !minimized.has(p) && p !== pipDrag?.id;   // (one being dragged: the others close up)
+    const live = ws !== undefined ? p => !minimized.has(p) && sameWs(wsOfTab.get(String(p)), ws)
+      : p => !awayWs(p) && !minimized.has(p) && p !== pipDrag?.id;   // (one being dragged: the others close up)
     const on = c => [...pip].reverse().filter(p => live(p) && (pipCorner.get(p) || "bl") === c);   // newest first (at the corner)
     const tops = on("t" + side), bots = on("b" + side), all = [...tops, ...bots];
     if (!all.length) return out;
@@ -948,6 +949,10 @@ window.vosBeat = window.vosBeat || (() => {
     const x = Math.min(...col.map(([, r]) => r.x)), w = Math.max(...col.map(([, r]) => r.x + r.w)) - x;
     return { side, i, V, corner, y: yAt, x, w };
   }
+  function emptySlot(c, w) {                         // an empty side: its corner (the line where the window will sit)
+    const ss = stackRect(), side = c[1];
+    return { side, i: 0, V: [], corner: c, x: side === "r" ? ss.width - MARGIN - w : MARGIN, w, y: c[0] === "t" ? MARGIN / 2 : ss.height - MARGIN / 2 };
+  }
   function pinOrder(id, slot) {                     // that place: its corner, and its turn in the column
     const V = slot.V.filter(p => p !== id); V.splice(Math.min(slot.i, V.length), 0, id);
     pipCorner.set(id, slot.corner);
@@ -988,16 +993,24 @@ window.vosBeat = window.vosBeat || (() => {
     }
     return null;
   }
+  function roundAs(e, k, rad) {                     // scaled by k, its corners still as round as a window's (rad)
+    if (!e) return;
+    if (k == null) { e.style.removeProperty("border-radius"); e.style.removeProperty("clip-path"); return; }
+    const r = (rad / k).toFixed(1) + "px";
+    e.style.setProperty("border-radius", r, "important");
+    e.style.setProperty("clip-path", `inset(0 round ${r})`, "important");
+  }
   function pinLook(el, id, c, ox, oy) {             // the window itself shrinks toward its pinned size (back when it leaves) - around
                                                      // the point where it is held (ox, oy: in its own box), so it stays under the pointer
     for (const e of [el, frames.get(id)]) {
       if (!e) continue;
-      if (!c) { e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); e.removeAttribute("data-vos-pinlook"); continue; }   // (all of it: its own glide setting too - else Mission Control could not move it smoothly)
+      if (!c) { e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); e.removeAttribute("data-vos-pinlook"); if (e === el) roundAs(e, null); continue; }   // (all of it: its own glide setting too - else Mission Control could not move it smoothly)
       const m = pinMem.get(id), W = cornerW(c, id) ?? (m?.c?.[1] === c[1] && m.w ? m.w : Math.min(PIP_START_W, el.offsetWidth));
       const k = Math.max(0.15, Math.min(1, W / Math.max(1, el.offsetWidth))), o = e === el ? 0 : RING;
       e.setAttribute("data-vos-pinlook", "");
       if (ox != null) e.style.setProperty("transform-origin", `${Math.round(ox + o)}px ${Math.round(oy + o)}px`, "important");
       e.style.setProperty("scale", String(+k.toFixed(3)), "important");
+      if (e === el) { if (el.__vosRad == null) el.__vosRad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12; roundAs(el, k, el.__vosRad); }
     }
   }
   function pinInto(id, c, slot) {
@@ -1005,7 +1018,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!el || pip.includes(id)) return;
     const r = { width: el.offsetWidth, height: el.offsetHeight }, others = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
     flip([el, ...others], () => {                                    // from how it looks now (shrunk) into its place
-      pinLook(el, id, null);
+      pinLook(el, id, null); el.__vosRad = null;
       for (const e of [el, frames.get(id)]) e?.removeAttribute("data-vos-pinlook");
       if (cover === id) cover = null;
       if (backToBento.delete(id)) bento.skip.delete(id);
@@ -2053,7 +2066,7 @@ window.vosBeat = window.vosBeat || (() => {
     const shield = document.createElement("div");
     shield.className = "ft-shield"; shield.style.cursor = CURSOR[how] || "grabbing";
     document.body.appendChild(shield);
-    let frame = 0, last = null, moved = false, zone = c[1], look = { k: 1, W: w0, H: h0 };
+    let frame = 0, last = null, moved = false, zone = c[1], look = { k: 1, W: w0, H: h0 }, hN = h0;   // hN: its height in its normal window's shape
     const pinAspect = h0 / Math.max(1, w0);
     /* how it looks there - done by the graphics card only: the pinned miniature scaled (it IS its window, smaller: the
        same page, the same layout) and trimmed to that shape. Its real size is set once, at the release, where it shows */
@@ -2062,22 +2075,22 @@ window.vosBeat = window.vosBeat || (() => {
       const ss = stackRect();
       let W, H;
       if (z === "m") { const n = frac[id] || { w: 0.5, h: 0.6 }; W = n.w * ss.width; H = n.h * ss.height; }
-      else { W = cornerW(side + side, id) ?? w0; H = W * pinAspect; }
-      const k = Math.max(W / Math.max(1, w0), H / Math.max(1, h0));  // big enough for both; the rest trimmed away
-      look = { k, W, H };
-      const cr = Math.max(0, w0 - W / k), cb = Math.max(0, h0 - H / k), same = cr < w0 * 0.04 && cb < h0 * 0.04;
-      const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12;
+      else { W = cornerW(side + side, id) ?? w0; H = W * hN / Math.max(1, w0); }
+      const k = W / Math.max(1, w0);                                 // one scale: it already has the normal window's shape
+      look = { k, W, H: z === "m" ? H : hN * k };
+      const rad = el.__vosRad ?? (el.__vosRad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12);
       for (const [e2, o] of [[el, 0], [frames.get(id), RING]]) {
         if (!e2) continue;
         e2.setAttribute("data-vos-pinlook", "");
-        e2.style.setProperty("transform-origin", `${Math.round(gx * w0 + o)}px ${Math.round(gy * h0 + o)}px`, "important");
+        e2.style.setProperty("transform-origin", `${Math.round(gx * w0 + o)}px ${Math.round(gy * hN + o)}px`, "important");
         e2.style.setProperty("scale", String(+k.toFixed(4)), "important");
         if (e2 !== el) continue;
-        if (same) e2.style.removeProperty("clip-path");               // the same shape: just bigger (its own corners)
-        else e2.style.setProperty("clip-path", `inset(0 ${cr.toFixed(1)}px ${cb.toFixed(1)}px 0 round ${(rad / k).toFixed(1)}px)`, "important");   // (corners as round as a window's)
+        const rr = (rad / k).toFixed(1) + "px";                       // corners as round as a window's, at any scale
+        e2.style.setProperty("border-radius", rr, "important");
+        e2.style.setProperty("clip-path", `inset(0 round ${rr})`, "important");
       }
     };
-    const unlook = () => { for (const e2 of [el, frames.get(id)]) { if (!e2) continue; for (const k of ["translate", "scale", "transform-origin", "clip-path", "opacity"]) e2.style.removeProperty(k); e2.removeAttribute("data-vos-pinlook"); } };
+    const unlook = () => { el.__vosRad = null; for (const e2 of [el, frames.get(id)]) { if (!e2) continue; for (const k of ["translate", "scale", "transform-origin", "clip-path", "opacity", "border-radius"]) e2.style.removeProperty(k); e2.removeAttribute("data-vos-pinlook"); } };
     const apply = () => {
       frame = 0;
       if (!last) return;
@@ -2085,12 +2098,18 @@ window.vosBeat = window.vosBeat || (() => {
       if (how === "move") {                                          // it follows the pointer; in the middle it IS its normal window (its own
         moved = moved || Math.hypot(dx, dy) > 4;                     // size, shape and 100%), at a side its pinned size - changed once when it
         if (!moved) return;                                          // crosses over (blurred while it changes), else only moved
-        if (!pipDrag) { pipDrag = { id, r: { ...r0 }, mid: false, side: c[1] }; render(); }   // (the others close up, once)
+        if (!pipDrag) {                                              // (once: the others close up; it takes its normal window's shape)
+          const n = frac[id] || { w: 0.5, h: 0.6 }, na = (n.h * s0.height) / Math.max(1, n.w * s0.width);
+          if (Math.abs(h0 / Math.max(1, w0) - na) > 0.03) hN = Math.round(w0 * na);
+          pipDrag = { id, r: { ...r0, h: hN }, mid: false, side: c[1] }; render();
+        }
         const f = (last.clientX - s0.left) / s0.width, side = f <= 0.3 ? "l" : f >= 0.7 ? "r" : null, z = side || "m";
         if (z !== zone) morph(z, side);
         pipDrag.mid = !side; if (side) pipDrag.side = side;
-        pipDrag.corner = cornerAt(last.clientX, last.clientY);       // a corner: there, as it is (no line)
-        pipDrag.slot = side && !pipDrag.corner ? pinSlot(side, last.clientY, id) : null; slotShow(pipDrag.slot);   // where it goes between the others
+        const cn = cornerAt(last.clientX, last.clientY);
+        pipDrag.corner = null;
+        pipDrag.slot = side ? (pinSlot(side, last.clientY, id) || (cn ? emptySlot(cn, cornerW(cn, id) ?? w0) : null)) : null; slotShow(pipDrag.slot);   // where it will sit
+        setStyle(el, "z-index", "2050"); { const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // over the line and the other pinned windows
         const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
         el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
         return;
@@ -2121,7 +2140,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (d.mid) {                                                   // let go in the middle: it already is its window - it stays where it is
         // where it shows now (scaled around where it is held, trimmed): its real place - set at once, nothing moves
         const dx = ev.clientX - sx, dy = ev.clientY - sy, k = look.k;
-        const r = clampRect({ x: d.r.x + dx + gx * w0 * (1 - k), y: d.r.y + dy + gy * h0 * (1 - k), w: look.W, h: look.H }, sr);
+        const r = clampRect({ x: d.r.x + dx + gx * w0 * (1 - k), y: d.r.y + dy + gy * hN * (1 - k), w: look.W, h: look.H }, sr);
         flip(els.filter(e2 => e2 !== el), () => { unlook(); pipDrag = null; pipOff(id); setPx(id, r, sr); persist(id); raise(id); render(); });
         return;
       }
@@ -2992,7 +3011,7 @@ window.vosBeat = window.vosBeat || (() => {
     let top = false, topTimer = 0, topShown = false;                 // held at the top edge: full screen
     let deskT = 0, desk = false, deskOn = null, bEnded = false;      // held longer: the desktops come down - drop it on one
     let leavingB = false;                                            // past the edge of this Vivaldi window
-    let bPin = null, bSlot = null;                                   // over a corner or the pinned windows: let go - pinned (out of Bento)
+    let bPin = null, bSlot = null, bColSide = null, bColAt = 0, bColT = 0;   // over a corner or the pinned windows: let go - pinned (out of Bento)
     const shake = shaker();
     const show = (r, conflict) => {
       if (!r) { preview.removeAttribute("data-show"); return; }
@@ -3017,9 +3036,13 @@ window.vosBeat = window.vosBeat || (() => {
       bentoDrag = { id, rect: { x: r0.x + dx, y: r0.y + dy, w: r0.w, h: r0.h } };
       setStyle(el, "z-index", "2000");
       place(el, bentoDrag.rect, ss); placeFrame(id, el, bentoDrag.rect, ss);
-      { const pz = desk ? null : pinZoneAt(last.cx, last.cy, id);
-        const atC = !!pz && pz.endsWith("!"), pz2 = atC ? pz.slice(0, 2) : pz;
-        bSlot = pz2 && !atC ? pinSlot(pz2[1], last.cy, id) : null; slotShow(bSlot);
+      { let pz = desk ? null : pinZoneAt(last.cx, last.cy, id);
+        if (pz && !pz.endsWith("!")) {                               // over the pinned column: after a pause only
+          if (bColSide !== pz[1]) { bColSide = pz[1]; bColAt = performance.now(); clearTimeout(bColT); bColT = setTimeout(() => { if (!bEnded && !frame) frame = requestAnimationFrame(update); }, 380); }
+          if (performance.now() - bColAt < 350) pz = null;
+        } else bColSide = null;
+        const pz2 = pz && pz.endsWith("!") ? pz.slice(0, 2) : pz;
+        bSlot = pz2 ? (pinSlot(pz2[1], last.cy, id) || emptySlot(pz2, cornerW(pz2, id) ?? Math.min(PIP_START_W, el.offsetWidth))) : null; slotShow(bSlot);
         const pc = bSlot ? bSlot.corner : pz2;
         if (pc !== bPin) { bPin = pc; pinLook(el, id, pc, sx - ss.left - r0.x, sy - ss.top - r0.y); }
         if (pc) { show(null); proposal = null; key = ""; clearTimeout(holdTimer); return; } }
@@ -3584,17 +3607,22 @@ window.vosBeat = window.vosBeat || (() => {
     let pinAt = null;                                                // over a corner or a side's pinned windows: it shrinks; let go - pinned there
     let pinSl = null;
     const pinShow = (c, x, y) => {
-      const atCorner = !!c && c.endsWith("!"); if (atCorner) c = c.slice(0, 2);
-      pinSl = c && !atCorner ? pinSlot(c[1], y, id) : null; slotShow(pinSl);   // (a corner: no line - just that corner)
+      if (c && c.endsWith("!")) c = c.slice(0, 2);
+      pinSl = c ? (pinSlot(c[1], y, id) || emptySlot(c, cornerW(c, id) ?? Math.min(PIP_START_W, el.offsetWidth))) : null; slotShow(pinSl);   // the line: where it will sit
       if (c) { setStyle(el, "z-index", "2050"); const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // above the pinned windows while over them
       if (pinSl) c = pinSl.corner;
       if (c !== pinAt) pinLook(el, id, c, gx0, gy0);
       pinAt = c;
     };
     const pinZone = (x, y) => how !== "move" || deskDrop || inMission ? null : pinZoneAt(x, y, id);
+    let colAt = 0, colSide = null, colT = 0;                         // over the pinned column: it counts after a pause (passing over it to snap: nothing)
     const snapCheck = (x, y) => {
       if (how !== "move" || deskDrop) return;
-      { const pz = pinZone(x, y);
+      { let pz = pinZone(x, y);
+        if (pz && !pz.endsWith("!")) {
+          if (colSide !== pz[1]) { colSide = pz[1]; colAt = performance.now(); clearTimeout(colT); colT = setTimeout(() => { if (!ended) snapCheck(px, py); }, 380); }
+          if (performance.now() - colAt < 350) pz = null;
+        } else { colSide = null; clearTimeout(colT); }
         if (pz) { clearTimeout(zoneTimer); clearTimeout(deskTimer); if (shown) { snapPreview(null); shown = null; } zone = null; pinShow(pz, x, y); return; }
         if (pinAt) pinShow(null); }
       const z = snapZone(x, y);
@@ -5605,7 +5633,8 @@ window.vosBeat = window.vosBeat || (() => {
       }
       const wins = onlyFull ? [] : [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
       for (const id of wins) {
-        const r = same(sp.id, cur) ? pxRect(id, ss) : (otherTiles(sp.id, ss).get(id) || (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })());
+        const r = same(sp.id, cur) ? pxRect(id, ss) : pip.includes(id) ? pipSide((pipCorner.get(id) || "bl")[1], ss, sp.id).get(id)   // pinned there: pinned in its preview
+          : (otherTiles(sp.id, ss).get(id) || (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })());
         if (!r) continue;
         const w = document.createElement("div");
         w.className = "vos-ws-win"; w.dataset.tab = String(id);
