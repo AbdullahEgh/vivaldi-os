@@ -1052,7 +1052,6 @@ window.vosBeat = window.vosBeat || (() => {
     if (ly < 0 || ly > ss.height) return null;                      // (the top edge: full screen)
     const lx = Math.max(0, Math.min(ss.width, raw));
     if (raw <= 1 || raw >= ss.width - 2) return null;               // the very left / right edge, all along it: the half-screen snap, as always
-    if (raw < 40 || raw > ss.width - 40) return null;               // (near the edge: the snap's - no shrinking on the way)
     for (const side of ["l", "r"]) {                                // onto that side's pinned windows
       const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
       if (!col.length) continue;
@@ -3748,12 +3747,23 @@ window.vosBeat = window.vosBeat || (() => {
       if (card !== deskOver) { deskOver?.removeAttribute("data-drop"); deskOver = card; deskOver?.setAttribute("data-drop", ""); }
     };
 
+    const flingAt = [];
+    const fling = ev => {                                            // let go while moving fast toward an edge: where it was thrown
+      if (how !== "move" || !moved || flingAt.length < 3) return null;
+      const [t0, x0, y0] = flingAt[0], [t1, x1, y1] = flingAt[flingAt.length - 1], dt = t1 - t0;
+      if (dt < 24 || ev.timeStamp - t1 > 70) return null;            // (it had stopped before the release: no throw)
+      const vx = (x1 - x0) / dt, vy = (y1 - y0) / dt, FAST = 1.1;    // px per ms: a flick (a plain move is far slower)
+      if (Math.abs(vx) > FAST && Math.abs(vx) > 1.6 * Math.abs(vy)) return vx < 0 ? "left" : "right";   // flicked sideways: that half
+      if (vy < -1.5 * FAST && -vy > 1.6 * Math.abs(vx)) return "full";   // flicked up (harder): full screen
+      return null;
+    };
     const onMove = ev => {
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
       const out = how === "move" && isOutside(ev);                  // past the edge of this Vivaldi window
       if (out !== leaving) { leaving = out; if (out) { splitOff(); spT = null; spAt = null; } out ? dragOutStart(id, el, ev) : dragOutCancel(); }   // (no split here: it goes to the other window)
       if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
+      flingAt.push([ev.timeStamp, px, py]); while (flingAt.length > 2 && ev.timeStamp - flingAt[0][0] > 110) flingAt.shift();   // (its last moments: how fast)
       snapCheck(px, py);
       deskCheck(px, py);
       splitCheck(px, py);
@@ -3862,7 +3872,7 @@ window.vosBeat = window.vosBeat || (() => {
         const sl = pinSl; slotShow(null);
         if (c && ev.type === "pointerup" && floating.has(id) && !pip.includes(id)) { pinAt = null; persist(id); pinInto(id, c, sl); return; }   // pinned there, between the others
         if (c) pinShow(null); }
-      const snap = ev.type === "pointerup" ? shown : null;
+      const snap = ev.type === "pointerup" ? (shown || (!deskDrop && !leaving && !inMission ? fling(ev) : null)) : null;   // (thrown: the same snap)
       if (shown) snapPreview(null, null, !!snap);
       persist(id);
       const toBento = backToBento.delete(id);
