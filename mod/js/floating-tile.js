@@ -921,8 +921,12 @@ window.vosBeat = window.vosBeat || (() => {
   /* a window dragged to a corner of the desktop, or onto the pinned windows of a side: let go there - pinned */
   function pinZoneAt(x, y, id) {
     if (pip.includes(id) || mission) return null;
-    const ss = stackRect(), lx = x - ss.left, ly = y - ss.top;
-    if (lx < 0 || ly < 0 || lx > ss.width || ly > ss.height) return null;
+    const ss = stackRect(), ly = y - ss.top;
+    if (x < 0 || x > innerWidth || ly < 0 || ly > ss.height) return null;
+    const lx = Math.max(0, Math.min(ss.width, x - ss.left));        // (at the very edge, or past it onto the panel: that edge)
+    const v0 = ly < ss.height / 2 ? "t" : "b";
+    if (lx <= 24) return v0 + "l";                                  // the left / right edge: pinned on that side
+    if (lx >= ss.width - 24) return v0 + "r";
     for (const side of ["l", "r"]) {                                // onto that side's pinned windows
       const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
       if (!col.length) continue;
@@ -1992,26 +1996,29 @@ window.vosBeat = window.vosBeat || (() => {
     const shield = document.createElement("div");
     shield.className = "ft-shield"; shield.style.cursor = CURSOR[how] || "grabbing";
     document.body.appendChild(shield);
-    let frame = 0, last = null, moved = false, cw = w0, ch = h0, final = false;
+    let frame = 0, last = null, moved = false;
+    const unlook = () => { for (const e2 of [el, frames.get(id)]) { if (!e2) continue; for (const k of ["translate", "scale", "transform-origin"]) e2.style.removeProperty(k); e2.removeAttribute("data-vos-pinlook"); } };
     const apply = () => {
       frame = 0;
       if (!last) return;
       const dx = last.clientX - sx, dy = last.clientY - sy;
-      if (how === "move") {                                          // it follows the pointer: at a side, pinned (that side's size);
-        moved = moved || Math.hypot(dx, dy) > 4;                     // in the middle, its normal size - nothing decided until the release
-        if (!moved) return;
-        const x = last.clientX - s0.left, y = last.clientY - s0.top, f = x / s0.width;
-        const side = f <= 0.3 ? "l" : f >= 0.7 ? "r" : null;
-        let tw, th;
-        if (!side) { const n = frac[id] || { w: 0.5, h: 0.6 }; tw = n.w * s0.width; th = n.h * s0.height; }
-        else { tw = cornerW(side + side, id) ?? w0; th = tw * (h0 / Math.max(1, w0)); }
-        const ease = ev2 => ev2 ? 1 : 0.28;                             // it grows / shrinks smoothly (all the way at the release)
-        cw += (tw - cw) * ease(final); ch += (th - ch) * ease(final);
-        if (!final && (Math.abs(tw - cw) > 1 || Math.abs(th - ch) > 1) && !frame) frame = requestAnimationFrame(apply);   // (still on its way)
-        const w = cw, h = ch;
-        const r = { x: x - gx * w, y: Math.max(0, y - gy * h), w, h };
-        pipDrag = { id, r, mid: !side, side };
-        render();
+      if (how === "move") {                                          // it follows the pointer (moved and scaled on the graphics card only):
+        moved = moved || Math.hypot(dx, dy) > 4;                     // at a side, pinned size; in the middle, its normal size - nothing
+        if (!moved) return;                                          // decided (and nothing laid out again) until the release
+        if (!pipDrag) { pipDrag = { id, r: { ...r0 }, mid: false, side: c[1] }; render(); }   // (the others close up, once)
+        const f = (last.clientX - s0.left) / s0.width, side = f <= 0.3 ? "l" : f >= 0.7 ? "r" : null;
+        let k = 1;
+        if (!side) { const n = frac[id] || { w: 0.5, h: 0.6 }; k = Math.max(1, (n.w * s0.width) / Math.max(1, w0)); }
+        else { const W = cornerW(side + side, id); if (W) k = W / Math.max(1, w0); }
+        pipDrag.mid = !side; if (side) pipDrag.side = side;
+        const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
+        for (const [e2, o] of [[el, 0], [frames.get(id), RING]]) {
+          if (!e2) continue;
+          e2.setAttribute("data-vos-pinlook", "");                   // (only its scale glides; the move follows the pointer at once)
+          e2.style.setProperty("transform-origin", `${Math.round(gx * w0 + o)}px ${Math.round(gy * h0 + o)}px`, "important");
+          e2.style.setProperty("translate", t, "important");
+          e2.style.setProperty("scale", String(+k.toFixed(3)), "important");
+        }
         return;
       }
       if (/[lr]/.test(how)) {                       // the width: every window in this corner follows, each in its own shape
@@ -2028,20 +2035,22 @@ window.vosBeat = window.vosBeat || (() => {
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame); frame = 0;
-      if (ev.type === "pointerup") { last = ev; final = true; apply(); cancelAnimationFrame(frame); frame = 0; }   // where it was let go (even when no frame was drawn meanwhile)
+      if (ev.type === "pointerup") { last = ev; apply(); }           // where it was let go (even when no frame was drawn meanwhile)
       shield.remove();
       removeEventListener("pointermove", onMove, true); removeEventListener("pointerup", onUp, true); removeEventListener("pointercancel", onUp, true);
       if (how !== "move") { persist(id); return render(); }
       const d = pipDrag?.id === id ? pipDrag : null;
-      if (!moved || ev.type !== "pointerup" || !d) { pipDrag = null; return render(); }
+      if (!moved || ev.type !== "pointerup" || !d) { unlook(); pipDrag = null; return render(); }
       const sr = stackRect(), els = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
       if (d.mid) {                                                   // let go in the middle: no longer pinned - a window there, its normal size
-        flip(els, () => { pipDrag = null; pipOff(id); setPx(id, clampRect(d.r, sr), sr); persist(id); raise(id); render(); });
+        const n = frac[id] || { w: 0.5, h: 0.6 }, W = n.w * sr.width, H = n.h * sr.height;
+        const px = ev.clientX - sr.left, py = ev.clientY - sr.top, r = clampRect({ x: px - gx * W, y: Math.max(0, py - gy * H), w: W, h: H }, sr);
+        flip(els, () => { unlook(); pipDrag = null; pipOff(id); setPx(id, r, sr); persist(id); raise(id); render(); });   // one glide, from how it looks to where it is
         return;
       }
       const to = (ev.clientY < sr.top + sr.height / 2 ? "t" : "b") + d.side;
       flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
-        pipDrag = null;
+        unlook(); pipDrag = null;
         { const w = cornerW(to, id); if (w) pipFit(id, to, w); }   // that side's width, its own shape
         pipCorner.set(id, to);
         pip.splice(pip.indexOf(id), 1); pip.push(id);
