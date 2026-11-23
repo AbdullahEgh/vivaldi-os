@@ -1037,28 +1037,42 @@ window.vosBeat = window.vosBeat || (() => {
     place(slotEl, { x: x + (ww - w) / 2, y: Math.max(2, Math.min(ss.height - 6, y - 2)), w, h: 4 }, ss);
     setStyle(slotEl, "z-index", "1995");                         // over the pinned windows, under the window being dragged
   }
-  /* A FLICK (let go while moving fast) - from the pointer's last moments [[time, x, y]...]:
-     diagonal toward a corner: pinned there ("pin:tl"); sideways toward a side that has pinned apps: joins them ("col:l");
-     a deeper sideways flick (faster, flatter): the half-screen snap ("left" / "right"); up, hard: full screen */
+  /* A FLICK (let go while moving fast): where it is heading decides - its path is followed to the edge of the screen:
+     a corner (or the bottom near one): pinned there ("pin:tl"); the side of the pinned apps, across them: with them
+     ("col:l:<y>"); the left / right edge elsewhere: Bento's half ("left" / "right"); the top edge: full screen */
   function flickOf(at, ts, id) {
     if (at.length < 3) return null;
     const [t0, x0, y0] = at[0], [t1, x1, y1] = at[at.length - 1], dt = t1 - t0;
     if (dt < 24 || ts - t1 > 70) return null;                        // (it had stopped before the release: no flick)
-    const vx = (x1 - x0) / dt, vy = (y1 - y0) / dt, sp = Math.hypot(vx, vy), ax = Math.abs(vx), ay = Math.abs(vy);
-    if (sp < 1.1) return null;                                       // px per ms: a plain move is far slower
-    if (vy < -1.65 && ay > 1.6 * ax) return "full";
-    const side = vx < 0 ? "l" : "r";
-    if (ax > 2.2 * ay) {                                             // sideways
-      if (ax >= 1.9) return vx < 0 ? "left" : "right";               // deep: the snap
-      const pins = !pip.includes(id) && [...pipSide(side, stackRect())].some(([p]) => p !== id);
-      return pins ? "col:" + side : null;                            // toward the pinned apps: with them
+    const vx = (x1 - x0) / dt, vy = (y1 - y0) / dt;
+    if (Math.hypot(vx, vy) < 1.1) return null;                       // px per ms: a plain move is far slower
+    const ss = stackRect(), L = ss.left, R = ss.right, T = ss.top, B = ss.bottom, W = ss.width, H = ss.height;
+    // the edge its path reaches first
+    const tx = vx < 0 ? (L - x1) / vx : vx > 0 ? (R - x1) / vx : Infinity, ty = vy < 0 ? (T - y1) / vy : vy > 0 ? (B - y1) / vy : Infinity;
+    const t = Math.max(0, Math.min(tx, ty)), hx = Math.max(L, Math.min(R, x1 + vx * t)), hy = Math.max(T, Math.min(B, y1 + vy * t));
+    const cw = Math.max(140, W * 0.16), ch = Math.max(120, H * 0.2);  // a corner's reach along each edge
+    const near = { l: hx - L < cw, r: R - hx < cw, t: hy - T < ch, b: B - hy < ch };
+    const pinned = !pip.includes(id);
+    if (tx <= ty) {                                                  // the left or right edge
+      const side = vx < 0 ? "l" : "r";
+      if (pinned && (near.t || near.b)) return "pin:" + (near.t ? "t" : "b") + side;
+      const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
+      if (pinned && col.length) {                                    // across the pinned apps (with a little reach): with them
+        const top = Math.min(...col.map(r => r.y)) + T - 40, bot = Math.max(...col.map(r => r.y + r.h)) + T + 40;
+        if (hy >= top && hy <= bot) return "col:" + side + ":" + Math.round(hy);
+      }
+      return side === "l" ? "left" : "right";
     }
-    if (ax > 0.5 && ay > 0.5 && sp > 1.43 && !pip.includes(id)) return "pin:" + (vy < 0 ? "t" : "b") + side;
-    return null;
+    if (vy < 0) {                                                    // the top edge
+      if (pinned && (near.l || near.r)) return "pin:t" + (near.l ? "l" : "r");
+      return "full";
+    }
+    if (pinned && (hx - L < W * 0.3 || R - hx < W * 0.3)) return "pin:b" + (hx - L < W / 2 ? "l" : "r");   // the bottom, toward a corner
+    return null;                                                     // (the bottom's middle: nothing)
   }
   function flickSlot(kind, id, y, el) {             // where a flick pins it
     const ss = stackRect();
-    if (kind.startsWith("col:")) { const side = kind[4]; return pinSlot(side, y, id) || emptySlot((y - ss.top < ss.height / 2 ? "t" : "b") + side, Math.min(PIP_START_W, el.offsetWidth)); }
+    if (kind.startsWith("col:")) { const side = kind[4], hy = Number(kind.split(":")[2]) || y; return pinSlot(side, hy, id) || emptySlot((hy - ss.top < ss.height / 2 ? "t" : "b") + side, Math.min(PIP_START_W, el.offsetWidth)); }   // (where its path crosses them)
     const c = kind.slice(4), w = cornerW(c, id) ?? Math.min(PIP_START_W, el.offsetWidth);
     return pinSlot(c[1], c[0] === "t" ? ss.top + 2 : ss.bottom - 2, id) || emptySlot(c, w);
   }
@@ -3669,6 +3683,7 @@ window.vosBeat = window.vosBeat || (() => {
     raise(id); activate(id); render();
     const ss = stackRect();
     let s0 = pxRect(id, ss), sx = e.clientX, sy = e.clientY;           // re-based at every mode switch
+    const frac0 = frac[id] ? { ...frac[id] } : null;                 // its place before this drag (a flick to a pin: it comes back there)
     const gx0 = sx - ss.left - s0.x, gy0 = sy - ss.top - s0.y;      // where it is held, in its own box (the pivot when it shrinks to be pinned)
     const pid = e.pointerId;
     const shield = document.createElement("div");
@@ -3906,6 +3921,7 @@ window.vosBeat = window.vosBeat || (() => {
       let snap = ev.type === "pointerup" ? (shown || (!deskDrop && !leaving && !inMission ? fling(ev) : null)) : null;   // (thrown: the same snap)
       if (isPinFlick(snap)) {                                         // flicked to a corner / to the pinned apps: pinned there (it flies in)
         const sl = flickSlot(snap, id, ev.clientY, el);
+        if (frac0) frac[id] = frac0;                                 // unpinned later: back where it was before the flick
         if (shown) snapPreview(null);
         persist(id); pinInto(id, sl.corner, sl);
         return;
