@@ -6445,20 +6445,23 @@ window.vosBeat = window.vosBeat || (() => {
       }
       return null;
     };
-    const mailbox = () => {                          // the main mailbox: the first top-level folder that is not Favorites
-      const items = [...document.querySelectorAll("[role=treeitem]")];
-      const top = items.filter(e => { const l = e.getAttribute("aria-level"); return l === "1" || (!l && !e.parentElement?.closest("[role=treeitem]")); });
+    const mailbox = () => {                          // the main mailbox: the top folder that HAS folders (not Favorites - whose
+      const items = [...document.querySelectorAll("[role=treeitem]")];   // Inbox, Sent Items... are only shortcuts)
       const own = e => {                             // its own name (not its subfolders'), without an unread count
         const a = e.getAttribute("aria-label") || e.getAttribute("title");
-        if (a) return a;
+        if (a) return a.split(",")[0];
         for (const c of e.childNodes) {
           if (c.nodeType === 3 && c.textContent.trim()) return c.textContent;
           if (c.nodeType === 1 && !c.matches("[role=group],[role=treeitem]") && !c.querySelector("[role=treeitem]") && (c.innerText || c.textContent || "").trim()) return c.innerText || c.textContent;
         }
         return "";
       };
-      for (const e of top) {
-        const t = own(e).split("\\n")[0].trim().replace(/\\s+\\d+$/, "");
+      const lvl = e => Number(e.getAttribute("aria-level")) || (() => { let n = 1; for (let p = e.parentElement; p; p = p.parentElement) if (p.matches?.("[role=treeitem]")) n++; return n; })();
+      const hasKids = (e, i) => e.hasAttribute("aria-expanded") || !!e.querySelector("[role=treeitem]") || (items[i + 1] && lvl(items[i + 1]) > lvl(e));
+      const roots = items.map((e, i) => ({ e, i, l: lvl(e) })).filter(x => hasKids(x.e, x.i));
+      const top = Math.min(...roots.map(x => x.l));
+      for (const x of roots.filter(x => x.l === top)) {
+        const t = own(x.e).split("\\n")[0].trim().replace(/\\s+\\d+$/, "");
         if (t && !/^favou?rites$/i.test(t) && t.length < 60) return t;
       }
       return "";
