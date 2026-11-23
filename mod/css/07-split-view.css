@@ -1569,3 +1569,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack > .vos-pip-hdiv::after { content: "" !important; position: absolute !important; left: 50% !important; top: 50% !important; width: 36px !important; height: 4px !important; margin: -2px 0 0 -18px !important; border-radius: 2px !important; background: color-mix(in srgb, var(--colorFg, #fff) 45%, transparent) !important; opacity: 0 !important; transition: opacity 0.15s ease !important; }
 #browser #webpage-stack > .vos-pip-hdiv:hover::after { opacity: 1 !important; }
 #browser[data-vos-mission] #webpage-stack > .vos-pip-hdiv, #browser[data-launchpad] #webpage-stack > .vos-pip-hdiv { display: none !important; }
+
+/* 1.0.196: a window dragged to a corner (or onto the pinned windows) shrinks toward its pinned size - smoothly */
+#browser #webpage-stack [data-vos-pinlook], #browser .ft-frame[data-vos-pinlook] { transition: scale 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }

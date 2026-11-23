@@ -899,6 +899,42 @@ window.vosBeat = window.vosBeat || (() => {
     };
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
   }
+  /* a window dragged to a corner of the desktop, or onto the pinned windows of a side: let go there - pinned */
+  function pinZoneAt(x, y, id) {
+    if (pip.includes(id) || mission) return null;
+    const ss = stackRect(), lx = x - ss.left, ly = y - ss.top;
+    if (lx < 0 || ly < 0 || lx > ss.width || ly > ss.height) return null;
+    for (const side of ["l", "r"]) {                                // onto that side's pinned windows
+      const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
+      if (!col.length) continue;
+      if (side === "l" ? lx <= Math.max(...col.map(r => r.x + r.w)) + 24 : lx >= Math.min(...col.map(r => r.x)) - 24) return (ly < ss.height / 2 ? "t" : "b") + side;
+    }
+    const C = 72, h = lx <= C ? "l" : lx >= ss.width - C ? "r" : null, v = ly <= C ? "t" : ly >= ss.height - C ? "b" : null;
+    return h && v ? v + h : null;                                   // a corner of the desktop
+  }
+  function pinLook(el, id, c, x, y) {               // the window itself shrinks toward its pinned size (back when it leaves)
+    for (const e of [el, frames.get(id)]) {
+      if (!e) continue;
+      if (!c) { e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); continue; }
+      const m = pinMem.get(id), W = cornerW(c, id) ?? (m?.c?.[1] === c[1] && m.w ? m.w : Math.min(PIP_START_W, el.offsetWidth));
+      const k = Math.max(0.15, Math.min(1, W / Math.max(1, el.offsetWidth))), r = e.getBoundingClientRect();
+      e.setAttribute("data-vos-pinlook", "");
+      if (x != null) e.style.setProperty("transform-origin", `${Math.round(x - r.left)}px ${Math.round(y - r.top)}px`, "important");
+      e.style.setProperty("scale", String(+k.toFixed(3)), "important");
+    }
+  }
+  function pinInto(id, c) {
+    const el = targetOf(pageOf(id));
+    if (!el || pip.includes(id)) return;
+    const r = { width: el.offsetWidth, height: el.offsetHeight }, others = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
+    flip([el, ...others], () => {                                    // from how it looks now (shrunk) into its place
+      pinLook(el, id, null);
+      for (const e of [el, frames.get(id)]) e?.removeAttribute("data-vos-pinlook");
+      if (cover === id) cover = null;
+      if (backToBento.delete(id)) bento.skip.delete(id);
+      pinBack(id, c, r); persist(id); render();
+    });
+  }
   function pinBack(id, c, r) {                     // pinned: back where it was the last time (else as given)
     const m = pinMem.get(id), corner = c || m?.c || "bl", same = m && m.c?.[1] === corner[1];
     pipAspect.set(id, same && m.w && m.h ? m.h / m.w : r.height / Math.max(1, r.width));
@@ -1937,7 +1973,7 @@ window.vosBeat = window.vosBeat || (() => {
     const shield = document.createElement("div");
     shield.className = "ft-shield"; shield.style.cursor = CURSOR[how] || "grabbing";
     document.body.appendChild(shield);
-    let frame = 0, last = null, moved = false;
+    let frame = 0, last = null, moved = false, cw = w0, ch = h0, final = false;
     const apply = () => {
       frame = 0;
       if (!last) return;
@@ -1947,9 +1983,13 @@ window.vosBeat = window.vosBeat || (() => {
         if (!moved) return;
         const x = last.clientX - s0.left, y = last.clientY - s0.top, f = x / s0.width;
         const side = f <= 0.3 ? "l" : f >= 0.7 ? "r" : null;
-        let w, h;
-        if (!side) { const n = frac[id] || { w: 0.5, h: 0.6 }; w = n.w * s0.width; h = n.h * s0.height; }
-        else { w = cornerW(side + side, id) ?? w0; h = w * (h0 / Math.max(1, w0)); }
+        let tw, th;
+        if (!side) { const n = frac[id] || { w: 0.5, h: 0.6 }; tw = n.w * s0.width; th = n.h * s0.height; }
+        else { tw = cornerW(side + side, id) ?? w0; th = tw * (h0 / Math.max(1, w0)); }
+        const ease = ev2 => ev2 ? 1 : 0.28;                             // it grows / shrinks smoothly (all the way at the release)
+        cw += (tw - cw) * ease(final); ch += (th - ch) * ease(final);
+        if (!final && (Math.abs(tw - cw) > 1 || Math.abs(th - ch) > 1) && !frame) frame = requestAnimationFrame(apply);   // (still on its way)
+        const w = cw, h = ch;
         const r = { x: x - gx * w, y: Math.max(0, y - gy * h), w, h };
         pipDrag = { id, r, mid: !side, side };
         render();
@@ -1969,7 +2009,7 @@ window.vosBeat = window.vosBeat || (() => {
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame); frame = 0;
-      if (ev.type === "pointerup") { last = ev; apply(); }           // where it was let go (even when no frame was drawn meanwhile)
+      if (ev.type === "pointerup") { last = ev; final = true; apply(); cancelAnimationFrame(frame); frame = 0; }   // where it was let go (even when no frame was drawn meanwhile)
       shield.remove();
       removeEventListener("pointermove", onMove, true); removeEventListener("pointerup", onUp, true); removeEventListener("pointercancel", onUp, true);
       if (how !== "move") { persist(id); return render(); }
@@ -2831,6 +2871,7 @@ window.vosBeat = window.vosBeat || (() => {
     let top = false, topTimer = 0, topShown = false;                 // held at the top edge: full screen
     let deskT = 0, desk = false, deskOn = null, bEnded = false;      // held longer: the desktops come down - drop it on one
     let leavingB = false;                                            // past the edge of this Vivaldi window
+    let bPin = null;                                                 // over a corner or the pinned windows: let go - pinned (out of Bento)
     const shake = shaker();
     const show = (r, conflict) => {
       if (!r) { preview.removeAttribute("data-show"); return; }
@@ -2855,6 +2896,9 @@ window.vosBeat = window.vosBeat || (() => {
       bentoDrag = { id, rect: { x: r0.x + dx, y: r0.y + dy, w: r0.w, h: r0.h } };
       setStyle(el, "z-index", "2000");
       place(el, bentoDrag.rect, ss); placeFrame(id, el, bentoDrag.rect, ss);
+      { const pz = desk ? null : pinZoneAt(last.cx, last.cy, id);
+        if (pz !== bPin) { bPin = pz; pinLook(el, id, pz, last.cx, last.cy); }
+        if (pz) { show(null); proposal = null; key = ""; clearTimeout(holdTimer); return; } }
       if (desk) {                                                    // the desktops are down: which one is under the pointer
         const card = document.elementsFromPoint(last.cx, last.cy).find(n => n.classList?.contains("vos-ws-card") && !n.classList.contains("vos-ws-more") && !n.hasAttribute("data-current")) || null;
         if (card !== deskOn) { deskOn?.removeAttribute("data-drop"); deskOn = card; deskOn?.setAttribute("data-drop", ""); }
@@ -2907,7 +2951,9 @@ window.vosBeat = window.vosBeat || (() => {
     };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
-      cancelAnimationFrame(frame); clearTimeout(holdTimer); clearTimeout(topTimer); clearTimeout(deskT); bEnded = true;
+      cancelAnimationFrame(frame);
+      if (ev.type === "pointerup" && last && !leavingB && !desk) { frame = 0; update(); }   // where it was let go (even when no frame was drawn meanwhile)
+      clearTimeout(holdTimer); clearTimeout(topTimer); clearTimeout(deskT); bEnded = true;
       let toCard = null, deskList = [];
       if (desk) {                                                    // let go over the desktops
         toCard = ev.type === "pointerup" ? deskOn : null; deskOn?.removeAttribute("data-drop");
@@ -2926,6 +2972,9 @@ window.vosBeat = window.vosBeat || (() => {
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
       removeEventListener("keydown", onKey, true);
+      { const c = bPin && ev.type === "pointerup" && !away && !full && !toCard ? bPin : null;
+        if (bPin && !c) pinLook(el, id, null);
+        if (c) { proposal = null; bentoDrag = null; pinInto(id, c); return; } }   // pinned: out of Bento, into that corner
       bTransition(() => {
         bentoDrag = null;
         if (proposal && ev.type === "pointerup") { bPush(bento.root); bento.root = proposal; }   // else: back to its slot
@@ -3406,31 +3455,13 @@ window.vosBeat = window.vosBeat || (() => {
       if (!wsStrip) openWsStrip().then(() => { if (ended && wsStrip) closeWsStrip(); });   // let go meanwhile: not after
     };
     const shake = shaker();
-    let pinAt = null, pinPrev = null;                                // over a side with pinned windows: let go - pinned there
-    const pinShow = c => {
-      pinAt = c;
-      if (!c) { pinPrev?.remove(); pinPrev = null; return; }
-      const host = stack(); if (!host) return;
-      if (!pinPrev) { pinPrev = document.createElement("div"); pinPrev.className = "ft-snap-preview vos-pin-preview"; host.appendChild(pinPrev); }
-      const ss = stackRect(), er = el.getBoundingClientRect(), W = cornerW(c, id) ?? Math.min(PIP_START_W, er.width), H = Math.max(100, W * er.height / Math.max(1, er.width));
-      place(pinPrev, { x: c[1] === "r" ? ss.width - MARGIN - W : MARGIN, y: c[0] === "b" ? ss.height - MARGIN - H : MARGIN, w: W, h: H }, ss);
-      setStyle(pinPrev, "z-index", "1950");
-    };
-    const pinZone = (x, y) => {
-      if (how !== "move" || deskDrop || inMission || pip.includes(id)) return null;
-      const ss = stackRect(), lx = x - ss.left, ly = y - ss.top;
-      for (const side of ["l", "r"]) {
-        const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
-        if (!col.length) continue;
-        const near = side === "l" ? lx <= Math.max(...col.map(r => r.x + r.w)) + 24 : lx >= Math.min(...col.map(r => r.x)) - 24;
-        if (near) return (ly < ss.height / 2 ? "t" : "b") + side;
-      }
-      return null;
-    };
+    let pinAt = null;                                                // over a corner or a side's pinned windows: it shrinks; let go - pinned there
+    const pinShow = (c, x, y) => { pinAt = c; pinLook(el, id, c, x, y); };
+    const pinZone = (x, y) => how !== "move" || deskDrop || inMission ? null : pinZoneAt(x, y, id);
     const snapCheck = (x, y) => {
       if (how !== "move" || deskDrop) return;
       { const pz = pinZone(x, y);
-        if (pz) { clearTimeout(zoneTimer); clearTimeout(deskTimer); if (shown) { snapPreview(null); shown = null; } zone = null; if (pz !== pinAt) pinShow(pz); return; }
+        if (pz) { clearTimeout(zoneTimer); clearTimeout(deskTimer); if (shown) { snapPreview(null); shown = null; } zone = null; if (pz !== pinAt) pinShow(pz, x, y); return; }
         if (pinAt) pinShow(null); }
       const z = snapZone(x, y);
       if (z === zone) return;
@@ -3578,17 +3609,9 @@ window.vosBeat = window.vosBeat || (() => {
         const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
         if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY, target); }
       }
-      { const c = pinAt; pinShow(null);
-        if (c && ev.type === "pointerup" && floating.has(id) && !pip.includes(id)) {   // pinned there, beside the others
-          if (backToBento.delete(id)) bento.skip.delete(id);
-          const r = el.getBoundingClientRect(), others = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
-          flip([el, ...others], () => {
-            if (cover === id) cover = null;
-            pinBack(id, c, r);                                       // that side (its last size there, if it was)
-            persist(id); render();
-          });
-          return;
-        } }
+      { const c = pinAt;
+        if (c && ev.type === "pointerup" && floating.has(id) && !pip.includes(id)) { pinAt = null; persist(id); pinInto(id, c); return; }   // pinned there, beside the others
+        if (c) pinShow(null); }
       const snap = ev.type === "pointerup" ? shown : null;
       if (shown) snapPreview(null, null, !!snap);
       persist(id);

@@ -2596,7 +2596,8 @@
   /* DARK MODE: Vivaldi's dark theme or its light theme (the two the wallpapers belong to), chosen here -
      it then stays (no longer following the system's appearance) */
   async function isDarkNow() {
-    const b = document.getElementById("browser");                  // what is shown: Vivaldi marks its window light or dark
+    try { const t = await modeThemes(), cur = await themeInUse(); if (t.light !== t.dark) { if (cur === t.dark) return true; if (cur === t.light) return false; } } catch (e) {}   // which of your two themes is in use
+    const b = document.getElementById("browser");                  // (else what is shown: Vivaldi marks its window light or dark)
     if (b?.classList.contains("theme-dark")) return true;
     if (b?.classList.contains("theme-light")) return false;
     const cur = await themeInUse();
@@ -2611,8 +2612,8 @@
     if (!target) return;
     // the same as the system's appearance: Vivaldi simply follows the system again (its own light / dark pair, the
     // websites automatic); the other one: held until the system comes round to it
-    let sysDark = on; try { sysDark = await osDark(); } catch (e) {}
-    const follow = on === sysDark;
+    const follow = false;                                            // what you choose is what you get: that theme, and the websites the same
+                                                                     // (the system changing later still switches it: followOs)
     if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: follow ? { ...t.os, light: t.light, dark: t.dark } : { ...t.os, light: target, dark: target } });
     else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
     const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();
