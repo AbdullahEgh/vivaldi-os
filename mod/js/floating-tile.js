@@ -1037,6 +1037,32 @@ window.vosBeat = window.vosBeat || (() => {
     place(slotEl, { x: x + (ww - w) / 2, y: Math.max(2, Math.min(ss.height - 6, y - 2)), w, h: 4 }, ss);
     setStyle(slotEl, "z-index", "1995");                         // over the pinned windows, under the window being dragged
   }
+  /* A FLICK (let go while moving fast) - from the pointer's last moments [[time, x, y]...]:
+     diagonal toward a corner: pinned there ("pin:tl"); sideways toward a side that has pinned apps: joins them ("col:l");
+     a deeper sideways flick (faster, flatter): the half-screen snap ("left" / "right"); up, hard: full screen */
+  function flickOf(at, ts, id) {
+    if (at.length < 3) return null;
+    const [t0, x0, y0] = at[0], [t1, x1, y1] = at[at.length - 1], dt = t1 - t0;
+    if (dt < 24 || ts - t1 > 70) return null;                        // (it had stopped before the release: no flick)
+    const vx = (x1 - x0) / dt, vy = (y1 - y0) / dt, sp = Math.hypot(vx, vy), ax = Math.abs(vx), ay = Math.abs(vy);
+    if (sp < 1.1) return null;                                       // px per ms: a plain move is far slower
+    if (vy < -1.65 && ay > 1.6 * ax) return "full";
+    const side = vx < 0 ? "l" : "r";
+    if (ax > 2.2 * ay) {                                             // sideways
+      if (ax >= 1.9) return vx < 0 ? "left" : "right";               // deep: the snap
+      const pins = !pip.includes(id) && [...pipSide(side, stackRect())].some(([p]) => p !== id);
+      return pins ? "col:" + side : null;                            // toward the pinned apps: with them
+    }
+    if (ax > 0.5 && ay > 0.5 && sp > 1.43 && !pip.includes(id)) return "pin:" + (vy < 0 ? "t" : "b") + side;
+    return null;
+  }
+  function flickSlot(kind, id, y, el) {             // where a flick pins it
+    const ss = stackRect();
+    if (kind.startsWith("col:")) { const side = kind[4]; return pinSlot(side, y, id) || emptySlot((y - ss.top < ss.height / 2 ? "t" : "b") + side, Math.min(PIP_START_W, el.offsetWidth)); }
+    const c = kind.slice(4), w = cornerW(c, id) ?? Math.min(PIP_START_W, el.offsetWidth);
+    return pinSlot(c[1], c[0] === "t" ? ss.top + 2 : ss.bottom - 2, id) || emptySlot(c, w);
+  }
+  const isPinFlick = k => typeof k === "string" && (k.startsWith("pin:") || k.startsWith("col:"));
   function cornerAt(x, y) {                         // a corner of the desktop (72px of both its edges - also pushed past them)
     const ss = stackRect(), C = 72;
     if (y < ss.top - 60 || y > ss.bottom + 60) return null;          // (not the tab bar)
@@ -3200,12 +3226,8 @@ window.vosBeat = window.vosBeat || (() => {
         ntrace("bento drop", { card: toCard ? (toCard.classList.contains("vos-ws-more") ? "new" : toCard.dataset.ws) : null });
         closeWsStrip(); proposal = null;
       }
-      let flickC = null;                                             // flicked toward a corner (worked out first: past the edge too)
-      if (!bPin && ev.type === "pointerup" && bFling.length >= 3) {
-        const [t0, x0, y0] = bFling[0], [t1, x1, y1] = bFling[bFling.length - 1], dt = t1 - t0;
-        const vx = (x1 - x0) / Math.max(1, dt), vy = (y1 - y0) / Math.max(1, dt);
-        if (dt >= 24 && ev.timeStamp - t1 <= 70 && Math.hypot(vx, vy) > 1.43 && Math.abs(vx) > 0.5 && Math.abs(vy) > 0.5) flickC = (vy < 0 ? "t" : "b") + (vx < 0 ? "l" : "r");
-      }
+      let flickC = null;                                             // flicked to a corner / to the pinned apps (worked out first: past the edge too)
+      if (!bPin && ev.type === "pointerup") { const k = flickOf(bFling, ev.timeStamp, id); if (isPinFlick(k)) flickC = k; }
       if (flickC && leavingB) { leavingB = false; dragOutCancel(); }   // (a flick that went past the edge: still a pin)
       const away = leavingB && ev.type === "pointerup";             // let go outside: to another Vivaldi window
       const awayTo = leavingB ? dragOutEnd(ev.screenX, ev.screenY, away) : null;
@@ -3218,10 +3240,7 @@ window.vosBeat = window.vosBeat || (() => {
       removeEventListener("pointerup", onUp, true);
       removeEventListener("pointercancel", onUp, true);
       removeEventListener("keydown", onKey, true);
-      if (flickC && !away && !full && !toCard) {                     // flicked toward a corner: pinned there
-        const ss2 = stackRect(), w = cornerW(flickC, id) ?? Math.min(PIP_START_W, el.offsetWidth);
-        bSlot = pinSlot(flickC[1], flickC[0] === "t" ? ss2.top + 2 : ss2.bottom - 2, id) || emptySlot(flickC, w); bPin = bSlot.corner;
-      }
+      if (flickC && !away && !full && !toCard) { bSlot = flickSlot(flickC, id, ev.clientY, el); bPin = bSlot.corner; }   // flicked: pinned there
       { const c = bPin && ev.type === "pointerup" && !away && !full && !toCard ? bPin : null;
         if (bPin && !c) pinLook(el, id, null);
         slotShow(null);
@@ -3766,17 +3785,7 @@ window.vosBeat = window.vosBeat || (() => {
     };
 
     const flingAt = [];
-    const fling = ev => {                                            // let go while moving fast toward an edge: where it was thrown
-      if (how !== "move" || !moved || flingAt.length < 3) return null;
-      const [t0, x0, y0] = flingAt[0], [t1, x1, y1] = flingAt[flingAt.length - 1], dt = t1 - t0;
-      if (dt < 24 || ev.timeStamp - t1 > 70) return null;            // (it had stopped before the release: no throw)
-      const vx = (x1 - x0) / dt, vy = (y1 - y0) / dt, FAST = 1.1;    // px per ms: a flick (a plain move is far slower)
-      if (Math.abs(vx) > FAST && Math.abs(vx) > 1.6 * Math.abs(vy)) return vx < 0 ? "left" : "right";   // flicked sideways: that half
-      if (vy < -1.5 * FAST && -vy > 1.6 * Math.abs(vx)) return "full";   // flicked up (harder): full screen
-      // flicked toward a corner (on the diagonal, fast): pinned there - with the others of that corner, if any
-      if (Math.hypot(vx, vy) > 1.3 * FAST && Math.abs(vx) > 0.5 && Math.abs(vy) > 0.5 && !pip.includes(id)) return "pin:" + (vy < 0 ? "t" : "b") + (vx < 0 ? "l" : "r");
-      return null;
-    };
+    const fling = ev => how === "move" && moved ? flickOf(flingAt, ev.timeStamp, id) : null;   // (let go while moving fast)
     const onMove = ev => {
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
@@ -3885,7 +3894,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (inMission) { if (wasHeld) { missionGlide(); queueRender(); } return; }   // let go elsewhere: it glides back
       }
       { const f0 = ev.type === "pointerup" && leaving && !deskDrop && !inMission ? fling(ev) : null;   // a corner flick past the edge: still a pin
-        if (typeof f0 === "string" && f0.startsWith("pin:")) { leaving = false; dragOutCancel(); } }
+        if (isPinFlick(f0)) { leaving = false; dragOutCancel(); } }
       if (leaving) {                                                // let go outside: to the Vivaldi window under it
         const target = dragOutEnd(ev.screenX, ev.screenY, ev.type === "pointerup");
         if (ev.type === "pointerup") { if (shown) snapPreview(null); persist(id); return toOtherWindow(id, ev.screenX, ev.screenY, target); }
@@ -3895,10 +3904,8 @@ window.vosBeat = window.vosBeat || (() => {
         if (c && ev.type === "pointerup" && floating.has(id) && !pip.includes(id)) { pinAt = null; persist(id); pinInto(id, c, sl); return; }   // pinned there, between the others
         if (c) pinShow(null); }
       let snap = ev.type === "pointerup" ? (shown || (!deskDrop && !leaving && !inMission ? fling(ev) : null)) : null;   // (thrown: the same snap)
-      if (typeof snap === "string" && snap.startsWith("pin:")) {     // thrown into a corner: pinned there (it flies in)
-        const c = snap.slice(4), ss2 = stackRect();
-        const w = cornerW(c, id) ?? Math.min(PIP_START_W, el.offsetWidth);
-        const sl = pinSlot(c[1], c[0] === "t" ? ss2.top + 2 : ss2.bottom - 2, id) || emptySlot(c, w);
+      if (isPinFlick(snap)) {                                         // flicked to a corner / to the pinned apps: pinned there (it flies in)
+        const sl = flickSlot(snap, id, ev.clientY, el);
         if (shown) snapPreview(null);
         persist(id); pinInto(id, sl.corner, sl);
         return;
