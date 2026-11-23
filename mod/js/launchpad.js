@@ -59,6 +59,7 @@
     if (data) customIcons[url] = data; else delete customIcons[url];
     try { chrome.storage.local.set({ [ICON_KEY]: customIcons }, () => void chrome.runtime.lastError); } catch (e) {}
     try { if (lp) render(); } catch (e) {}
+    try { if (lp?.card) { const f = findNode(lp.card.__folder.id); if (f) openFolder(f, lp.card.__trail, false, true); } } catch (e) {}   // an open folder: stays open, its icons new
   }
   const moveIcon = (from, to) => { if (from && to && from !== to && customIcons[from]) { const d = customIcons[from]; delete customIcons[from]; setIcon(to, d); } };
   /* CHANGE ICON: icons from macOSicons.com, searched by the app's name (with your own free API key - kept on this
@@ -90,8 +91,8 @@
       const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
       const iw = im.naturalWidth || im.width || S, ih = im.naturalHeight || im.height || S;
       let sx = iw * trim, sy = ih * trim, sw = iw - 2 * sx, sh = ih - 2 * sy;
-      if (!trim) { const b = opaqueBox(im, iw, ih); if (b) { sx = b.x; sy = b.y; sw = b.w; sh = b.h; } }   // your own picture: its see-through border trimmed (a macOSicons one: its standard margin only)
-      const g = c.getContext("2d"), k = Math.max(S / sw, S / sh), w = sw * k, h = sh * k;
+      { const b = opaqueBox(im, iw, ih); if (b) { sx = b.x; sy = b.y; sw = b.w; sh = b.h; } }   // only a fully see-through border trimmed - never into the picture
+      const g = c.getContext("2d"), k = Math.min(S / sw, S / sh), w = sw * k, h = sh * k;   // fitted whole (never zoomed into)
       g.imageSmoothingQuality = "high";
       g.drawImage(im, sx, sy, sw, sh, (S - w) / 2, (S - h) / 2, w, h);   // filled, centred (as an app icon)
       setIcon(url, c.toDataURL("image/png"));
@@ -139,7 +140,7 @@
         for (const h of hits) {
           const b = document.createElement("button"); b.type = "button"; b.className = "lp-ip-cell"; b.title = h.n;
           const im = document.createElement("img"); im.src = h.u; im.alt = ""; im.decoding = "async"; im.loading = "lazy"; b.appendChild(im);
-          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { close(); done?.(); }, 0.098); });   // (macOS icons: 100px of margin in 1024)
+          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { close(); done?.(); }); });
           grid.appendChild(b);
         }
       } catch (e) {
@@ -817,6 +818,7 @@
       if (lp?.swallow) { lp.swallow = false; return; }
       if (lp?.menuJustClosed) { lp.menuJustClosed = false; return; }
       if (justDragged || ev.target.closest(".lp-searchbar, .lp-suggest")) return;
+      if (lp.editing && lp.card) { exitEdit(); return; }             // editing in a folder: editing ends - the folder stays open
       if (closeFolder() || exitEdit()) return;      // a folder closes first, then editing ends, then the Launchpad
       close();
     });
@@ -856,6 +858,7 @@
     ev.preventDefault(); ev.stopPropagation();
     if (closeSheet() || closeMenu()) return;                             // Esc: an open menu or sheet first
     if (lp.search.value) { lp.search.value = ""; render(); return; }   // Esc: the search, the folder, editing, then close
+    if (lp.editing && lp.card) { exitEdit(); return; }               // (editing in a folder: editing ends first - the folder stays)
     if (closeFolder() || exitEdit()) return;
     close();
   }, true);
@@ -1067,6 +1070,8 @@
     [/^blur wallpaper/i, MI('<circle cx="8" cy="9" r="3" opacity="0.5"/><circle cx="15.5" cy="10.5" r="4" opacity="0.75"/><circle cx="10" cy="16" r="3.2"/>')],
     [/^themes? settings/i, MI('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.1 0 1.7-.9 1.4-1.8-.4-1 .3-2.2 1.4-2.2H17a3.5 3.5 0 0 0 3.5-3.5c0-5.2-3.8-9.5-8.5-9.5z"/><circle cx="7.8" cy="11" r="1.1"/><circle cx="10.5" cy="7.3" r="1.1"/><circle cx="15" cy="7.8" r="1.1"/>')],
     [/^back$/i, MI('<path d="M14.5 6l-6 6 6 6"/>')],
+    [/^change icon/i, MI('<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M7 16l3.2-3.6 2.6 2.6 1.7-1.8L17 16"/><circle cx="15" cy="8.7" r="1.3"/>')],
+    [/site's icon/i, MI('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.6 2.4 14.4 0 17M12 3.5c-2.4 2.6-2.4 14.4 0 17"/>')],
     [/^open in new|new tab|new window/i, MI('<rect x="3.5" y="5" width="13" height="12" rx="2.5"/><path d="M19.5 9v9a2.5 2.5 0 0 1-2.5 2.5H8"/><path d="M10 9v4M8 11h4"/>')],
     [/^open launchpad/i, MI('<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/>')],
     [/^open/i, MI('<path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>')],
@@ -2534,7 +2539,7 @@
       watch.observe(m.parentElement, { childList: true });
       sub.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 110, easing: "ease-out" });
     };
-    b.addEventListener("mouseenter", () => { clearTimeout(t); t = setTimeout(open, sub ? 0 : 140); });
+    b.addEventListener("mouseenter", () => { clearTimeout(t); t = setTimeout(open, sub ? 0 : 380); });   // (a calm pause before it opens)
     b.addEventListener("click", ev => { ev.stopPropagation(); open(); });
     m.addEventListener("mouseover", ev => {                          // another item of this menu: the submenu goes
       const it = ev.target.closest?.(".lp-menu-item");
@@ -2743,6 +2748,9 @@
       if ((await themeInUse()) === target) break;
       await put("vivaldi.theme.schedule.enabled", i % 2 ? 1 : "system"); await put("vivaldi.theme.schedule.o_s", { light: target, dark: target });
     }
+    { const inUse = await themeInUse();                             // Vivaldi did not take it: say so, with what it answered (to fix it)
+      if (inUse !== target) setTimeout(async () => { if ((await themeInUse()) === target) return;
+        updateNotice(null, "Dark Mode couldn't switch Vivaldi's theme", `wanted ${target} · in use ${await themeInUse()} · schedule ${JSON.stringify(await pref("vivaldi.theme.schedule.enabled"))} · system ${JSON.stringify(await pref("vivaldi.system.desktop_theme_color"))} · pair ${JSON.stringify(await pref("vivaldi.theme.schedule.o_s"))}`); }, 1500); }
     vstore.set("vosDarkDiag", JSON.stringify({ on, follow, target, inUse: await themeInUse(), schedule: await pref("vivaldi.theme.schedule.enabled"),
       os: await pref("vivaldi.theme.schedule.o_s"), system: await pref("vivaldi.system.desktop_theme_color"), cls: document.getElementById("browser")?.className.match(/theme-(dark|light)/)?.[0], t: Date.now() }));   // (a record, to see what Vivaldi did)
     const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();

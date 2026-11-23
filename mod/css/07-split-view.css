@@ -1590,3 +1590,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.204: Mission Control moves every window smoothly - also one just dragged toward a corner and away */
 #browser#browser[data-vos-mission-anim] #webpage-stack [data-ft-float][data-vos-pinlook], #browser#browser[data-vos-mission-anim] .ft-frame[data-vos-pinlook] {
   transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), left 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+
+/* 1.0.210: joining between the top and the bottom pinned windows - the box it will fill */
+#browser #webpage-stack > .vos-pin-plot { pointer-events: none !important; border-radius: 12px !important; }

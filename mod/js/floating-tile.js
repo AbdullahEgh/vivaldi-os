@@ -825,10 +825,23 @@ window.vosBeat = window.vosBeat || (() => {
   }
 
   /* ---------------- geometry (fractions of the desktop ⇄ pixels) ---------------- */
+  var stackBox = null;                              // (performance) the desktop area's box, kept until it can have changed
   function stackRect() {
+    if (stackBox && stackBox.el?.isConnected) return stackBox.r;
     const s = stack();
-    return s ? s.getBoundingClientRect() : new DOMRect(0, 0, innerWidth, innerHeight);
+    const r = s ? s.getBoundingClientRect() : new DOMRect(0, 0, innerWidth, innerHeight);
+    if (s) stackBox = { el: s, r };
+    return r;
   }
+  const stackMoved = () => { stackBox = null; };     // its size changed, the window resized, Vivaldi's layout changed, a gesture starts
+  addEventListener("resize", stackMoved, true);
+  addEventListener("pointerdown", stackMoved, true);
+  (window.vosBeat || (f => setInterval(f, 2500)))(stackMoved);
+  (function watchLayout() {
+    const b = document.getElementById("browser"); if (!b) return setTimeout(watchLayout, 300);
+    new MutationObserver(stackMoved).observe(b, { attributes: true, attributeFilter: ["class", "style"] });
+    for (const id of ["header", "footer", "main"]) { const e = document.getElementById(id); if (e) new MutationObserver(stackMoved).observe(e, { childList: true }); }
+  })();
   function clampRect(r, s = stackRect()) {
     const w = Math.min(Math.max(r.w, MIN_W), s.width - MARGIN * 2);
     const h = Math.min(Math.max(r.h, MIN_H), s.height - MARGIN * 2);
@@ -960,14 +973,41 @@ window.vosBeat = window.vosBeat || (() => {
     for (const p of V) { const k = pip.indexOf(p); if (k >= 0) pip.splice(k, 1); }
     pip.push(...Tv.reverse(), ...Bv);                               // (the top stack: newest at the corner; the bottom one: the same)
   }
-  let slotEl = null;
-  function slotShow(slot) {                          // the line where it goes
-    if (!slot) { slotEl?.remove(); slotEl = null; return; }
+  let slotEl = null, plotEl = null;
+  /* where it will really be: the column laid out with it in that place (worked out, then everything put back) */
+  function slotRect(id, slot, W, H) {
+    const save = { pip: pip.slice(), c: pipCorner.get(id), w: pipW.get(id), h: pipH.get(id), drag: pipDrag };
+    try {
+      pipDrag = null;
+      if (!pip.includes(id)) pip.push(id);
+      pipCorner.set(id, slot.corner); pipW.set(id, W); pipH.set(id, H);
+      pinOrder(id, slot);
+      return pipSideNow(slot.side, stackRect()).get(id) || null;
+    } catch (e) { return null; }
+    finally {
+      pip.length = 0; pip.push(...save.pip); pipDrag = save.drag;
+      for (const [m, v] of [[pipCorner, save.c], [pipW, save.w], [pipH, save.h]]) { if (v === undefined) m.delete(id); else m.set(id, v); }
+    }
+  }
+  function slotShow(slot, id, W, H) {                // the line where it goes - at the place it will really take; joining the
+    if (!slot) { slotEl?.remove(); slotEl = null; plotEl?.remove(); plotEl = null; return; }   // top and the bottom ones: the box it will fill
     const host = stack(); if (!host) return;
+    const ss = stackRect(), R = id != null ? slotRect(id, slot, W, H) : null;
+    const nTop = slot.V.filter(p => (pipCorner.get(p) || "bl")[0] === "t").length;
+    const between = !!R && nTop > 0 && nTop < slot.V.length && slot.i === nTop;   // in the gap between the top and the bottom ones
+    if (between) {
+      slotEl?.remove(); slotEl = null;
+      if (!plotEl) { plotEl = document.createElement("div"); plotEl.className = "ft-snap-preview vos-pin-plot"; host.appendChild(plotEl); }
+      place(plotEl, R, ss); setStyle(plotEl, "z-index", "1995");
+      return;
+    }
+    plotEl?.remove(); plotEl = null;
     if (!slotEl) { slotEl = document.createElement("div"); slotEl.className = "vos-pin-slot"; host.appendChild(slotEl); }
-    const ss = stackRect();
-    const w = Math.max(60, Math.round(slot.w * 0.6));              // a grabber's pill, only longer
-    place(slotEl, { x: slot.x + (slot.w - w) / 2, y: Math.max(2, slot.y - 2), w, h: 4 }, ss);
+    const top = slot.corner[0] === "t";
+    const y = R ? (top ? R.y - PIP_GAP / 2 : R.y + R.h + PIP_GAP / 2) : slot.y;   // its edge toward its neighbours (or the screen's edge)
+    const x = R ? R.x : slot.x, ww = R ? R.w : slot.w;
+    const w = Math.max(60, Math.round(ww * 0.6));                  // a grabber's pill, only longer
+    place(slotEl, { x: x + (ww - w) / 2, y: Math.max(2, Math.min(ss.height - 6, y - 2)), w, h: 4 }, ss);
     setStyle(slotEl, "z-index", "1995");                         // over the pinned windows, under the window being dragged
   }
   function cornerAt(x, y) {                         // a corner of the desktop (72px of both its edges - also pushed past them)
@@ -1075,7 +1115,14 @@ window.vosBeat = window.vosBeat || (() => {
     frac[id] = { x: r.x / s.width, y: r.y / s.height, w: r.w / s.width, h: r.h / s.height };
   }
   /* exact position:fixed origin for children of `parent` (a probe that never animates) */
+  let originCache = null;                           // (during a redraw: each origin measured once)
   function fixedOrigin(parent) {
+    if (originCache?.has(parent)) return originCache.get(parent);
+    const o = fixedOriginNow(parent);
+    originCache?.set(parent, o);
+    return o;
+  }
+  function fixedOriginNow(parent) {
     let probe = $(":scope > .ft-probe", parent);
     if (!probe) {
       probe = document.createElement("div");
@@ -1528,7 +1575,7 @@ window.vosBeat = window.vosBeat || (() => {
 
   let marked = new Map();                           // element -> { attr: value } from the last render
   let lastSiteTab = null;
-  function render() { const t = performance.now(); pipSideCache = new Map(); try { return renderNow(); } finally { pipSideCache = null; perf.render[0]++; perf.render[1] += performance.now() - t; } }
+  function render() { const t = performance.now(); pipSideCache = new Map(); originCache = new Map(); try { return renderNow(); } finally { pipSideCache = null; originCache = null; perf.render[0]++; perf.render[1] += performance.now() - t; } }
   let focusTry = { id: null, at: 0 };                 // the last window brought up because the keyboard focus was in it
   function renderNow() {
     reconcile();
@@ -1624,6 +1671,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     // measure everything first (one layout), then write
     const origins = new Map();
+    { const h = stack(); if (h) origins.set(h, fixedOrigin(h)); }   // (read now - later uses of it then cost nothing)
     for (const w of windows) {
       if (!origins.has(w.el.parentElement)) origins.set(w.el.parentElement, fixedOrigin(w.el.parentElement));
     }
@@ -2108,7 +2156,8 @@ window.vosBeat = window.vosBeat || (() => {
         pipDrag.mid = !side; if (side) pipDrag.side = side;
         const cn = cornerAt(last.clientX, last.clientY);
         pipDrag.corner = null;
-        pipDrag.slot = side ? (pinSlot(side, last.clientY, id) || (cn ? emptySlot(cn, cornerW(cn, id) ?? w0) : null)) : null; slotShow(pipDrag.slot);   // where it will sit
+        pipDrag.slot = side ? (pinSlot(side, last.clientY, id) || (cn ? emptySlot(cn, cornerW(cn, id) ?? w0) : null)) : null;
+        { const sw = pipDrag.slot ? (cornerW(pipDrag.slot.corner, id) ?? pipW.get(id) ?? w0) : 0; slotShow(pipDrag.slot, id, sw, pipH.get(id) ?? h0); }   // where it will sit
         setStyle(el, "z-index", "2050"); { const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // over the line and the other pinned windows
         const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
         el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
@@ -3042,7 +3091,8 @@ window.vosBeat = window.vosBeat || (() => {
           if (performance.now() - bColAt < 350) pz = null;
         } else bColSide = null;
         const pz2 = pz && pz.endsWith("!") ? pz.slice(0, 2) : pz;
-        bSlot = pz2 ? (pinSlot(pz2[1], last.cy, id) || emptySlot(pz2, cornerW(pz2, id) ?? Math.min(PIP_START_W, el.offsetWidth))) : null; slotShow(bSlot);
+        const bw = pz2 ? (cornerW(pz2, id) ?? Math.min(PIP_START_W, el.offsetWidth)) : 0;
+        bSlot = pz2 ? (pinSlot(pz2[1], last.cy, id) || emptySlot(pz2, bw)) : null; slotShow(bSlot, id, bw, bw * el.offsetHeight / Math.max(1, el.offsetWidth));
         const pc = bSlot ? bSlot.corner : pz2;
         if (pc !== bPin) { bPin = pc; pinLook(el, id, pc, sx - ss.left - r0.x, sy - ss.top - r0.y); }
         if (pc) { show(null); proposal = null; key = ""; clearTimeout(holdTimer); return; } }
@@ -3608,7 +3658,8 @@ window.vosBeat = window.vosBeat || (() => {
     let pinSl = null;
     const pinShow = (c, x, y) => {
       if (c && c.endsWith("!")) c = c.slice(0, 2);
-      pinSl = c ? (pinSlot(c[1], y, id) || emptySlot(c, cornerW(c, id) ?? Math.min(PIP_START_W, el.offsetWidth))) : null; slotShow(pinSl);   // the line: where it will sit
+      const pw = c ? (cornerW(c, id) ?? Math.min(PIP_START_W, el.offsetWidth)) : 0, ph = pw * el.offsetHeight / Math.max(1, el.offsetWidth);
+      pinSl = c ? (pinSlot(c[1], y, id) || emptySlot(c, pw)) : null; slotShow(pinSl, id, pw, ph);   // where it will sit
       if (c) { setStyle(el, "z-index", "2050"); const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // above the pinned windows while over them
       if (pinSl) c = pinSl.corner;
       if (c !== pinAt) pinLook(el, id, c, gx0, gy0);
@@ -6978,7 +7029,7 @@ window.vosBeat = window.vosBeat || (() => {
 
   // windows keep relative places when the desktop resizes (sidebar, window size)
   let observedStack = null;
-  const ro = new ResizeObserver(queueRender);
+  const ro = new ResizeObserver(() => { stackMoved(); queueRender(); });
   function watchStack() {
     const s = stack();
     if (!s || s === observedStack) return;
@@ -7113,8 +7164,9 @@ window.vosBeat = window.vosBeat || (() => {
       // this document, so it can't be floated here by mistake.
       const id = String(tab.id);
       floatOnLoad.add(id); floatOnLoadAt.set(id, Date.now());
-      if (/^https?:/.test(tab.pendingUrl || tab.url || "")) siteReady.add(id);
-      if (/^chrome:\/\/vivaldi-webui\/startpage/.test(tab.pendingUrl || tab.url || "") || !(tab.pendingUrl || tab.url)) startBorn.set(id, Date.now());
+      const fromPage = tab.openerTabId != null && !/^chrome:\/\/vivaldi-webui\/startpage/.test(tab.pendingUrl || tab.url || "");   // a link opened from an app
+      if (fromPage || /^https?:/.test(tab.pendingUrl || tab.url || "")) siteReady.add(id);   // (a site: a floating window from its first frame - never full size first)
+      else if (/^chrome:\/\/vivaldi-webui\/startpage/.test(tab.pendingUrl || tab.url || "") || !(tab.pendingUrl || tab.url)) startBorn.set(id, Date.now());
       droppedHere(tab);
       render();                                                     // float before it is ever drawn
     });
@@ -7157,7 +7209,7 @@ window.vosBeat = window.vosBeat || (() => {
     chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
       const id = String(tabId);
       const u = info.url || "";
-      if (floatOnLoad.has(id) && !siteReady.has(id) && u && !/^chrome:\/\/vivaldi-webui\/startpage|^about:blank|^chrome:\/\/newtab/i.test(u)) { siteReady.add(id); queueRender(); }
+      if (floatOnLoad.has(id) && !siteReady.has(id) && u && !/^chrome:\/\/vivaldi-webui\/startpage|^about:blank|^chrome:\/\/newtab/i.test(u)) { siteReady.add(id); render(); }   // (at once - not a frame later)
       if (info.title != null && titles.has(id)) { titles.set(id, info.title); queueRender(); }
       if (info.title != null && !titles.has(id) && [...splitFocus.values()].includes(id)) { titles.set(id, info.title); queueRender(); }
       if ((info.title != null || info.url != null) && (selected ? String(tab?.id) === selected : tab?.active)) updateSiteName();

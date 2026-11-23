@@ -1551,9 +1551,11 @@
 #browser .lp-iconpick .lp-ip-link { font: 12px -apple-system, "Segoe UI", system-ui, sans-serif !important; white-space: nowrap !important; color: var(--lp-blue, #007aff) !important; }
 
 /* 1.0.206: your own icon fills the icon's mask - no tile behind it, no margin */
-#browser .lp-tile:has(> img.lp-own) { background: transparent !important; overflow: hidden !important; }
+#browser .lp-tile:not(.lp-folder):has(> img.lp-own) { background: transparent !important; overflow: hidden !important; }
 #browser .lp-tile > img.lp-own { width: 100% !important; height: 100% !important; border-radius: inherit !important; object-fit: cover !important; }
 #browser .lp-det-icon img.lp-own { border-radius: var(--lp-round-icon, 16px) !important; object-fit: cover !important; }
 
 /* 1.0.207: your own icon - the same size as the others, no ring or shadow of a tile around it */
-#browser .lp-tile:has(> img.lp-own) { box-shadow: none !important; }
+#browser .lp-tile:not(.lp-folder):has(> img.lp-own) { box-shadow: none !important; }
+/* 1.0.210: a folder's little preview - your own icon as small as the others there, rounded like them */
+#browser .lp-tile.lp-folder > img.lp-mini.lp-own { width: 14px !important; height: 14px !important; object-fit: cover !important; border-radius: 3.5px !important; }
