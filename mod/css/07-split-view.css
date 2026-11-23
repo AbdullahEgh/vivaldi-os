@@ -1604,7 +1604,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    window's top edge brings them (the buttons themselves take no mouse yet); shown, their area grows around them and
    each button has a bigger target - the gaps and a near miss keep them. They are drawn exactly where they were. */
 #browser#browser [data-ft-float][data-ft-notitle] > .ft-titlebar :is(.ft-lights, .ft-right):not(:hover):not([data-ft-shown]):not([data-vos-ctrl-drag]) {
-  top: 0 !important; height: 8px !important; padding: 0 6px !important; box-sizing: border-box !important;
+  top: 0 !important; height: 6px !important; padding: 0 6px !important; box-sizing: border-box !important;   /* 1.0.226: 6px */
   align-items: flex-start !important; overflow: visible !important;
 }
 #browser#browser [data-ft-float][data-ft-notitle] > .ft-titlebar :is(.ft-lights, .ft-right):not(:hover):not([data-ft-shown]):not([data-vos-ctrl-drag]) .ft-light {
