@@ -956,7 +956,16 @@ window.vosBeat = window.vosBeat || (() => {
     if (!col.length) return null;
     let i = col.findIndex(([, r]) => ly < r.y + r.h / 2); if (i < 0) i = col.length;
     const V = col.map(([p]) => p), nTop = V.filter(p => (pipCorner.get(p) || "bl")[0] === "t").length;
-    const corner = (i < nTop ? "t" : i > nTop ? "b" : ly < ss.height / 2 ? "t" : "b") + side;   // between the top ones: top; between the bottom ones: bottom; else where it is dropped
+    let v = i < nTop ? "t" : i > nTop ? "b" : null;                  // between the top ones: top; between the bottom ones: bottom
+    if (!v) {                                                        // between the two groups: the nearer one (the middle of the free gap)
+      const gTop = nTop ? col[nTop - 1][1].y + col[nTop - 1][1].h : 0, gBot = nTop < col.length ? col[nTop][1].y : ss.height;
+      v = ly < (gTop + gBot) / 2 ? "t" : "b";
+    }
+    // the far ends always reach the other group - even when the pinned ones fill the column: its top quarter is the top,
+    // its bottom quarter the bottom (two pinned at the bottom: a new one still goes to the top easily)
+    if (nTop === 0 && ly < ss.height * 0.25) { i = 0; v = "t"; }
+    if (nTop === col.length && ly > ss.height * 0.75) { i = col.length; v = "b"; }
+    const corner = v + side;
     const last = col[col.length - 1][1];
     const yAt = i === 0 ? col[0][1].y - PIP_GAP / 2 : i === col.length ? last.y + last.h + PIP_GAP / 2 : (col[i - 1][1].y + col[i - 1][1].h + col[i][1].y) / 2;
     const x = Math.min(...col.map(([, r]) => r.x)), w = Math.max(...col.map(([, r]) => r.x + r.w)) - x;
@@ -982,7 +991,8 @@ window.vosBeat = window.vosBeat || (() => {
       if (!pip.includes(id)) pip.push(id);
       pipCorner.set(id, slot.corner); pipW.set(id, W); pipH.set(id, H);
       pinOrder(id, slot);
-      return pipSideNow(slot.side, stackRect()).get(id) || null;
+      const all = pipSideNow(slot.side, stackRect()), r = all.get(id);
+      return r ? { ...r, all } : null;
     } catch (e) { return null; }
     finally {
       pip.length = 0; pip.push(...save.pip); pipDrag = save.drag;
@@ -994,7 +1004,13 @@ window.vosBeat = window.vosBeat || (() => {
     const host = stack(); if (!host) return;
     const ss = stackRect(), R = id != null ? slotRect(id, slot, W, H) : null;
     const nTop = slot.V.filter(p => (pipCorner.get(p) || "bl")[0] === "t").length;
-    const between = !!R && nTop > 0 && nTop < slot.V.length && slot.i === nTop;   // in the gap between the top and the bottom ones
+    let between = false;                             // the box only when it will fill the gap between the top and the bottom ones
+    if (R && nTop > 0 && nTop < slot.V.length && slot.i === nTop) {
+      const o = [...R.all].filter(([p]) => p !== id).map(([, r]) => r);
+      const up = o.filter(r => r.y < R.y), dn = o.filter(r => r.y > R.y);
+      const upEdge = up.length ? Math.max(...up.map(r => r.y + r.h)) : null, dnEdge = dn.length ? Math.min(...dn.map(r => r.y)) : null;
+      between = upEdge != null && dnEdge != null && R.y - upEdge <= PIP_GAP + 6 && dnEdge - (R.y + R.h) <= PIP_GAP + 6;
+    }
     if (between) {
       slotEl?.remove(); slotEl = null;
       if (!plotEl) { plotEl = document.createElement("div"); plotEl.className = "ft-snap-preview vos-pin-plot"; host.appendChild(plotEl); }
@@ -2156,7 +2172,8 @@ window.vosBeat = window.vosBeat || (() => {
         pipDrag.mid = !side; if (side) pipDrag.side = side;
         const cn = cornerAt(last.clientX, last.clientY);
         pipDrag.corner = null;
-        pipDrag.slot = side ? (pinSlot(side, last.clientY, id) || (cn ? emptySlot(cn, cornerW(cn, id) ?? w0) : null)) : null;
+        const ec = cn || (side && ((last.clientY - s0.top < s0.height / 2 ? "t" : "b") + side));   // (alone on its side: top or bottom, shown too)
+        pipDrag.slot = side ? (pinSlot(side, last.clientY, id) || emptySlot(ec, cornerW(ec, id) ?? w0)) : null;
         { const sw = pipDrag.slot ? (cornerW(pipDrag.slot.corner, id) ?? pipW.get(id) ?? w0) : 0; slotShow(pipDrag.slot, id, sw, pipH.get(id) ?? h0); }   // where it will sit
         setStyle(el, "z-index", "2050"); { const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // over the line and the other pinned windows
         const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
