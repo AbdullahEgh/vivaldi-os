@@ -702,6 +702,7 @@ window.vosBeat = window.vosBeat || (() => {
         const want = floating.has(id) ? { r: frac[id] || bento.pre[id], nt: noTitle.has(id), g: groupFloat.has(id) || undefined,
                                           z: zoomOf[id] ? +zoomOf[id].toFixed(3) : undefined,
                                           h: pc ? { c: pc, h: Math.round(pipH.get(id) || 240), w: Math.round(pipW.get(id) || 360) } : undefined,   // held small: its corner and size
+                                          m: minimized.has(id) && minKind.get(id) === "float" ? 1 : undefined,   // minimized: so again after a restart
  } : undefined;
         if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want)) return;
         if (want) ext[EXT_KEY] = want; else delete ext[EXT_KEY];
@@ -748,6 +749,7 @@ window.vosBeat = window.vosBeat || (() => {
           pipCorner.set(id, c); if (f.h.h) pipH.set(id, f.h.h); if (f.h.w) pipW.set(id, f.h.w);
           pip.push(id);
         }
+        if (f.m && !f.h) { minimized.add(id); minKind.set(id, "float"); }   // minimized before the restart: so again (its tab brings it back)
         noTitle.add(id);                                          // floating windows never show a title bar
         if (f.g) groupFloat.add(id);
         if (f.z && Math.abs(f.z - 1) > 0.01) zoomOf[id] = f.z;
@@ -1653,7 +1655,7 @@ window.vosBeat = window.vosBeat || (() => {
 
   function restore(id) {
     if (!minimized.delete(id)) return;
-    minKind.delete(id);
+    minKind.delete(id); persist(id);
     if (floating.has(id)) raise(id);
     activate(id);
     render();
@@ -1776,7 +1778,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (floating.has(id)) {
           // floating window: focus the next one; if none, stay on the desktop
           // (wallpaper) with this tab active, like an empty macOS desktop
-          minimized.add(id); minKind.set(id, "float");
+          minimized.add(id); minKind.set(id, "float"); persist(id);
           const next = topWindow(id);
           if (next) { raise(next); activate(next); }
         } else if (tiled) {
