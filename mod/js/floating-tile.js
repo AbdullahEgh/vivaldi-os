@@ -975,6 +975,11 @@ window.vosBeat = window.vosBeat || (() => {
     const ss = stackRect(), side = c[1];
     return { side, i: 0, V: [], corner: c, x: side === "r" ? ss.width - MARGIN - w : MARGIN, w, y: c[0] === "t" ? MARGIN / 2 : ss.height - MARGIN / 2 };
   }
+  function fillGap(id, slot) {                       // dropped into the gap between the top and the bottom ones: the box shown
+    const f = slot?.fill; if (!f) return;
+    const h = Math.max(100, Math.round(f.h));
+    pipH.set(id, h); pipAspect.set(id, h / Math.max(1, pipW.get(id) || f.w));
+  }
   function pinOrder(id, slot) {                     // that place: its corner, and its turn in the column
     const V = slot.V.filter(p => p !== id); V.splice(Math.min(slot.i, V.length), 0, id);
     pipCorner.set(id, slot.corner);
@@ -1016,6 +1021,7 @@ window.vosBeat = window.vosBeat || (() => {
       const now = pipSide(slot.side, ss), a = now.get(slot.V[nTop - 1]), z = now.get(slot.V[nTop]);
       if (a && z) { const y = a.y + a.h + PIP_GAP, h = z.y - PIP_GAP - y; if (h >= 40) gap = { x: R.x, y, w: R.w, h }; }
     }
+    slot.fill = gap;                                 // (dropped there: it takes exactly that box)
     if (gap) {
       slotEl?.remove(); slotEl = null;
       if (!plotEl) { plotEl = document.createElement("div"); plotEl.className = "ft-snap-preview vos-pin-plot"; host.appendChild(plotEl); }
@@ -1061,10 +1067,18 @@ window.vosBeat = window.vosBeat || (() => {
     e.style.setProperty("border-radius", r, "important");
     e.style.setProperty("clip-path", `inset(0 round ${r})`, "important");
   }
-  function pinLook(el, id, c, ox, oy) {             // the window itself shrinks toward its pinned size (back when it leaves) - around
+  function pinLook(el, id, c, ox, oy, glide) {      // (glide: leaving the pin place while held - it grows back, animated)             // the window itself shrinks toward its pinned size (back when it leaves) - around
                                                      // the point where it is held (ox, oy: in its own box), so it stays under the pointer
     for (const e of [el, frames.get(id)]) {
       if (!e) continue;
+      if (!c && glide && e.hasAttribute("data-vos-pinlook")) {      // back to its full size - the same smooth scale as on the way in
+        e.style.setProperty("scale", "1", "important");
+        if (e === el) roundAs(e, 1, el.__vosRad ?? 12);
+        const tok = e.__vosGlide = {};
+        setTimeout(() => { if (e.__vosGlide !== tok) return; e.__vosGlide = null; e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); e.removeAttribute("data-vos-pinlook"); if (e === el) roundAs(e, null); }, 260);
+        continue;
+      }
+      e.__vosGlide = null;                                           // (a glide back still running: it is this look now)
       if (!c) { e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); e.removeAttribute("data-vos-pinlook"); if (e === el) roundAs(e, null); continue; }   // (all of it: its own glide setting too - else Mission Control could not move it smoothly)
       const m = pinMem.get(id), W = cornerW(c, id) ?? (m?.c?.[1] === c[1] && m.w ? m.w : Math.min(PIP_START_W, el.offsetWidth));
       const k = Math.max(0.15, Math.min(1, W / Math.max(1, el.offsetWidth))), o = e === el ? 0 : RING;
@@ -1084,7 +1098,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (cover === id) cover = null;
       if (backToBento.delete(id)) bento.skip.delete(id);
       pinBack(id, slot?.corner || c, r);
-      if (slot) pinOrder(id, slot);                                  // between the ones it was dropped between
+      if (slot) { pinOrder(id, slot); fillGap(id, slot); }           // between the ones it was dropped between
       persist(id); render();
     });
   }
@@ -2221,7 +2235,7 @@ window.vosBeat = window.vosBeat || (() => {
         const to2 = d.corner || d.slot?.corner || to;
         { const w = cornerW(to2, id); if (w) pipFit(id, to2, w); }   // that side's width, its own shape
         pipCorner.set(id, to2);
-        if (d.slot) pinOrder(id, d.slot); else { pip.splice(pip.indexOf(id), 1); pip.push(id); }   // between the ones it was dropped between
+        if (d.slot) { pinOrder(id, d.slot); fillGap(id, d.slot); } else { pip.splice(pip.indexOf(id), 1); pip.push(id); }   // between the ones it was dropped between
         pipZoom(id, true);
         persist(id);
         render();
@@ -3116,7 +3130,7 @@ window.vosBeat = window.vosBeat || (() => {
         const bw = pz2 ? (cornerW(pz2, id) ?? Math.min(PIP_START_W, el.offsetWidth)) : 0;
         bSlot = pz2 ? (pinSlot(pz2[1], last.cy, id) || emptySlot(pz2, bw)) : null; slotShow(bSlot, id, bw, bw * el.offsetHeight / Math.max(1, el.offsetWidth));
         const pc = bSlot ? bSlot.corner : pz2;
-        if (pc !== bPin) { bPin = pc; pinLook(el, id, pc, sx - ss.left - r0.x, sy - ss.top - r0.y); }
+        if (pc !== bPin) { bPin = pc; pinLook(el, id, pc, sx - ss.left - r0.x, sy - ss.top - r0.y, true); }
         if (pc) { show(null); proposal = null; key = ""; clearTimeout(holdTimer); return; } }
       if (desk) {                                                    // the desktops are down: which one is under the pointer
         const card = document.elementsFromPoint(last.cx, last.cy).find(n => n.classList?.contains("vos-ws-card") && !n.classList.contains("vos-ws-more") && !n.hasAttribute("data-current")) || null;
@@ -3684,7 +3698,7 @@ window.vosBeat = window.vosBeat || (() => {
       pinSl = c ? (pinSlot(c[1], y, id) || emptySlot(c, pw)) : null; slotShow(pinSl, id, pw, ph);   // where it will sit
       if (c) { setStyle(el, "z-index", "2050"); const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // above the pinned windows while over them
       if (pinSl) c = pinSl.corner;
-      if (c !== pinAt) pinLook(el, id, c, gx0, gy0);
+      if (c !== pinAt) pinLook(el, id, c, gx0, gy0, true);
       pinAt = c;
     };
     const pinZone = (x, y) => how !== "move" || deskDrop || inMission ? null : pinZoneAt(x, y, id);
