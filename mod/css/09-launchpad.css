@@ -1567,3 +1567,9 @@
 #browser .lp-iconpick .lp-ip-pv { display: inline-flex !important; width: 18px !important; height: 18px !important; border-radius: 5px !important; overflow: hidden !important; background: rgba(128, 128, 128, 0.18) !important; }
 #browser .lp-iconpick .lp-ip-pv:empty { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.45) !important; }
 #browser .lp-iconpick .lp-ip-pv img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+
+/* 1.0.218: the icon picker is a draft - Cancel / Save at the top; the picked icon marked */
+#browser .lp-iconpick .lp-ip-top { display: flex !important; align-items: center !important; gap: 8px !important; margin: 0 0 10px !important; }
+#browser .lp-iconpick .lp-ip-top .lp-ip-mode { flex: 1 !important; margin: 0 !important; }
+#browser .lp-iconpick .lp-ip-save[disabled] { opacity: 0.45 !important; cursor: default !important; }
+#browser .lp-iconpick .lp-ip-cell[data-sel] { background: var(--lp-chip, rgba(118, 118, 128, 0.16)) !important; box-shadow: inset 0 0 0 2px var(--colorHighlightBg, #007aff) !important; }
