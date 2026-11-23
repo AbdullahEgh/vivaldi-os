@@ -194,11 +194,30 @@ window.vosBeat = window.vosBeat || (() => {
     const slots = new Map();
     if (!mission || !list.length) return slots;
     const PAD = 24, GAP = 28, top = mission.oy, aw = s.width - 2 * PAD, ah = s.height - top - PAD;
-    const items = list.map(({ id, r }) => ({ id, r: r || pxRect(id, s) })).sort((a, b) => (a.r.y + a.r.h / 2) - (b.r.y + b.r.h / 2) || a.r.x - b.r.x);
+    const all = list.map(({ id, r }) => ({ id, r: r || pxRect(id, s) }));
+    // grouped by where they are: the pinned windows of the left side at the left, of the right side at the right
+    // (each side one column, close together), every other window in the middle - none over another
+    const sideOf = it => pip.includes(it.id) ? (pipCorner.get(it.id) || "bl")[1] : "m";
+    const L = all.filter(it => sideOf(it) === "l").sort((a, b) => a.r.y - b.r.y), R = all.filter(it => sideOf(it) === "r").sort((a, b) => a.r.y - b.r.y);
+    const M = all.filter(it => sideOf(it) === "m");
+    const SW = Math.round(aw * 0.2);                                 // a side's column
+    const column = (items, x) => {                                   // one above the other, as a block in the middle of the height
+      if (!items.length) return;
+      const ch = (ah - GAP * (items.length - 1)) / items.length;
+      const ks = items.map(it => Math.min(0.85, SW / it.r.w, ch / it.r.h));
+      const total = items.reduce((t, it, i) => t + it.r.h * ks[i], 0) + GAP * (items.length - 1);
+      let y = top + Math.max(0, (ah - total) / 2);
+      items.forEach((it, i) => { const k = ks[i], w = it.r.w * k, h = it.r.h * k; slots.set(it.id, { k, r: it.r, x: x + (SW - w) / 2, y }); y += h + GAP; });
+    };
+    column(L, PAD);
+    column(R, PAD + aw - SW);
+    if (!M.length) return slots;
+    const mx = PAD + (L.length ? SW + GAP : 0), mw = aw - (L.length ? SW + GAP : 0) - (R.length ? SW + GAP : 0);
+    const items = M.sort((a, b) => (a.r.y + a.r.h / 2) - (b.r.y + b.r.h / 2) || a.r.x - b.r.x);
     const n = items.length;
     let best = null;
     for (let cols = 1; cols <= n; cols++) {                         // the grid that shows them largest
-      const rows = Math.ceil(n / cols), cw = (aw - GAP * (cols - 1)) / cols, ch = (ah - GAP * (rows - 1)) / rows;
+      const rows = Math.ceil(n / cols), cw = (mw - GAP * (cols - 1)) / cols, ch = (ah - GAP * (rows - 1)) / rows;
       if (cw <= 0 || ch <= 0) continue;
       const k = Math.min(...items.map(it => Math.min(cw / it.r.w, ch / it.r.h)));
       if (!best || k > best.k) best = { cols, rows, cw, ch, k };
@@ -211,7 +230,7 @@ window.vosBeat = window.vosBeat || (() => {
       const off = (cols - part.length) * (cw + GAP) / 2;            // a shorter last row is centred
       part.forEach((it, c) => {
         const k = Math.min(0.85, cw / it.r.w, ch / it.r.h), w = it.r.w * k, h = it.r.h * k;
-        slots.set(it.id, { k, r: it.r, x: PAD + off + c * (cw + GAP) + (cw - w) / 2, y: top + row * (ch + GAP) + (ch - h) / 2 });
+        slots.set(it.id, { k, r: it.r, x: mx + off + c * (cw + GAP) + (cw - w) / 2, y: top + row * (ch + GAP) + (ch - h) / 2 });
       });
     }
     return slots;
@@ -1851,7 +1870,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (action === "res") {                        // more room for the site: the page renders smaller
       if (!floating.has(id)) return;
       if (pip.includes(id)) {                        // held small: its own scale steps (kept while it is small)
-        const steps = [0.4, 0.55, 0.7, 0.85, 1], now = pipUserZoom.get(id) ?? (pipZoomWas.get(id) ?? 1) * PIP_K;
+        const steps = [0.4, 0.55, 0.7, 0.85, 1], now = pipUserZoom.get(id) ?? PIP_K;
         const i = steps.findIndex(z => Math.abs(z - now) < 0.02), z = steps[(i + 1) % steps.length];
         pipUserZoom.set(id, z);
         webviewsOf(id).forEach(wv => { zoomSet.delete(wv); setWebZoom(wv, z); });
@@ -2037,15 +2056,13 @@ window.vosBeat = window.vosBeat || (() => {
   /* held small: the page gets smaller with its window (55%, 1:1); back to normal, it gets its own scale back
      (100%, or whatever it was). In between you can change it - it is not forced. */
   function pipZoom(id, on) {
+    // pinned: 55% (or the scale you gave it while pinned); out of the pin: 100% - nothing else to remember
+    if (!on) { pipUserZoom.delete(id); delete zoomOf[id]; }
     webviewsOf(id).forEach(wv => {
-      const pid = wv.closest(".webpageview")?.dataset.id || id, own = pageZoom[pid] ?? zoomOf[id];
-      if (on) {
-        const put = z => { const was = Number(z) > 0 ? Number(z) : (own ?? 1); if (!pipZoomWas.has(pid)) pipZoomWas.set(pid, pipZoomWas.get(id) ?? was); setWebZoom(wv, pipUserZoom.get(id) ?? pipZoomWas.get(pid) * PIP_K); };   // (a restart: the saved scales)
-        try { wv.getZoom(put); } catch (_) { put(own ?? 1); }
-      } else {
-        const was = pipZoomWas.get(pid); pipZoomWas.delete(pid); pipUserZoom.delete(id);
-        zoomSet.delete(wv); setWebZoom(wv, was ?? own ?? 1);
-      }
+      const pid = wv.closest(".webpageview")?.dataset.id || id;
+      pipZoomWas.delete(pid); delete pageZoom[pid];
+      zoomSet.delete(wv);
+      setWebZoom(wv, on ? (pipUserZoom.get(id) ?? PIP_K) : 1);
     });
   }
   setTimeout(() => { for (const id of pip) pipZoom(id, true); }, 4000);   // held small before a restart: its page small again
@@ -2236,7 +2253,7 @@ window.vosBeat = window.vosBeat || (() => {
     for (const id of floating) webviewsOf(id).forEach(wv => {
       const own = pageZoom[wv.closest(".webpageview")?.dataset.id];
       let z = own ?? zoomOf[id];
-      if (pip.includes(id)) { const was = pipZoomWas.get(wv.closest(".webpageview")?.dataset.id || id); if (pipUserZoom.has(id)) z = pipUserZoom.get(id); else if (was != null) z = was * PIP_K; }   // held small: still small after a new page loads (at the scale you chose)
+      if (pip.includes(id)) z = pipUserZoom.get(id) ?? PIP_K;      // pinned: still small after a new page loads (55%, or the scale you chose)
       if (z) setWebZoom(wv, z);
     });
   }
