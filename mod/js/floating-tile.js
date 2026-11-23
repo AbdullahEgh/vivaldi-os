@@ -494,21 +494,42 @@ window.vosBeat = window.vosBeat || (() => {
   }
   /* an address-bar popup (a site asks for the clipboard, a password to save...) opens
      under the address field, where its button is - not in the top-left corner */
+  /* Vivaldi's address-bar popups (save the password, a site's permissions...): under the address field, and always
+     whole on the screen - fitted again while the popup grows to its real size and finishes its own opening animation
+     (measured then: a popup measured mid-animation, or before its content, landed partly off the screen) */
   function placePopup(p) {
-    const af = document.querySelector("#browser .UrlBar-AddressField"), ar = af?.getBoundingClientRect();
-    const w = p.offsetWidth || 320, h = p.offsetHeight || 160;
-    let tx, ty;
-    if (ar && ar.width) {
-      tx = Math.max(8, Math.min(ar.left, innerWidth - w - 8));
-      ty = ar.top > innerHeight / 2 ? ar.top - h - 6 : ar.bottom + 6;  // the tab bar at the bottom: above it
-    } else { tx = (innerWidth - w) / 2; ty = 48; }
-    const set = (x, y) => { p.style.setProperty("--vos-pop-x", Math.round(x) + "px"); p.style.setProperty("--vos-pop-y", Math.round(y) + "px"); };
+    if (p.__vosPop) return; p.__vosPop = true;
     p.setAttribute("data-vos-pop", "");
-    set(tx, ty);
-    requestAnimationFrame(() => {                                    // inside a box that moves it: make up the difference
-      const r = p.getBoundingClientRect(), dx = tx - r.left, dy = ty - r.top;
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) set(tx + dx, ty + dy);
-    });
+    let cx = 0, cy = 0;
+    const set = (x, y) => { cx = Math.round(x); cy = Math.round(y); p.style.setProperty("--vos-pop-x", cx + "px"); p.style.setProperty("--vos-pop-y", cy + "px"); };
+    const target = r => {                                            // where it should be, for its size now
+      const af = document.querySelector("#browser .UrlBar-AddressField"), ar = af?.getBoundingClientRect();
+      const w = r.width || p.offsetWidth || 320, h = r.height || p.offsetHeight || 160, M = 8;
+      let tx, ty;
+      if (ar && ar.width) {
+        tx = ar.left;
+        ty = ar.top > innerHeight / 2 ? ar.top - h - 6 : ar.bottom + 6;   // the tab bar at the bottom: above it
+      } else { tx = (innerWidth - w) / 2; ty = 48; }
+      tx = Math.max(M, Math.min(tx, innerWidth - w - M));             // whole on the screen
+      ty = Math.max(M, Math.min(ty, innerHeight - h - M));
+      return { tx, ty };
+    };
+    const box = () => {                                              // what is seen: the popup, or its card when the popup is only a holder
+      let r = p.getBoundingClientRect();
+      if (r.width < 20 || r.height < 20) for (const c of p.children) { const q = c.getBoundingClientRect(); if (q.width * q.height > r.width * r.height) r = q; }
+      return r;
+    };
+    const fit = () => {
+      if (!p.isConnected) return;
+      const r = box(), { tx, ty } = target(r);
+      if (Math.abs(tx - r.left) > 1 || Math.abs(ty - r.top) > 1) set(cx + (tx - r.left), cy + (ty - r.top));   // (inside a box that moves it: the difference made up)
+    };
+    { const { tx, ty } = target({ width: 0, height: 0 }); set(tx, ty); }
+    const t0 = performance.now();
+    const loop = () => { fit(); if (p.isConnected && performance.now() - t0 < 900) requestAnimationFrame(loop); };   // through its opening animation
+    requestAnimationFrame(loop);
+    try { const ro = new ResizeObserver(() => fit()); ro.observe(p); setTimeout(() => ro.disconnect(), 4000); } catch (e) {}
+    setTimeout(fit, 1200);
   }
   const tiledSeen = new Map();                                       // tab id -> { on, at }
   let pillRecheck = 0;
