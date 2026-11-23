@@ -155,22 +155,24 @@
       }
     } catch (e) {}
   }
-  let syncingIcons = false;
+  let syncingIcons = false, syncAgain = false;
   async function iconsFromSync() {                  // icons picked on another device: loaded here (once each)
-    if (syncingIcons) return; syncingIcons = true;
+    if (syncingIcons) { syncAgain = true; return; }                 // (a change while it runs: one more pass after it - never lost)
+    syncingIcons = true; syncAgain = false;
     try {
       const m = await srcs(), tree = await new Promise(r => chrome.bookmarks.getTree(t => { void chrome.runtime.lastError; r(t || []); }));
       const want = [];
       (function walk(ns) { for (const n of ns || []) {
         if (n.url) {
           const l = /Bento OS icon: (https:\/\/\S+)/.exec(n.description || "")?.[1], d = /Bento OS dark icon: (https:\/\/\S+)/.exec(n.description || "")?.[1] || l;   // (no dark line: the same for both)
-          if (l && m[n.url] !== l) want.push([n.url, l, "light", n.url]);
-          if (d && m[n.url + "#dark"] !== d) want.push([n.url, d, "dark", n.url + "#dark"]);
+          if (l && (m[n.url] !== l || !ownIcon(n.url, "light"))) want.push([n.url, l, "light", n.url]);   // (new here - or its copy here is gone)
+          if (d && (m[n.url + "#dark"] !== d || !ownIcon(n.url, "dark"))) want.push([n.url, d, "dark", n.url + "#dark"]);
         }
         walk(n.children); } })(tree);
       for (const [u, src, w, k] of want) await new Promise(r => { iconFrom(u, src, () => { m[k] = src; stSet(ICON_SRC, m); r(); }, 0, w); setTimeout(r, 8000); });
     } catch (e) {}
     syncingIcons = false;
+    if (syncAgain) setTimeout(iconsFromSync, 300);
   }
   setTimeout(iconsFromSync, 4000);
   { let t = 0; const soon = () => { clearTimeout(t); t = setTimeout(iconsFromSync, 1500); };

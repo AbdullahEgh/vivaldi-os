@@ -173,3 +173,56 @@
 
   start();
 })();
+
+/* 1.0.219: an icon as dark as its circle (a dark icon in dark mode - or a white one in light mode) vanished into it: such a
+   tab's circle gets a soft plate that contrasts with the icon. Each icon is measured once (a tiny sample, kept) */
+(() => {
+  "use strict";
+  const seen = new Map();                            // icon address -> its brightness (0..1, null: no answer)
+  const favOf = new Map(), favAsked = new Set();     // tab -> its site icon's address
+  const busy = new Set();
+  async function brightness(src) {
+    if (seen.has(src)) return seen.get(src);
+    if (busy.has(src)) return undefined;
+    busy.add(src);
+    let v = null;
+    try {                                            // (fetched: an <img> from chrome:// would lock the canvas)
+      const blob = await (await fetch(src)).blob();
+      if (/^text\//.test(blob.type)) { busy.delete(src); seen.set(src, "broken"); return "broken"; }   // a page, not a picture: no icon really
+      const bmp = await createImageBitmap(blob);
+      const N = 16, c = document.createElement("canvas"); c.width = c.height = N;
+      const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, N, N);
+      const d = g.getImageData(0, 0, N, N).data; let s = 0, n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 120) { s += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++; }
+      v = n > 12 ? s / n : null;                     // (almost nothing drawn: leave it)
+    } catch (e) {}
+    busy.delete(src); seen.set(src, v);
+    return v;
+  }
+  let t = 0;
+  function check() {
+    t = 0;
+    const b = document.getElementById("browser"); if (!b) return;
+    const dark = b.classList.contains("theme-dark");
+    for (const tab of document.querySelectorAll("#tabs-container .tab")) {
+      // the site's own icon address (Vivaldi's chrome://favicon2 picture cannot be read by a script)
+      const id = Number((tab.closest(".tab-wrapper")?.id || tab.querySelector(".tab-wrapper")?.id || tab.closest(".tab-position")?.querySelector(".tab-wrapper")?.id || "").slice(4));
+      const src = favOf.get(id) || "";
+      if (id && !favAsked.has(id)) { favAsked.add(id); try { chrome.tabs.get(id, x => { void chrome.runtime.lastError; favAsked.delete(id); const f = x?.favIconUrl || ""; if (/^(https?:|data:image)/.test(f) && favOf.get(id) !== f) { favOf.set(id, f); soon(); } }); } catch (e) { favAsked.delete(id); } }
+      if (!src) { tab.removeAttribute("data-vos-plate"); continue; }
+      const v = seen.get(src);
+      if (v === undefined) { brightness(src).then(x => { if (x !== undefined) soon(); }); continue; }
+      const want = typeof v !== "number" ? null : dark && v < 0.22 ? "light" : !dark && v > 0.86 ? "dark" : null;
+      if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
+      else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
+    }
+  }
+  const soon = () => { if (!t) t = setTimeout(check, 250); };
+  (function watch() {
+    const tc = document.getElementById("tabs-container"), b = document.getElementById("browser");
+    if (!tc || !b) return setTimeout(watch, 800);
+    new MutationObserver(soon).observe(tc, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+    new MutationObserver(soon).observe(b, { attributes: true, attributeFilter: ["class"] });
+    soon();
+  })();
+})();

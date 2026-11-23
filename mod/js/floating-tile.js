@@ -1861,10 +1861,15 @@ window.vosBeat = window.vosBeat || (() => {
   }
 
   /* black or white text, from how bright the wallpaper is behind the clock */
-  let toneFor = null, toneBusy = false, toneTimer = 0;
+  let toneFor = null, toneBusy = false, toneTimer = 0, toneLook = "";
   function clockTone() {
     const b = browserEl();
     if (!b || toneBusy) return;
+    // (performance) the wallpaper can only have changed with #browser's classes / style or the page's own style: else
+    // nothing to read - reading the style would make the browser work all its styles out again, right then
+    const look = b.className + "|" + (b.getAttribute("style") || "") + "|" + (document.documentElement.getAttribute("style") || "");
+    if (look === toneLook && toneFor !== null) return;
+    toneLook = look;
     const cs = getComputedStyle(b);
     const img = cs.getPropertyValue("--browserBackgroundImage").trim();
     const color = cs.getPropertyValue("--browserBackgroundColor").trim();
