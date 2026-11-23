@@ -252,3 +252,4 @@
 #browser #tabs-container .tab[data-vos-plate="light"]:hover { background-color: color-mix(in srgb, var(--colorFg) 30%, var(--colorBg)) !important; }
 #browser #tabs-container .tab[data-vos-plate="dark"],
 #browser #tabs-container .tab[data-vos-plate="dark"]:hover { background-color: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
+#browser #tabs-container .tab { transition: background-color 0.22s ease !important; }   /* (the plate comes and goes softly) */

@@ -1593,3 +1593,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.210: joining between the top and the bottom pinned windows - the box it will fill */
 #browser #webpage-stack > .vos-pin-plot { pointer-events: none !important; border-radius: 12px !important; }
+
+/* 1.0.223: the pin marker and the gap's box come in softly (GPU only: opacity and scale) */
+@keyframes vos-pin-pop { from { opacity: 0; scale: 0.6 1; } to { opacity: 1; scale: 1 1; } }
+@keyframes vos-plot-in { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
+#browser #webpage-stack > .vos-pin-slot { animation: vos-pin-pop 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser #webpage-stack > .vos-pin-plot { animation: vos-plot-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }

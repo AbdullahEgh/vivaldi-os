@@ -1586,3 +1586,15 @@
 #browser .lp-iconpick .lp-ip-pv:empty { background: transparent !important; box-shadow: inset 0 0 0 1.5px rgba(128, 128, 128, 0.45) !important; }
 #browser .lp-iconpick .lp-ip-pv img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
 #browser .lp-iconpick .lp-ip-v[data-on] .lp-ip-pv { outline: 2.5px solid var(--colorHighlightBg, #007aff) !important; outline-offset: 2px !important; }
+
+/* 1.0.223: the icon picker opens like a macOS sheet (a soft spring), its picked icon pops in */
+@keyframes lp-ip-in { from { opacity: 0; scale: 0.94; } to { opacity: 1; scale: 1; } }
+@keyframes lp-ip-pick { 0% { scale: 0.86; } 60% { scale: 1.06; } 100% { scale: 1; } }
+#browser .lp-iconpick { animation: lp-ip-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.06) both !important; }
+#browser .lp-iconpick .lp-ip-pv img { animation: lp-ip-pick 0.28s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser .lp-iconpick .lp-ip-cell { transition: background-color 0.15s ease, box-shadow 0.15s ease !important; }
+#browser .lp-iconpick .lp-ip-cell img { transition: scale 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser .lp-iconpick .lp-ip-cell:hover img { scale: 1.06 !important; }
+#browser .lp-iconpick .lp-ip-cell:active img { scale: 0.94 !important; }
+#browser .lp-iconpick .lp-ip-v .lp-ip-pv { transition: outline-color 0.18s ease, scale 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser .lp-iconpick .lp-ip-v:active .lp-ip-pv { scale: 0.95 !important; }

@@ -218,6 +218,7 @@
       for (const b of box.querySelectorAll(".lp-ip-v")) {
         b.toggleAttribute("data-on", b.dataset.v === which);
         const pv = b.querySelector(".lp-ip-pv"), d = draft[b.dataset.v]?.data || ownIcon(url, b.dataset.v);
+        if ((pv.firstChild?.getAttribute?.("src") || null) === (d || null)) continue;   // (unchanged: kept - only a new icon pops in)
         pv.textContent = ""; if (d) { const im = document.createElement("img"); im.src = d; im.alt = ""; pv.appendChild(im); }
       }
     };
@@ -669,9 +670,9 @@
     const merge = st.merge;
     setMerge(st, null);
     const goal = (merge || st.el).querySelector(".lp-tile").getBoundingClientRect();
-    st.ghost.animate([{ left: st.ghost.style.left, top: st.ghost.style.top, opacity: 1 },
-                      { left: goal.left + "px", top: goal.top + "px", opacity: merge ? 0 : 1 }],
-                     { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
+    st.ghost.animate([{ translate: "0px 0px", scale: "1", opacity: 1 },   // (moved on the GPU - no layout each frame; it settles from lifted to its size)
+                      { translate: `${goal.left - parseFloat(st.ghost.style.left)}px ${goal.top - parseFloat(st.ghost.style.top)}px`, scale: String(1 / 1.1), opacity: merge ? 0 : 1 }],
+                     { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
     st.el.removeAttribute("data-drag-src");
     lp?.layer.removeAttribute("data-dragging");
     justDragged = true; setTimeout(() => { justDragged = false; }, 60);
@@ -2379,8 +2380,8 @@
       el.__w = widgets.find(w => w.id === el.__w?.id) || el.__w;
       for (const c of lp.grid.querySelectorAll(".lp-widget")) if (c.__w) { c.__w = widgets.find(w => w.id === c.__w.id) || c.__w; pinEdge(c, c.__w); }
       const goal = el.querySelector(".lp-wcard").getBoundingClientRect();
-      st.ghost.animate([{ left: st.ghost.style.left, top: st.ghost.style.top }, { left: goal.left + "px", top: goal.top + "px" }],
-                       { duration: 180, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
+      st.ghost.animate([{ translate: "0px 0px" }, { translate: `${goal.left - parseFloat(st.ghost.style.left)}px ${goal.top - parseFloat(st.ghost.style.top)}px` }],
+                       { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
       saveWidgets();
       drag = null;
     };

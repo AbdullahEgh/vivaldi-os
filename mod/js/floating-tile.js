@@ -1,3 +1,17 @@
+/* REDUCE MOTION (the system's accessibility setting): every animation Bento OS starts is made instant (it still ends,
+   so what waits for it goes on) - only while the setting is on */
+(() => {
+  if (window.__vosReduceMotion) return; window.__vosReduceMotion = true;
+  let rm = null; try { rm = matchMedia("(prefers-reduced-motion: reduce)"); } catch (e) {}
+  const orig = Element.prototype.animate;
+  if (!rm || !orig) return;
+  Element.prototype.animate = function (kf, opts) {
+    if (!rm.matches) return orig.call(this, kf, opts);
+    const o = typeof opts === "number" ? { duration: opts } : { ...(opts || {}) };
+    o.duration = Math.min(Number(o.duration) || 0, 1); o.delay = 0; if (!(o.iterations > 0 && o.iterations < Infinity)) o.iterations = 1; o.endDelay = 0;
+    return orig.call(this, kf, o);
+  };
+})();
 /* ONE HEARTBEAT for every mod: the checks that catch what no event tells (a rebuilt tab bar,
    a missed change) run together, every 2.5s, in the browser's idle time, never while hidden */
 window.vosBeat = window.vosBeat || (() => {
