@@ -1011,10 +1011,15 @@ window.vosBeat = window.vosBeat || (() => {
       const upEdge = up.length ? Math.max(...up.map(r => r.y + r.h)) : null, dnEdge = dn.length ? Math.min(...dn.map(r => r.y)) : null;
       between = upEdge != null && dnEdge != null && R.y - upEdge <= PIP_GAP + 6 && dnEdge - (R.y + R.h) <= PIP_GAP + 6;
     }
+    let gap = null;                                  // the box: the free gap itself, as it is now - never over a pinned window
     if (between) {
+      const now = pipSide(slot.side, ss), a = now.get(slot.V[nTop - 1]), z = now.get(slot.V[nTop]);
+      if (a && z) { const y = a.y + a.h + PIP_GAP, h = z.y - PIP_GAP - y; if (h >= 40) gap = { x: R.x, y, w: R.w, h }; }
+    }
+    if (gap) {
       slotEl?.remove(); slotEl = null;
       if (!plotEl) { plotEl = document.createElement("div"); plotEl.className = "ft-snap-preview vos-pin-plot"; host.appendChild(plotEl); }
-      place(plotEl, R, ss); setStyle(plotEl, "z-index", "1995");
+      place(plotEl, gap, ss); setStyle(plotEl, "z-index", "1995");
       return;
     }
     plotEl?.remove(); plotEl = null;

@@ -101,6 +101,39 @@
     if (src instanceof Blob) return createImageBitmap(src).then(draw).catch(() => {});
     return fetch(src).then(r => r.blob()).then(b => createImageBitmap(b)).then(draw).catch(() => {});
   }
+  /* your icons on all your devices: an icon picked from macOSicons is written into its bookmark's description (one line,
+     "Bento OS icon: <its address>") - Vivaldi Sync carries the bookmark, and Bento OS on the other device loads that icon.
+     (an uploaded picture stays on this computer: too big for a description) */
+  const ICON_TAG = /\n?Bento OS icon: \S+/g, ICON_SRC = "vosIconsSrc";
+  let iconSrc = null;
+  const srcs = async () => iconSrc || (iconSrc = (await stGet(ICON_SRC)) || {});
+  async function tagIcon(url, src) {
+    if (!url) return;
+    const m = await srcs(); if (src) m[url] = src; else delete m[url]; stSet(ICON_SRC, m);
+    try {
+      const hits = await new Promise(r => chrome.bookmarks.search({ url }, x => { void chrome.runtime.lastError; r(x || []); }));
+      for (const b of hits) {
+        if (!b.url || b.url !== url) continue;
+        const was = String(b.description || ""), rest = was.replace(ICON_TAG, "").trim();
+        const now = src ? (rest ? rest + "\n" : "") + "Bento OS icon: " + src : rest;   // (your own text in it is kept)
+        if (now !== was) chrome.bookmarks.update(b.id, { description: now }, () => void chrome.runtime.lastError);
+      }
+    } catch (e) {}
+  }
+  let syncingIcons = false;
+  async function iconsFromSync() {                  // icons picked on another device: loaded here (once each)
+    if (syncingIcons) return; syncingIcons = true;
+    try {
+      const m = await srcs(), tree = await new Promise(r => chrome.bookmarks.getTree(t => { void chrome.runtime.lastError; r(t || []); }));
+      const want = [];
+      (function walk(ns) { for (const n of ns || []) { if (n.url) { const x = /Bento OS icon: (https:\/\/\S+)/.exec(n.description || ""); if (x && m[n.url] !== x[1]) want.push([n.url, x[1]]); } walk(n.children); } })(tree);
+      for (const [u, src] of want) await new Promise(r => { iconFrom(u, src, () => { m[u] = src; stSet(ICON_SRC, m); r(); }); setTimeout(r, 8000); });
+    } catch (e) {}
+    syncingIcons = false;
+  }
+  setTimeout(iconsFromSync, 4000);
+  { let t = 0; const soon = () => { clearTimeout(t); t = setTimeout(iconsFromSync, 1500); };
+    try { chrome.bookmarks.onChanged.addListener(soon); chrome.bookmarks.onCreated.addListener(soon); } catch (e) {} }
   function opaqueBox(im, iw, ih) {                 // the part of a picture that is not see-through (only a fully see-through border left out)
     try {
       const N = 128, c = document.createElement("canvas"); c.width = c.height = N;
@@ -140,7 +173,7 @@
         for (const h of hits) {
           const b = document.createElement("button"); b.type = "button"; b.className = "lp-ip-cell"; b.title = h.n;
           const im = document.createElement("img"); im.src = h.u; im.alt = ""; im.decoding = "async"; im.loading = "lazy"; b.appendChild(im);
-          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { close(); done?.(); }); });
+          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { tagIcon(url, h.u); close(); done?.(); }); });
           grid.appendChild(b);
         }
       } catch (e) {
@@ -173,7 +206,7 @@
         g.imageSmoothingQuality = "high";
         g.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);              // filled, centred (as an app icon)
         URL.revokeObjectURL(u);
-        setIcon(url, c.toDataURL("image/png"));
+        setIcon(url, c.toDataURL("image/png")); tagIcon(url, null);
         done?.();
       };
       im.onerror = () => URL.revokeObjectURL(u);
@@ -662,7 +695,7 @@
       sep();
       add("Edit…", () => { closeMenu(); editSheet(n); });
       add("Change Icon…", () => { closeMenu(); iconPicker(n.url, nameOf(n)); });
-      if (ownIcon(n.url)) add("Use the Site's Icon", () => { closeMenu(); setIcon(n.url, null); });
+      if (ownIcon(n.url)) add("Use the Site's Icon", () => { closeMenu(); setIcon(n.url, null); tagIcon(n.url, null); });
       add("Copy Address", () => { closeMenu(); navigator.clipboard?.writeText(n.url).catch(() => {}); });
     }
     sep();
@@ -1455,7 +1488,7 @@
           draw().then(() => { const i = cols.querySelectorAll(".lp-col-details input")[1]; i?.focus(); i?.select(); });
         });
         add("Change Icon…", () => iconPicker(n.url, n.title, () => draw()));
-        if (ownIcon(n.url)) add("Use the Site's Icon", () => { setIcon(n.url, null); draw(); });
+        if (ownIcon(n.url)) add("Use the Site's Icon", () => { setIcon(n.url, null); tagIcon(n.url, null); draw(); });
         add("Copy Address", () => navigator.clipboard?.writeText(n.url).catch(() => {}));
         sep();
         add("Delete", () => { P.confirm = n; drawFoot(); }, "lp-danger");
@@ -2483,8 +2516,17 @@
     const has = id => all.some(t => t?.id === id), curT = all.find(t => t?.id === cur);
     let pair = null; try { pair = JSON.parse((await vstore.get("vosModeThemes")) || "null"); } catch (e) {}
     if (os.light && os.dark && os.light !== os.dark) vstore.set("vosModeThemes", JSON.stringify(pair = { light: os.light, dark: os.dark }));   // the real pair (Dark Mode may point both at one)
-    const light = pair?.light && has(pair.light) ? pair.light : os.light && has(os.light) ? os.light : curT && !darkTheme(curT) ? cur : has("Vivaldi1") ? "Vivaldi1" : cur;
-    const dark = pair?.dark && has(pair.dark) ? pair.dark : os.dark && has(os.dark) ? os.dark : curT && darkTheme(curT) ? cur : has("Vivaldi2") ? "Vivaldi2" : cur;
+    let light = pair?.light && has(pair.light) ? pair.light : os.light && has(os.light) ? os.light : curT && !darkTheme(curT) ? cur : has("Vivaldi1") ? "Vivaldi1" : cur;
+    let dark = pair?.dark && has(pair.dark) ? pair.dark : os.dark && has(os.dark) ? os.dark : curT && darkTheme(curT) ? cur : has("Vivaldi2") ? "Vivaldi2" : cur;
+    // never one theme for both (Vivaldi's schedule left with the same theme on Light and Dark - by an earlier version, or
+    // by hand): then switching changed nothing. A light one and a dark one - by how they look
+    { const T = id => all.find(t => t?.id === id), isD = id => !!T(id) && darkTheme(T(id));
+      const aLight = has("Vivaldi1") ? "Vivaldi1" : all.find(t => t && !darkTheme(t))?.id, aDark = has("Vivaldi2") ? "Vivaldi2" : all.find(t => t && darkTheme(t))?.id;
+      let fixed = false;
+      if (light !== dark && isD(light) && T(dark) && !isD(dark)) { [light, dark] = [dark, light]; fixed = true; }   // (the wrong way round)
+      if (light === dark) { if (isD(light)) light = aLight || light; else dark = aDark || dark; fixed = light !== dark; }
+      if (fixed) vstore.set("vosModeThemes", JSON.stringify({ light, dark }));
+    }
     return { light, dark, en, os, sys: en === "system" || en === 1 };
   }
   async function themeBg(id, fields) {               // that theme's background (both lists: the one it is in)
@@ -2539,7 +2581,11 @@
       watch.observe(m.parentElement, { childList: true });
       sub.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 110, easing: "ease-out" });
     };
-    b.addEventListener("mouseenter", () => { clearTimeout(t); t = setTimeout(open, sub ? 0 : 380); });   // (a calm pause before it opens)
+    // it opens only when the pointer rests on it (a moment still) - passing over it, it never opens; a click opens it at once
+    const rest = () => { if (sub) return; clearTimeout(t); t = setTimeout(open, 380); };
+    b.addEventListener("mouseenter", rest);
+    b.addEventListener("mousemove", ev => { if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 1) rest(); });
+    b.addEventListener("mouseleave", () => { if (!sub) clearTimeout(t); });   // (left before it opened: it never opens)
     b.addEventListener("click", ev => { ev.stopPropagation(); open(); });
     m.addEventListener("mouseover", ev => {                          // another item of this menu: the submenu goes
       const it = ev.target.closest?.(".lp-menu-item");
