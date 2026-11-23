@@ -1574,9 +1574,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack [data-vos-pinlook], #browser .ft-frame[data-vos-pinlook] { transition: scale 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 
 /* 1.0.199: where a window dropped on the pinned windows goes - a line between them */
-#browser #webpage-stack > .vos-pin-slot { pointer-events: none !important; border-radius: 3px !important; background: var(--colorHighlightBg, #0a84ff) !important; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3) !important; }
 
 /* 1.0.199: a pinned window changing to its normal size (or back) while dragged: its content blurred for the moment
    its size changes, then sharp again (no reflow seen) */
-#browser #webpage-stack [data-vos-morph] webview { filter: blur(12px) !important; }
-#browser #webpage-stack [data-ft-float] webview { transition: filter 0.28s ease !important; }
+
+/* 1.0.200: where it goes between the pinned windows - a grabber's pill (the same colour as the others), only longer */
+#browser #webpage-stack > .vos-pin-slot { pointer-events: none !important; border-radius: 2px !important; background: color-mix(in srgb, var(--colorFg, #fff) 55%, transparent) !important; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important; }

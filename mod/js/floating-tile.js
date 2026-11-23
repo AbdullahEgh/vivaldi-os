@@ -957,7 +957,8 @@ window.vosBeat = window.vosBeat || (() => {
     const host = stack(); if (!host) return;
     if (!slotEl) { slotEl = document.createElement("div"); slotEl.className = "vos-pin-slot"; host.appendChild(slotEl); }
     const ss = stackRect();
-    place(slotEl, { x: slot.x + 12, y: Math.max(2, slot.y - 3), w: Math.max(40, slot.w - 24), h: 6 }, ss);
+    const w = Math.max(60, Math.round(slot.w * 0.6));              // a grabber's pill, only longer
+    place(slotEl, { x: slot.x + (slot.w - w) / 2, y: Math.max(2, slot.y - 2), w, h: 4 }, ss);
     setStyle(slotEl, "z-index", "2100");
   }
   function pinZoneAt(x, y, id) {
@@ -2042,14 +2043,13 @@ window.vosBeat = window.vosBeat || (() => {
     document.body.appendChild(shield);
     let frame = 0, last = null, moved = false, zone = c[1], bx = sx, by = sy;
     const pinAspect = h0 / Math.max(1, w0);
-    const morph = (z, side) => {                                     // its size and shape for there, once - the content blurred meanwhile
+    const morph = (z, side) => {                                     // its size and shape for there, once (one glide - no blur: light)
       zone = z;
       const ss = stackRect(), px = last.clientX - ss.left, py = last.clientY - ss.top;
       let W, H, zoomTo;
       if (z === "m") { const n = frac[id] || { w: 0.5, h: 0.6 }; W = n.w * ss.width; H = n.h * ss.height; zoomTo = 1; }
       else { W = cornerW(side + side, id) ?? w0; H = W * pinAspect; zoomTo = null; }
       const r = { x: px - gx * W, y: Math.max(0, py - gy * H), w: W, h: H };
-      el.setAttribute("data-vos-morph", ""); clearTimeout(morph.t); morph.t = setTimeout(() => el.removeAttribute("data-vos-morph"), 360);
       flip([el, frames.get(id)], () => {
         for (const e2 of [el, frames.get(id)]) e2?.style.removeProperty("translate");
         bx = last.clientX; by = last.clientY;                        // (it moves on from here)
@@ -2096,16 +2096,16 @@ window.vosBeat = window.vosBeat || (() => {
       if (how !== "move") { persist(id); return render(); }
       const d = pipDrag?.id === id ? pipDrag : null;
       slotShow(null);
-      if (!moved || ev.type !== "pointerup" || !d) { unlook(); el.removeAttribute("data-vos-morph"); pipDrag = null; if (zone === "m") pipZoom(id, true); return render(); }
+      if (!moved || ev.type !== "pointerup" || !d) { unlook(); pipDrag = null; if (zone === "m") pipZoom(id, true); return render(); }
       const sr = stackRect(), els = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
       if (d.mid) {                                                   // let go in the middle: it already is its window - it stays where it is
         const r = clampRect({ x: d.r.x + (ev.clientX - bx), y: d.r.y + (ev.clientY - by), w: d.r.w, h: d.r.h }, sr);
-        flip(els, () => { unlook(); el.removeAttribute("data-vos-morph"); pipDrag = null; pipOff(id); setPx(id, r, sr); persist(id); raise(id); render(); });
+        flip(els, () => { unlook(); pipDrag = null; pipOff(id); setPx(id, r, sr); persist(id); raise(id); render(); });
         return;
       }
       const to = (ev.clientY < sr.top + sr.height / 2 ? "t" : "b") + d.side;
       flip(els, () => {                                              // it glides into that corner (newest there: at the corner)
-        unlook(); el.removeAttribute("data-vos-morph"); pipDrag = null;
+        unlook(); pipDrag = null;
         const to2 = d.slot?.corner || to;
         { const w = cornerW(to2, id); if (w) pipFit(id, to2, w); }   // that side's width, its own shape
         pipCorner.set(id, to2);
