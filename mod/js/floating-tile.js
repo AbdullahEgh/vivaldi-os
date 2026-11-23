@@ -966,9 +966,9 @@ window.vosBeat = window.vosBeat || (() => {
     const ss = stackRect(), ly = y - ss.top, raw = x - ss.left;
     if (x < 0 || x > innerWidth || ly < 0 || ly > ss.height) return null;
     const lx = Math.max(0, Math.min(ss.width, raw));
+    if (raw <= 1 || raw >= ss.width - 2) return null;               // the very left / right edge, all along it: the half-screen snap, as always
     { const C = 72, h = lx <= C ? "l" : lx >= ss.width - C ? "r" : null, v = ly <= C ? "t" : ly >= ss.height - C ? "b" : null;
-      if (h && v) return v + h; }                                   // a corner of the desktop: pinned there
-    if (raw <= 1 || raw >= ss.width - 2) return null;               // the very left / right edge: the half-screen snap, as always
+      if (h && v) return v + h; }                                   // a corner of the desktop (just inside the edge): pinned there
     for (const side of ["l", "r"]) {                                // onto that side's pinned windows
       const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
       if (!col.length) continue;
@@ -2041,25 +2041,29 @@ window.vosBeat = window.vosBeat || (() => {
     const shield = document.createElement("div");
     shield.className = "ft-shield"; shield.style.cursor = CURSOR[how] || "grabbing";
     document.body.appendChild(shield);
-    let frame = 0, last = null, moved = false, zone = c[1], bx = sx, by = sy;
+    let frame = 0, last = null, moved = false, zone = c[1], look = { k: 1, W: w0, H: h0 };
     const pinAspect = h0 / Math.max(1, w0);
-    const morph = (z, side) => {                                     // its size and shape for there, once (one glide - no blur: light)
+    /* how it looks there - done by the graphics card only: the pinned miniature scaled (it IS its window, smaller: the
+       same page, the same layout) and trimmed to that shape. Its real size is set once, at the release, where it shows */
+    const morph = (z, side) => {
       zone = z;
-      const ss = stackRect(), px = last.clientX - ss.left, py = last.clientY - ss.top;
-      let W, H, zoomTo;
-      if (z === "m") { const n = frac[id] || { w: 0.5, h: 0.6 }; W = n.w * ss.width; H = n.h * ss.height; zoomTo = 1; }
-      else { W = cornerW(side + side, id) ?? w0; H = W * pinAspect; zoomTo = null; }
-      const r = { x: px - gx * W, y: Math.max(0, py - gy * H), w: W, h: H };
-      flip([el, frames.get(id)], () => {
-        for (const e2 of [el, frames.get(id)]) e2?.style.removeProperty("translate");
-        bx = last.clientX; by = last.clientY;                        // (it moves on from here)
-        pipDrag.r = r;
-        if (zoomTo === 1) webviewsOf(id).forEach(wv => { zoomSet.delete(wv); setWebZoom(wv, 1); });
-        else { const sw = ss.width, nw = (frac[id]?.w || 0.5) * sw; webviewsOf(id).forEach(wv => { zoomSet.delete(wv); setWebZoom(wv, pipUserZoom.get(id) ?? +Math.max(0.25, Math.min(1, W / Math.max(1, nw))).toFixed(3)); }); }
-        render();
-      });
+      const ss = stackRect();
+      let W, H;
+      if (z === "m") { const n = frac[id] || { w: 0.5, h: 0.6 }; W = n.w * ss.width; H = n.h * ss.height; }
+      else { W = cornerW(side + side, id) ?? w0; H = W * pinAspect; }
+      const k = Math.max(W / Math.max(1, w0), H / Math.max(1, h0));  // big enough for both; the rest trimmed away
+      look = { k, W, H };
+      const cr = Math.max(0, w0 - W / k), cb = Math.max(0, h0 - H / k);
+      for (const [e2, o] of [[el, 0], [frames.get(id), RING]]) {
+        if (!e2) continue;
+        e2.setAttribute("data-vos-pinlook", "");
+        e2.style.setProperty("transform-origin", `${Math.round(gx * w0 + o)}px ${Math.round(gy * h0 + o)}px`, "important");
+        e2.style.setProperty("scale", String(+k.toFixed(4)), "important");
+        if (e2 === el) e2.style.setProperty("clip-path", `inset(0 ${cr.toFixed(1)}px ${cb.toFixed(1)}px 0 round ${Math.round(12 / k)}px)`, "important");
+        else e2.style.setProperty("opacity", z === "m" ? "0" : "1", "important");   // (its resize ring: not while it changes shape)
+      }
     };
-    const unlook = () => { for (const e2 of [el, frames.get(id)]) { if (!e2) continue; for (const k of ["translate", "scale", "transform-origin"]) e2.style.removeProperty(k); e2.removeAttribute("data-vos-pinlook"); } };
+    const unlook = () => { for (const e2 of [el, frames.get(id)]) { if (!e2) continue; for (const k of ["translate", "scale", "transform-origin", "clip-path", "opacity"]) e2.style.removeProperty(k); e2.removeAttribute("data-vos-pinlook"); } };
     const apply = () => {
       frame = 0;
       if (!last) return;
@@ -2072,7 +2076,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (z !== zone) morph(z, side);
         pipDrag.mid = !side; if (side) pipDrag.side = side;
         pipDrag.slot = side ? pinSlot(side, last.clientY, id) : null; slotShow(pipDrag.slot);   // where it goes between the others
-        const t = `${Math.round(last.clientX - bx)}px ${Math.round(last.clientY - by)}px`;
+        const t = `${Math.round(dx)}px ${Math.round(dy)}px`;
         el.style.setProperty("translate", t, "important"); frames.get(id)?.style.setProperty("translate", t, "important");
         return;
       }
@@ -2096,11 +2100,13 @@ window.vosBeat = window.vosBeat || (() => {
       if (how !== "move") { persist(id); return render(); }
       const d = pipDrag?.id === id ? pipDrag : null;
       slotShow(null);
-      if (!moved || ev.type !== "pointerup" || !d) { unlook(); pipDrag = null; if (zone === "m") pipZoom(id, true); return render(); }
+      if (!moved || ev.type !== "pointerup" || !d) { unlook(); pipDrag = null; return render(); }
       const sr = stackRect(), els = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
       if (d.mid) {                                                   // let go in the middle: it already is its window - it stays where it is
-        const r = clampRect({ x: d.r.x + (ev.clientX - bx), y: d.r.y + (ev.clientY - by), w: d.r.w, h: d.r.h }, sr);
-        flip(els, () => { unlook(); pipDrag = null; pipOff(id); setPx(id, r, sr); persist(id); raise(id); render(); });
+        // where it shows now (scaled around where it is held, trimmed): its real place - set at once, nothing moves
+        const dx = ev.clientX - sx, dy = ev.clientY - sy, k = look.k;
+        const r = clampRect({ x: d.r.x + dx + gx * w0 * (1 - k), y: d.r.y + dy + gy * h0 * (1 - k), w: look.W, h: look.H }, sr);
+        flip(els.filter(e2 => e2 !== el), () => { unlook(); pipDrag = null; pipOff(id); setPx(id, r, sr); persist(id); raise(id); render(); });
         return;
       }
       const to = (ev.clientY < sr.top + sr.height / 2 ? "t" : "b") + d.side;
@@ -3547,6 +3553,7 @@ window.vosBeat = window.vosBeat || (() => {
     let pinSl = null;
     const pinShow = (c, x, y) => {
       pinSl = c ? pinSlot(c[1], y, id) : null; slotShow(pinSl);
+      if (c) { setStyle(el, "z-index", "2050"); const fr = frames.get(id); if (fr) setStyle(fr, "z-index", "2050"); }   // above the pinned windows while over them
       if (pinSl) c = pinSl.corner;
       if (c !== pinAt) pinLook(el, id, c, gx0, gy0);
       pinAt = c;

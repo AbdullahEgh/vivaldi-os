@@ -147,6 +147,15 @@ def split(k, v):
     generic[k] = v
 for k, v in out.items(): split(k, v)
 out = generic
+# your light / dark choice is never overwritten by an update: Dark Mode (Bento OS) sets the theme and its schedule -
+# the package only gives a first install its theme (setOnce), and never this Mac's reading of its own system
+# appearance (Windows would be told "light" while it is dark)
+out.pop("vivaldi.system.desktop_theme_color", None)
+if "vivaldi.themes.current" in out:
+    cfg["setOnce"] = {**(cfg.get("setOnce") or {}), "vivaldi.themes.current": out.pop("vivaldi.themes.current")}
+if isinstance(out.get("vivaldi.theme"), dict):                      # its parts, without the schedule (whose turn is Dark Mode's)
+    for k, v in out.pop("vivaldi.theme").items():
+        if k != "schedule": out["vivaldi.theme." + k] = v
 cfg["set"] = out
 # Bento OS's tab bar buttons (Command Chains with fixed names): created by the installers before a toolbar names them
 cfg["osChains"] = [{"category": "CATEGORY_COMMAND_CHAIN", "chain": [], "key": k, "label": l, "name": "COMMAND_" + k}

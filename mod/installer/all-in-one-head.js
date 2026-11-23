@@ -35,7 +35,7 @@
   };
   const prefSet = (path, value) => { try { vivaldi.prefs.set({ path, value }); } catch (e) { console.warn("Bento OS:", path, e); } };
 
-  async function applySettings() {
+  async function applySettings(first) {
     let defs = {};
     try { defs = await (await fetch("prefs_definitions.json")).json(); } catch (_) {}
     const defOf = path => path.split(".").reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), defs);
@@ -52,7 +52,7 @@
       for (const c of CFG.osChains) if (!list.some(x => x && x.name === c.name)) { list.push(c); add = true; }
       if (add) prefSet("vivaldi.chained_commands.command_list", list);
     }
-    for (const group of [CFG.set || {}, CFG.setOnce || {}])
+    for (const group of [CFG.set || {}, first ? (CFG.setOnce || {}) : {}])   // (first-install settings - e.g. the theme - only the first time: never undoing your choice)
       for (const [k, v] of Object.entries(group)) walk(k.replace(/^account_values\./, ""), v);
     for (const [path, v] of leaves) {
       const def = defOf(path);
@@ -84,7 +84,7 @@
                                                          : usesWall(t) ? { ...t, backgroundImage: "" } : t);
     if (CFG.systemThemes?.length) prefSet("vivaldi.themes.system", clean(CFG.systemThemes));
     if (CFG.userThemes?.length) prefSet("vivaldi.themes.user", clean(CFG.userThemes));
-    const current = CFG.set?.["vivaldi.themes.current"];
+    const current = CFG.set?.["vivaldi.themes.current"] ?? (first ? CFG.setOnce?.["vivaldi.themes.current"] : null);   // (first install only: your choice stays)
     if (current) prefSet("vivaldi.themes.current", current);
     try {
       const r = await fetch("custom-vivaldi-os-wallpaper.jpg");
@@ -97,7 +97,7 @@
     markSet(STAMP);
   }
   markGet().then(done => {                          // only when this package's settings are new here
-    if (done !== STAMP) setTimeout(() => applySettings().catch(e => console.warn("Bento OS: settings", e)), 2500);
+    if (done !== STAMP) setTimeout(() => applySettings(done == null).catch(e => console.warn("Bento OS: settings", e)), 2500);
   });
 })();
 ;

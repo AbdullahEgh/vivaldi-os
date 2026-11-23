@@ -2617,8 +2617,17 @@
     // the theme itself, directly: Vivaldi's own schedule (by the system, or by time - also when it is only Vivaldi's
     // default, never written down) is turned off, else it keeps choosing the theme by itself; Bento OS follows the
     // system's appearance on its own (followOs)
-    if (t.en !== "off" && t.en !== 0) { try { await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.enabled", value: typeof t.en === "number" ? 0 : "off" }); } catch (e) {} }
-    await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
+    const put = async (path, value) => { try { await vivaldi.prefs.set({ path, value }); return true; } catch (e) { return false; } };
+    if (t.en !== "off" && t.en !== 0) { if (!(await put("vivaldi.theme.schedule.enabled", "off"))) await put("vivaldi.theme.schedule.enabled", 0); }
+    await put("vivaldi.themes.current", target);
+    await put("vivaldi.theme.schedule.o_s", { ...(t.os || {}), light: target, dark: target });   // (and if a schedule still decides: it decides this one)
+    for (let i = 0; i < 3; i++) {                                    // it took? (else again - the other way of writing it)
+      await new Promise(r => setTimeout(r, 120));
+      if ((await themeInUse()) === target && (await pref("vivaldi.themes.current")) === target) break;
+      await put("vivaldi.theme.schedule.enabled", i % 2 ? 0 : "off"); await put("vivaldi.themes.current", target);
+    }
+    vstore.set("vosDarkDiag", JSON.stringify({ on, target, inUse: await themeInUse(), current: await pref("vivaldi.themes.current"), schedule: await pref("vivaldi.theme.schedule.enabled"),
+      os: await pref("vivaldi.theme.schedule.o_s"), system: await pref("vivaldi.system.desktop_theme_color"), cls: document.getElementById("browser")?.className.match(/theme-(dark|light)/)?.[0], t: Date.now() }));   // (a record, to see what Vivaldi did)
     const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();
     try {                                            // websites: their own dark (or light) look - nothing forced on them
       if (await pref("vivaldi.appearance.force_dark_mode_theme")) await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });

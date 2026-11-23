@@ -1580,3 +1580,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.200: where it goes between the pinned windows - a grabber's pill (the same colour as the others), only longer */
 #browser #webpage-stack > .vos-pin-slot { pointer-events: none !important; border-radius: 2px !important; background: color-mix(in srgb, var(--colorFg, #fff) 55%, transparent) !important; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important; }
+
+/* 1.0.201: a pinned window dragged across: scaled and trimmed by the graphics card (quick), its real size set at the release */
+#browser #webpage-stack [data-vos-pinlook] { transition: scale 0.16s cubic-bezier(0.2, 0.9, 0.25, 1), clip-path 0.16s cubic-bezier(0.2, 0.9, 0.25, 1) !important; will-change: transform; }

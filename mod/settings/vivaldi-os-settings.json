@@ -972,7 +972,6 @@
     "vivaldi.status_bar": {
       "display": 1
     },
-    "vivaldi.system.desktop_theme_color": 0,
     "vivaldi.system.mac": {
       "action_on_double_click": "Minimize",
       "keyboard_ui_mode": 0,
@@ -997,10 +996,6 @@
       },
       "visible": true
     },
-    "vivaldi.theme": {
-      "dim_blurred": false
-    },
-    "vivaldi.themes.current": "Vivaldi1",
     "vivaldi.toolbars.navigation": [
       "Back",
       "Forward",
@@ -1226,11 +1221,10 @@
       "guid_speeddials": "485bf7d3-0215-45af-87dc-538868000001",
       "guid_speeddials_private": "485bf7d3-0215-45af-87dc-538868000007",
       "reset_occurred": false
-    }
+    },
+    "vivaldi.theme.dim_blurred": false
   },
-  "reset": [
-    "vivaldi.theme.schedule"
-  ],
+  "reset": [],
   "themeIds": [
     "Vivaldi1",
     "Vivaldi2",
@@ -1614,7 +1608,9 @@
       "version": 1
     }
   ],
-  "setOnce": {},
+  "setOnce": {
+    "vivaldi.themes.current": "Vivaldi1"
+  },
   "_aboutUpdatesOnce": "Additions to the default setup for machines installed before them. Each id is applied once per machine (recorded in User Data/VivaldiOS/updates-once.done); 'insert' puts an item in a toolbar before another one, unless it is already there.",
   "updatesOnce": [],
   "userThemes": [],
