@@ -1549,3 +1549,8 @@
 #browser .lp-iconpick .lp-ip-cell:hover { background: var(--lp-chip, rgba(118, 118, 128, 0.16)) !important; }
 #browser .lp-iconpick .lp-ip-cell img { width: 64px !important; height: 64px !important; display: block !important; margin: auto !important; }
 #browser .lp-iconpick .lp-ip-link { font: 12px -apple-system, "Segoe UI", system-ui, sans-serif !important; white-space: nowrap !important; color: var(--lp-blue, #007aff) !important; }
+
+/* 1.0.206: your own icon fills the icon's mask - no tile behind it, no margin */
+#browser .lp-tile:has(> img.lp-own) { background: transparent !important; overflow: hidden !important; }
+#browser .lp-tile > img.lp-own { width: 100% !important; height: 100% !important; border-radius: inherit !important; object-fit: cover !important; }
+#browser .lp-det-icon img.lp-own { border-radius: var(--lp-round-icon, 16px) !important; object-fit: cover !important; }

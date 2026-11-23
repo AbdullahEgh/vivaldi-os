@@ -85,13 +85,14 @@
     stSet(MI_CACHE, cache);
     return hits;
   }
-  function iconFrom(url, src, done) {               // an image (a file, or a picture's address) -> the bookmark's 128px icon
-    const draw = im => {
+  function iconFrom(url, src, done, trim = 0) {     // an image (a file, or a picture's address) -> the bookmark's 128px icon
+    const draw = im => {                             // (trim: the share of each side that is only margin - cut off)
       const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
       const iw = im.naturalWidth || im.width || S, ih = im.naturalHeight || im.height || S;
-      const g = c.getContext("2d"), k = Math.max(S / iw, S / ih), w = iw * k, h = ih * k;
+      const sx = iw * trim, sy = ih * trim, sw = iw - 2 * sx, sh = ih - 2 * sy;
+      const g = c.getContext("2d"), k = Math.max(S / sw, S / sh), w = sw * k, h = sh * k;
       g.imageSmoothingQuality = "high";
-      g.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);             // filled, centred (as an app icon)
+      g.drawImage(im, sx, sy, sw, sh, (S - w) / 2, (S - h) / 2, w, h);   // filled, centred (as an app icon)
       setIcon(url, c.toDataURL("image/png"));
       done?.();
     };
@@ -105,7 +106,7 @@
     box.innerHTML = `<div class="lp-ip-head"><input class="lp-ip-q" type="search" spellcheck="false" placeholder="Search macOSicons"><button type="button" class="lp-btn lp-ip-up">Upload Image…</button></div>
       <div class="lp-ip-msg"></div><div class="lp-ip-grid"></div>
       <div class="lp-ip-key" hidden><input class="lp-ip-k" type="password" spellcheck="false" autocomplete="off" placeholder="Your macOSicons API key"><button type="button" class="lp-btn lp-btn-main lp-ip-ks">Save</button>
-      <a class="lp-ip-link" href="https://macosicons.com/developers" target="_blank" rel="noopener">Get a free key</a></div>`;
+      <a class="lp-ip-link" href="https://macosicons.com/developers">Get a free key</a></div>`;
     const q = box.querySelector(".lp-ip-q"), msg = box.querySelector(".lp-ip-msg"), grid = box.querySelector(".lp-ip-grid"), keyRow = box.querySelector(".lp-ip-key");
     const close = () => { box.remove(); removeEventListener("keydown", esc, true); removeEventListener("pointerdown", out, true); };
     const esc = ev => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } };
@@ -118,7 +119,7 @@
         for (const h of hits) {
           const b = document.createElement("button"); b.type = "button"; b.className = "lp-ip-cell"; b.title = h.n;
           const im = document.createElement("img"); im.src = h.u; im.alt = ""; im.decoding = "async"; im.loading = "lazy"; b.appendChild(im);
-          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { close(); done?.(); }); });
+          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { close(); done?.(); }, 0.098); });   // (macOS icons: 100px of margin in 1024)
           grid.appendChild(b);
         }
       } catch (e) {
@@ -129,6 +130,7 @@
     };
     q.value = name || ""; q.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); search(); } });
     box.querySelector(".lp-ip-up").addEventListener("click", ev => { ev.stopPropagation(); close(); pickIcon(url, done); });
+    box.querySelector(".lp-ip-link").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); close(); openUrl("https://macosicons.com/developers", true); window.vosLaunchpad?.close?.(); });
     box.querySelector(".lp-ip-ks").addEventListener("click", ev => { ev.stopPropagation(); const v = box.querySelector(".lp-ip-k").value.trim(); if (v) { stSet(MI_KEY, v); search(); } });
     box.addEventListener("pointerdown", ev => ev.stopPropagation()); box.addEventListener("click", ev => ev.stopPropagation());
     host.appendChild(box);
@@ -281,7 +283,9 @@
     const i = document.createElement("img");
     i.className = cls; i.alt = ""; i.draggable = false;
     i.decoding = "async";                           // decoded off the main thread: opening never stutters
-    i.src = ownIcon(url) || src(url);               // your own icon first
+    const own = ownIcon(url);
+    i.src = own || src(url);                        // your own icon first: it fills the icon's mask
+    if (own) i.classList.add("lp-own");
     i.onerror = () => {                             // no icon: the site's first letter
       const d = document.createElement("span");
       d.className = cls + " lp-letter";

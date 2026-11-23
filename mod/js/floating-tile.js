@@ -963,20 +963,23 @@ window.vosBeat = window.vosBeat || (() => {
     const ss = stackRect();
     const w = Math.max(60, Math.round(slot.w * 0.6));              // a grabber's pill, only longer
     place(slotEl, { x: slot.x + (slot.w - w) / 2, y: Math.max(2, slot.y - 2), w, h: 4 }, ss);
-    setStyle(slotEl, "z-index", "2100");
+    setStyle(slotEl, "z-index", "1995");                         // over the pinned windows, under the window being dragged
   }
-  function cornerAt(x, y) {                         // a corner of the desktop (72px of both its edges)
-    const ss = stackRect(), lx = x - ss.left, ly = y - ss.top, C = 72;
+  function cornerAt(x, y) {                         // a corner of the desktop (72px of both its edges - also pushed past them)
+    const ss = stackRect(), C = 72;
+    if (y < ss.top - 60 || y > ss.bottom + 60) return null;          // (not the tab bar)
+    const lx = Math.max(0, Math.min(ss.width, x - ss.left)), ly = Math.max(0, Math.min(ss.height, y - ss.top));
     const h = lx <= C ? "l" : lx >= ss.width - C ? "r" : null, v = ly <= C ? "t" : ly >= ss.height - C ? "b" : null;
     return h && v ? v + h : null;
   }
   function pinZoneAt(x, y, id) {
     if (pip.includes(id) || mission) return null;
     const ss = stackRect(), ly = y - ss.top, raw = x - ss.left;
-    if (x < 0 || x > innerWidth || ly < 0 || ly > ss.height) return null;
+    if (x < 0 || x > innerWidth) return null;
+    { const k = cornerAt(x, y); if (k) return k + "!"; }             // a corner of the desktop (even pushed into the screen's corner): pinned there
+    if (ly < 0 || ly > ss.height) return null;                      // (the top edge: full screen)
     const lx = Math.max(0, Math.min(ss.width, raw));
     if (raw <= 1 || raw >= ss.width - 2) return null;               // the very left / right edge, all along it: the half-screen snap, as always
-    { const k = cornerAt(x, y); if (k) return k + "!"; }             // a corner of the desktop: pinned there, as it is ("!": a corner)
     for (const side of ["l", "r"]) {                                // onto that side's pinned windows
       const col = [...pipSide(side, ss)].filter(([p]) => p !== id).map(([, r]) => r);
       if (!col.length) continue;
