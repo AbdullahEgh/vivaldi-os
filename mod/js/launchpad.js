@@ -2614,8 +2614,11 @@
     // websites automatic); the other one: held until the system comes round to it
     const follow = false;                                            // what you choose is what you get: that theme, and the websites the same
                                                                      // (the system changing later still switches it: followOs)
-    if (t.sys) await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.o_s", value: follow ? { ...t.os, light: t.light, dark: t.dark } : { ...t.os, light: target, dark: target } });
-    else await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
+    // the theme itself, directly: Vivaldi's own schedule (by the system, or by time - also when it is only Vivaldi's
+    // default, never written down) is turned off, else it keeps choosing the theme by itself; Bento OS follows the
+    // system's appearance on its own (followOs)
+    if (t.en !== "off" && t.en !== 0) { try { await vivaldi.prefs.set({ path: "vivaldi.theme.schedule.enabled", value: typeof t.en === "number" ? 0 : "off" }); } catch (e) {} }
+    await vivaldi.prefs.set({ path: "vivaldi.themes.current", value: target });
     const wantBg = String((await themeBg(target))?.colorBg || "").trim().toLowerCase();
     try {                                            // websites: their own dark (or light) look - nothing forced on them
       if (await pref("vivaldi.appearance.force_dark_mode_theme")) await vivaldi.prefs.set({ path: "vivaldi.appearance.force_dark_mode_theme", value: false });

@@ -998,7 +998,10 @@
       "visible": true
     },
     "vivaldi.theme": {
-      "dim_blurred": false
+      "dim_blurred": false,
+      "schedule": {
+        "enabled": 0
+      }
     },
     "vivaldi.themes.current": "Vivaldi1",
     "vivaldi.toolbars.navigation": [
