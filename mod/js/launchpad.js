@@ -53,15 +53,42 @@
   const ICON_KEY = "vosIconsCustom";
   let customIcons = {};
   try { chrome.storage.local.get(ICON_KEY, o => { void chrome.runtime.lastError; customIcons = o?.[ICON_KEY] || {}; if (Object.keys(customIcons).length) setTimeout(() => { try { if (lp) render(); } catch (e) {} }, 0); }); } catch (e) {}
-  const ownIcon = url => (url && customIcons[url]) || null;
-  function setIcon(url, data) {
-    if (!url) return;
-    if (data) customIcons[url] = data; else delete customIcons[url];
-    try { chrome.storage.local.set({ [ICON_KEY]: customIcons }, () => void chrome.runtime.lastError); } catch (e) {}
-    try { if (lp) render(); } catch (e) {}
+  /* LIGHT AND DARK: each app can have an icon for each look (customIcons: light, darkIcons: dark) - the one of the look in
+     use is shown. Choosing one while the app has none: it is both (until you choose the other) */
+  const DARK_KEY = "vosIconsDark";
+  let darkIcons = {};
+  try { chrome.storage.local.get(DARK_KEY, o => { void chrome.runtime.lastError; darkIcons = o?.[DARK_KEY] || {}; }); } catch (e) {}
+  const looksDark = () => !!document.getElementById("browser")?.classList.contains("theme-dark");
+  const ownIcon = (url, which) => {
+    if (!url) return null;
+    if (which) return (which === "dark" ? darkIcons : customIcons)[url] || null;
+    return (looksDark() ? darkIcons[url] || customIcons[url] : customIcons[url] || darkIcons[url]) || null;
+  };
+  const iconsRedraw = () => {
+    try { if (lp) render(); else if (parked) parked.stale = true; } catch (e) {}
     try { if (lp?.card) { const f = findNode(lp.card.__folder.id); if (f) openFolder(f, lp.card.__trail, false, true); } } catch (e) {}   // an open folder: stays open, its icons new
+  };
+  function setIcon(url, data, which) {              // which: "light" / "dark" (none: light); no data: both cleared
+    if (!url) return;
+    if (!data) { delete customIcons[url]; delete darkIcons[url]; }
+    else {
+      const mine = which === "dark" ? darkIcons : customIcons, other = which === "dark" ? customIcons : darkIcons;
+      const both = !customIcons[url] && !darkIcons[url];             // none yet: this one is both
+      mine[url] = data; if (both) other[url] = data;
+    }
+    try { chrome.storage.local.set({ [ICON_KEY]: customIcons, [DARK_KEY]: darkIcons }, () => void chrome.runtime.lastError); } catch (e) {}
+    iconsRedraw();
   }
-  const moveIcon = (from, to) => { if (from && to && from !== to && customIcons[from]) { const d = customIcons[from]; delete customIcons[from]; setIcon(to, d); } };
+  const moveIcon = (from, to) => {
+    if (!from || !to || from === to || (!customIcons[from] && !darkIcons[from])) return;
+    for (const m of [customIcons, darkIcons]) if (m[from]) { m[to] = m[from]; delete m[from]; }
+    try { chrome.storage.local.set({ [ICON_KEY]: customIcons, [DARK_KEY]: darkIcons }, () => void chrome.runtime.lastError); } catch (e) {}
+    iconsRedraw();
+  };
+  { let was = null;                                  // the look changed: each app shows its icon for it
+    const look = () => { const d = looksDark(); if (was !== null && d !== was && Object.keys(darkIcons).length) iconsRedraw(); was = d; };
+    addEventListener("vos-appearance", () => setTimeout(look, 200));
+    (function watch() { const b = document.getElementById("browser"); if (!b) return setTimeout(watch, 500); look(); new MutationObserver(look).observe(b, { attributes: true, attributeFilter: ["class"] }); })(); }
   /* CHANGE ICON: icons from macOSicons.com, searched by the app's name (with your own free API key - kept on this
      computer only, never in Bento OS), or an image of your own. Searches are remembered (the free key has 50 a month) */
   const MI_KEY = "vosMacIconsKey", MI_CACHE = "vosMacIconsCache", MI_API = "https://api.macosicons.com/api/v1/search";
@@ -86,7 +113,7 @@
     stSet(MI_CACHE, cache);
     return hits;
   }
-  function iconFrom(url, src, done, trim = 0) {     // an image (a file, or a picture's address) -> the bookmark's 128px icon
+  function iconFrom(url, src, done, trim = 0, which) {     // an image (a file, or a picture's address) -> the bookmark's 128px icon
     const draw = im => {                             // (trim: the share of each side that is only margin - cut off)
       const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
       const iw = im.naturalWidth || im.width || S, ih = im.naturalHeight || im.height || S;
@@ -95,7 +122,7 @@
       const g = c.getContext("2d"), k = Math.min(S / sw, S / sh), w = sw * k, h = sh * k;   // fitted whole (never zoomed into)
       g.imageSmoothingQuality = "high";
       g.drawImage(im, sx, sy, sw, sh, (S - w) / 2, (S - h) / 2, w, h);   // filled, centred (as an app icon)
-      setIcon(url, c.toDataURL("image/png"));
+      setIcon(url, c.toDataURL("image/png"), which);
       done?.();
     };
     if (src instanceof Blob) return createImageBitmap(src).then(draw).catch(() => {});
@@ -104,18 +131,21 @@
   /* your icons on all your devices: an icon picked from macOSicons is written into its bookmark's description (one line,
      "Bento OS icon: <its address>") - Vivaldi Sync carries the bookmark, and Bento OS on the other device loads that icon.
      (an uploaded picture stays on this computer: too big for a description) */
-  const ICON_TAG = /\n?Bento OS icon: \S+/g, ICON_SRC = "vosIconsSrc";
+  const ICON_TAG = /\n?Bento OS icon: \S+/g, DARK_TAG = /\n?Bento OS dark icon: \S+/g, ICON_SRC = "vosIconsSrc";
   let iconSrc = null;
   const srcs = async () => iconSrc || (iconSrc = (await stGet(ICON_SRC)) || {});
-  async function tagIcon(url, src) {
+  async function tagIcon(url, src, which, both) {     // which: that look's line (none: both lines); both: the icon is both looks
     if (!url) return;
-    const m = await srcs(); if (src) m[url] = src; else delete m[url]; stSet(ICON_SRC, m);
+    const looks = !which || both ? ["light", "dark"] : [which];
+    const m = await srcs(); for (const w of looks) { const k = w === "dark" ? url + "#dark" : url; if (src) m[k] = src; else delete m[k]; } stSet(ICON_SRC, m);
     try {
       const hits = await new Promise(r => chrome.bookmarks.search({ url }, x => { void chrome.runtime.lastError; r(x || []); }));
       for (const b of hits) {
         if (!b.url || b.url !== url) continue;
-        const was = String(b.description || ""), rest = was.replace(ICON_TAG, "").trim();
-        const now = src ? (rest ? rest + "\n" : "") + "Bento OS icon: " + src : rest;   // (your own text in it is kept)
+        const was = String(b.description || ""), have = { light: /Bento OS icon: (\S+)/.exec(was)?.[1], dark: /Bento OS dark icon: (\S+)/.exec(was)?.[1] };
+        for (const w of looks) have[w] = src || undefined;
+        const rest = was.replace(ICON_TAG, "").replace(DARK_TAG, "").trim();
+        const now = [rest, have.light && "Bento OS icon: " + have.light, have.dark && have.dark !== have.light && "Bento OS dark icon: " + have.dark].filter(Boolean).join("\n");   // (your own text in it is kept)
         if (now !== was) chrome.bookmarks.update(b.id, { description: now }, () => void chrome.runtime.lastError);
       }
     } catch (e) {}
@@ -126,8 +156,14 @@
     try {
       const m = await srcs(), tree = await new Promise(r => chrome.bookmarks.getTree(t => { void chrome.runtime.lastError; r(t || []); }));
       const want = [];
-      (function walk(ns) { for (const n of ns || []) { if (n.url) { const x = /Bento OS icon: (https:\/\/\S+)/.exec(n.description || ""); if (x && m[n.url] !== x[1]) want.push([n.url, x[1]]); } walk(n.children); } })(tree);
-      for (const [u, src] of want) await new Promise(r => { iconFrom(u, src, () => { m[u] = src; stSet(ICON_SRC, m); r(); }); setTimeout(r, 8000); });
+      (function walk(ns) { for (const n of ns || []) {
+        if (n.url) {
+          const l = /Bento OS icon: (https:\/\/\S+)/.exec(n.description || "")?.[1], d = /Bento OS dark icon: (https:\/\/\S+)/.exec(n.description || "")?.[1] || l;   // (no dark line: the same for both)
+          if (l && m[n.url] !== l) want.push([n.url, l, "light", n.url]);
+          if (d && m[n.url + "#dark"] !== d) want.push([n.url, d, "dark", n.url + "#dark"]);
+        }
+        walk(n.children); } })(tree);
+      for (const [u, src, w, k] of want) await new Promise(r => { iconFrom(u, src, () => { m[k] = src; stSet(ICON_SRC, m); r(); }, 0, w); setTimeout(r, 8000); });
     } catch (e) {}
     syncingIcons = false;
   }
@@ -157,11 +193,21 @@
     document.querySelector(".lp-iconpick")?.remove();
     const host = lp?.layer || document.getElementById("browser"); if (!host) return;
     const box = document.createElement("div"); box.className = "lp-iconpick";
-    box.innerHTML = `<div class="lp-ip-head"><input class="lp-ip-q" type="search" spellcheck="false" placeholder="Search macOSicons"><button type="button" class="lp-btn lp-ip-up">Upload Image…</button></div>
+    box.innerHTML = `<div class="lp-ip-mode" role="tablist"><button type="button" class="lp-ip-v" data-v="light"><span class="lp-ip-pv"></span>Light</button><button type="button" class="lp-ip-v" data-v="dark"><span class="lp-ip-pv"></span>Dark</button></div><div class="lp-ip-head"><input class="lp-ip-q" type="search" spellcheck="false" placeholder="Search macOSicons"><button type="button" class="lp-btn lp-ip-up">Upload Image…</button></div>
       <div class="lp-ip-msg"></div><div class="lp-ip-grid"></div>
       <div class="lp-ip-key" hidden><input class="lp-ip-k" type="password" spellcheck="false" autocomplete="off" placeholder="Your macOSicons API key"><button type="button" class="lp-btn lp-btn-main lp-ip-ks">Save</button>
       <a class="lp-ip-link" href="https://macosicons.com/developers">Get a free key</a></div>`;
     const q = box.querySelector(".lp-ip-q"), msg = box.querySelector(".lp-ip-msg"), grid = box.querySelector(".lp-ip-grid"), keyRow = box.querySelector(".lp-ip-key");
+    let which = looksDark() ? "dark" : "light";                      // which look's icon is being chosen (the one in use first)
+    const marks = () => {
+      for (const b of box.querySelectorAll(".lp-ip-v")) {
+        b.toggleAttribute("data-on", b.dataset.v === which);
+        const pv = b.querySelector(".lp-ip-pv"), d = ownIcon(url, b.dataset.v);
+        pv.textContent = ""; if (d) { const im = document.createElement("img"); im.src = d; im.alt = ""; pv.appendChild(im); }
+      }
+    };
+    for (const b of box.querySelectorAll(".lp-ip-v")) b.addEventListener("click", ev => { ev.stopPropagation(); which = b.dataset.v; marks(); });
+    marks();
     const close = () => { box.remove(); removeEventListener("keydown", esc, true); removeEventListener("pointerdown", out, true); };
     const esc = ev => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } };
     const out = ev => { if (box.contains(ev.target)) return; if (lp) lp.swallow = true; ev.stopPropagation(); close(); };   // (only the popup: the Launchpad stays)
@@ -173,7 +219,7 @@
         for (const h of hits) {
           const b = document.createElement("button"); b.type = "button"; b.className = "lp-ip-cell"; b.title = h.n;
           const im = document.createElement("img"); im.src = h.u; im.alt = ""; im.decoding = "async"; im.loading = "lazy"; b.appendChild(im);
-          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; iconFrom(url, h.u, () => { tagIcon(url, h.u); close(); done?.(); }); });
+          b.addEventListener("click", ev => { ev.stopPropagation(); msg.textContent = "Setting…"; const none = !ownIcon(url, "light") && !ownIcon(url, "dark"); iconFrom(url, h.u, () => { tagIcon(url, h.u, which, none); close(); done?.(); }, 0, which); });
           grid.appendChild(b);
         }
       } catch (e) {
@@ -183,7 +229,7 @@
       }
     };
     q.value = name || ""; q.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); search(); } });
-    box.querySelector(".lp-ip-up").addEventListener("click", ev => { ev.stopPropagation(); close(); pickIcon(url, done); });
+    box.querySelector(".lp-ip-up").addEventListener("click", ev => { ev.stopPropagation(); close(); pickIcon(url, done, which); });
     box.querySelector(".lp-ip-link").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); close(); openUrl("https://macosicons.com/developers", true); window.vosLaunchpad?.close?.(); });
     box.querySelector(".lp-ip-ks").addEventListener("click", ev => { ev.stopPropagation(); const v = box.querySelector(".lp-ip-k").value.trim(); if (v) { stSet(MI_KEY, v); search(); } });
     box.addEventListener("pointerdown", ev => ev.stopPropagation()); box.addEventListener("click", ev => ev.stopPropagation());
@@ -191,7 +237,7 @@
     setTimeout(() => { addEventListener("keydown", esc, true); addEventListener("pointerdown", out, true); q.focus(); q.select(); }, 0);
     if (q.value) search(); else stGet(MI_KEY).then(k => { if (!k) { msg.textContent = "To search macOSicons, add your API key (once):"; keyRow.hidden = false; } });
   }
-  function pickIcon(url, done) {
+  function pickIcon(url, done, which) {
     const inp = document.createElement("input");
     inp.type = "file"; inp.accept = "image/*"; inp.style.display = "none";
     document.body.appendChild(inp);
@@ -206,7 +252,7 @@
         g.imageSmoothingQuality = "high";
         g.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);              // filled, centred (as an app icon)
         URL.revokeObjectURL(u);
-        setIcon(url, c.toDataURL("image/png")); tagIcon(url, null);
+        setIcon(url, c.toDataURL("image/png"), which); tagIcon(url, null, which);
         done?.();
       };
       im.onerror = () => URL.revokeObjectURL(u);

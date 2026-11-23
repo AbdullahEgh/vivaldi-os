@@ -1559,3 +1559,11 @@
 #browser .lp-tile:not(.lp-folder):has(> img.lp-own) { box-shadow: none !important; }
 /* 1.0.210: a folder's little preview - your own icon as small as the others there, rounded like them */
 #browser .lp-tile.lp-folder > img.lp-mini.lp-own { width: 14px !important; height: 14px !important; object-fit: cover !important; border-radius: 3.5px !important; }
+
+/* 1.0.217: the icon picker - Light | Dark (which look's icon is being chosen), each with its icon now */
+#browser .lp-iconpick .lp-ip-mode { display: flex !important; gap: 2px !important; padding: 2px !important; margin: 0 0 10px !important; border-radius: 9px !important; background: var(--lp-chip, rgba(118, 118, 128, 0.16)) !important; }
+#browser .lp-iconpick .lp-ip-v { flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; height: 28px !important; border: 0 !important; border-radius: 7px !important; background: transparent !important; color: inherit !important; font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif !important; cursor: pointer !important; transition: background-color 0.15s ease !important; }
+#browser .lp-iconpick .lp-ip-v[data-on] { background: var(--colorBg, rgba(255, 255, 255, 0.9)) !important; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18) !important; }
+#browser .lp-iconpick .lp-ip-pv { display: inline-flex !important; width: 18px !important; height: 18px !important; border-radius: 5px !important; overflow: hidden !important; background: rgba(128, 128, 128, 0.18) !important; }
+#browser .lp-iconpick .lp-ip-pv:empty { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.45) !important; }
+#browser .lp-iconpick .lp-ip-pv img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
