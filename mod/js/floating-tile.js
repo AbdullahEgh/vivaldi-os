@@ -1054,7 +1054,7 @@ window.vosBeat = window.vosBeat || (() => {
   /* A FLICK (let go while moving fast): where it is heading decides - its path is followed to the edge of the screen:
      a corner (or the bottom near one): pinned there ("pin:tl"); the side of the pinned apps, across them: with them
      ("col:l:<y>"); the left / right edge elsewhere: Bento's half ("left" / "right"); the top edge: full screen */
-  function flickOf(at, ts, id) {
+  function flickOf(at, ts, id, wr) {               // wr: where the window is now (its box on the screen)
     if (at.length < 3) return null;
     const [t0, x0, y0] = at[0], [t1, x1, y1] = at[at.length - 1], dt = t1 - t0;
     if (dt < 24 || ts - t1 > 70) return null;                        // (it had stopped before the release: no flick)
@@ -1066,6 +1066,11 @@ window.vosBeat = window.vosBeat || (() => {
     const t = Math.max(0, Math.min(tx, ty)), hx = Math.max(L, Math.min(R, x1 + vx * t)), hy = Math.max(T, Math.min(B, y1 + vy * t));
     const cw = Math.max(140, W * 0.16), ch = Math.max(120, H * 0.2);  // a corner's reach along each edge
     const near = { l: hx - L < cw, r: R - hx < cw, t: hy - T < ch, b: B - hy < ch };
+    // SMASHED into that edge, not thrown from afar: the window's own edge must reach it while still moving fast
+    if (wr) {
+      const REACH = 110, gap = tx <= ty ? (vx < 0 ? wr.left - L : R - wr.right) : (vy < 0 ? wr.top - T : B - wr.bottom);
+      if (gap > REACH) return null;
+    }
     const pinned = !pip.includes(id);
     if (tx <= ty) {                                                  // the left or right edge
       const side = vx < 0 ? "l" : "r";
@@ -2244,7 +2249,7 @@ window.vosBeat = window.vosBeat || (() => {
           if (Math.abs(h0 / Math.max(1, w0) - na) > 0.03) hN = Math.round(w0 * na);
           pipDrag = { id, r: { ...r0, h: hN }, mid: false, side: c[1] }; render();
         }
-        const f = (last.clientX - s0.left) / s0.width, side = f <= 0.3 ? "l" : f >= 0.7 ? "r" : null, z = side || "m";
+        const f = (last.clientX - s0.left) / s0.width, side = f <= 0.2 ? "l" : f >= 0.8 ? "r" : null, z = side || "m";   // (the middle - a normal window again - is the wide part: 60%)
         if (z !== zone) morph(z, side);
         pipDrag.mid = !side; if (side) pipDrag.side = side;
         const cn = cornerAt(last.clientX, last.clientY);
@@ -3255,7 +3260,10 @@ window.vosBeat = window.vosBeat || (() => {
         closeWsStrip(); proposal = null;
       }
       let flickC = null;                                             // flicked to a corner / to the pinned apps (worked out first: past the edge too)
-      if (!bPin && ev.type === "pointerup") { const k = flickOf(bFling, ev.timeStamp, id); if (isPinFlick(k)) flickC = k; }
+      if (!bPin && ev.type === "pointerup") {
+        const dx = ev.clientX - sx, dy = ev.clientY - sy, L0 = ss.left + r0.x + dx, T0 = ss.top + r0.y + dy;
+        const k = flickOf(bFling, ev.timeStamp, id, { left: L0, top: T0, right: L0 + r0.w, bottom: T0 + r0.h }); if (isPinFlick(k)) flickC = k;
+      }
       if (flickC && leavingB) { leavingB = false; dragOutCancel(); }   // (a flick that went past the edge: still a pin)
       const away = leavingB && ev.type === "pointerup";             // let go outside: to another Vivaldi window
       const awayTo = leavingB ? dragOutEnd(ev.screenX, ev.screenY, away) : null;
@@ -3814,7 +3822,11 @@ window.vosBeat = window.vosBeat || (() => {
     };
 
     const flingAt = [];
-    const fling = ev => how === "move" && moved ? flickOf(flingAt, ev.timeStamp, id) : null;   // (let go while moving fast)
+    const fling = ev => {                                            // (let go while moving fast)
+      if (how !== "move" || !moved) return null;
+      const dx = ev.clientX - sx, dy = ev.clientY - sy, L0 = ss.left + s0.x + dx, T0 = ss.top + s0.y + dy;
+      return flickOf(flingAt, ev.timeStamp, id, { left: L0, top: T0, right: L0 + s0.w, bottom: T0 + s0.h });
+    };
     const onMove = ev => {
       if (ev.pointerId !== pid) return;                             // another finger
       last = ev; px = ev.clientX; py = ev.clientY;
