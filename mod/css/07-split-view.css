@@ -1936,3 +1936,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="dark"] > .vos-pin-ctl::after {
   background: rgba(40, 40, 46, 0.35) !important; border-color: rgba(255, 255, 255, 0.22) !important;
 }
+
+/* 1.0.295: the buttons' pill: the glass only - no edge, no shadow */
+#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after { border: 0 !important; box-shadow: none !important; }
