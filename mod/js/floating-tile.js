@@ -1443,7 +1443,7 @@ window.vosBeat = window.vosBeat || (() => {
      (and their order), and when it shows (a pinned app: always, the buttons on the circle's hover - a normal window: its
      top left corner) */
   const CTL = {
-    pin: { dir: "v", buttons: [["gray", "res", "Page size"], ["yellow", "unpin", "Back to its window"], ["red", "close", "Close"]] },
+    pin: { dir: "v", buttons: [["gray", "res", "Page size - hold: light / dark"], ["green", "unpin", "Back to its window"], ["yellow", "unpin", "Back to its window"], ["red", "close", "Close"]] },   // (1.0.326: green back; yellow its minus - both as full screen's: out of it)
     win: { dir: "h", buttons: [["red", "close", "Close"], ["yellow", "minimize", "Minimize"], ["green", "zoom", "Full screen"], ["gray", "res", ""]] },
   };
   const ctlHtml = type => `<div class="vos-pin-ctl" data-dir="${CTL[type].dir}">` + CTL[type].buttons.map(([c, a, t]) => type === "pin"

@@ -2106,3 +2106,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-fsctl .vos-pc-gray::before { background-color: #a1a1a6 !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='2.8' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
 #browser .vos-fsctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.35s !important; }
 #browser .vos-fsctl .vos-pc[data-ft-holding]::before { filter: brightness(0.85) !important; }
+
+/* 1.0.326: a pinned app's yellow: its minus again (green has the arrows); four buttons, one by one */
+#browser#browser #webpage-stack > .vos-pin-badge .vos-pc-yellow::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3.2 6h5.6' stroke='%23985700' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.21s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.35s !important; }
