@@ -2223,6 +2223,7 @@ window.vosBeat = window.vosBeat || (() => {
     const desktop = !!act && (!!winOf(actId) || mcOver);
     if (act && !isStart(act)) onDesktop = !!winOf(actId);
     b.toggleAttribute("data-ft-desktop", desktop);
+    b.toggleAttribute("data-vos-desk-bare", !!act && isStart(act) && ![...floating].some(id => !minimized.has(id) && !awayWs(id)));   // 1.0.331: the desktop alone (its apps, no window on it)
     b.toggleAttribute("data-ft-has-floats", floating.size > 0);
     const cwNow = curWs();
     if (act && actId != null && cwNow != null && !pendingActive && sameWs(wsOfTab.get(String(actId)), cwNow)) deskShown.set(String(cwNow), String(actId));   // what this desktop shows (Vivaldi brings it back)

@@ -1155,9 +1155,10 @@
     const sb = L.querySelector(":scope > .lp-searchbar");
     sb?.style.removeProperty("width");
     const bar = sb?.getBoundingClientRect();
-    if (!bar?.width) return;
     const btns = r => [...L.querySelectorAll(`:scope > .lp-edge-${r} .lp-edge-btn`)].map(b => b.getBoundingClientRect()).filter(x => x.width);
     const room = () => { const l = btns("l"), rr = btns("r"); return [l.length ? Math.max(...l.map(x => x.right)) : -Infinity, rr.length ? Math.min(...rr.map(x => x.left)) : Infinity]; };
+    if (!bar?.width) {                                               // 1.0.331: no search field (the desktop): only their icons when the two sides would meet
+      const [l0, r0] = room(); if (l0 > r0 - 16) L.setAttribute("data-edge-compact", ""); return; }
     let [lx, rx] = room();
     if (lx <= bar.left - 12 && rx >= bar.right + 12) return;
     L.setAttribute("data-edge-compact", "");                      // first: only their icons

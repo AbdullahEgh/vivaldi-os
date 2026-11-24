@@ -1629,3 +1629,7 @@
 /* 1.0.329: the desktop has no search field - its apps move up into that room (the Launchpad from + keeps its own) */
 #browser #webpage-stack > .lp-layer.lp-desktop > .lp-searchbar { display: none !important; }
 #browser #webpage-stack > .lp-layer.lp-desktop { padding-top: 36px !important; }
+
+/* 1.0.331: the desktop being edited: its apps move down, under the buttons along its top (never under them) */
+#browser #webpage-stack > .lp-layer.lp-desktop { transition: padding-top 0.34s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser #webpage-stack > .lp-layer.lp-desktop[data-editing] { padding-top: 96px !important; }

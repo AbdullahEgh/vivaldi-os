@@ -337,3 +337,6 @@
 /* 1.0.316: an icon too dim for the dark bar (a dark tile, a dark mark): a little brighter, on its far deeper circle */
 #browser #tabs-container .tab[data-vos-dim] :is(.favicon, .site-icon) img,
 #browser #webpage-stack > .vos-pin-badge[data-vos-dim] > img, #browser > .vos-wctl .vos-wctl-ic[data-vos-dim] img { filter: brightness(1.45) saturate(1.15) !important; }
+
+/* 1.0.331: on the desktop the + is off (the desktop is the Launchpad already): dimmed, and it takes no press */
+#browser[data-vos-desk-bare] #tabs-tabbar-container :is(.newtab, #newtab-main) { opacity: 0.35 !important; pointer-events: none !important; transition: opacity 0.2s ease !important; }
