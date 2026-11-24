@@ -237,6 +237,7 @@
     return v;
   }
   let tileCol = false;
+  const hslL = col => { const [r, g, b] = col.split(",").map(Number); return (Math.max(r, g, b) + Math.min(r, g, b)) / 510; };
   function levels(col) {                           // 1.0.304: every circle at one level - its icon's colour, as deep (dark) or as pale (light) as the others
     let [r, g, b] = col.split(",").map(Number); r /= 255; g /= 255; b /= 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
@@ -246,7 +247,8 @@
     // 1.0.314: dimmer - a coloured circle 12% deep (dark) / 93% pale (light), a grey one 9% / 95%; a dark tile is its own
     // colour in both looks (the icon whole - a dark square on a pale circle never), a pale tile its own in light
     const dk = `hsl(${h.toFixed(0)} ${(S * 0.8).toFixed(0)}% ${grey ? 9 : 12}%)`, lt = `hsl(${h.toFixed(0)} ${S.toFixed(0)}% ${grey ? 95 : 93}%)`;
-    return [tileCol && l < 0.3 ? exact : dk, tileCol && (l > 0.82 || l < 0.3) ? exact : lt];
+    const deeper = `hsl(${h.toFixed(0)} ${(Math.min(s, 0.8) * 90).toFixed(0)}% ${Math.max(4, Math.round(l * 100 * 0.4))}%)`;   // 1.0.316: a dark tile in dark: its circle far deeper than it, so the icon stands out
+    return [tileCol && l < 0.3 ? deeper : dk, tileCol && (l > 0.82 || l < 0.3) ? exact : lt];
   }
   let t = 0;
   function check() {
@@ -270,6 +272,8 @@
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
       const kind = v && typeof v === "object" ? (v.tile ? "tile" : v.tint ? "soft" : "") : "", col = kind === "tile" ? v.tile : kind === "soft" ? v.tint : "";   // 1.0.301
+      { const dim = !!(v && typeof v === "object" && dark && ((v.tile && hslL(v.tile) < 0.3) || want === "light"));   // 1.0.316: an icon too dim for the dark bar
+        if (tab.hasAttribute("data-vos-dim") !== dim) tab.toggleAttribute("data-vos-dim", dim); }
       if ((tab.getAttribute("data-vos-tint") || "") !== kind) { if (kind) tab.setAttribute("data-vos-tint", kind); else tab.removeAttribute("data-vos-tint"); }
       if (col) { if (tab.style.getPropertyValue("--vos-tint") !== `rgb(${col})`) { tab.style.setProperty("--vos-tint", `rgb(${col})`); tileCol = kind === "tile"; const lv = levels(col); tab.style.setProperty("--vos-tint-d", lv[0]); tab.style.setProperty("--vos-tint-l", lv[1]); } }
       else if (tab.style.getPropertyValue("--vos-tint")) { tab.style.removeProperty("--vos-tint"); tab.style.removeProperty("--vos-tint-d"); tab.style.removeProperty("--vos-tint-l"); }

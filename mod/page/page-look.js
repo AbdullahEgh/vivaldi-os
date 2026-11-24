@@ -294,18 +294,38 @@
     siteSw.was.forEach(function (x) { if (sw[1] === "attr") { if (x[1] == null) x[0].removeAttribute(sw[2]); else x[0].setAttribute(sw[2], x[1]); } else if (!x[1]) x[0].classList.remove(sw[2]); });
     siteSw = null;
   }
+  function lightShare() {                                        // 1.0.316: how much of what is in sight is still light (a 4 x 4 look over it)
+    var D = document; if (!D.body) return 0; var light = 0, seen = 0;
+    if (gen) gen.disabled = false;
+    for (var i = 1; i <= 4; i++) for (var j = 1; j <= 4; j++) {
+      var e = D.elementFromPoint(innerWidth * i / 5, innerHeight * j / 5), L = null;
+      for (; e && L === null; e = e.parentElement) L = lumOf(getComputedStyle(e).backgroundColor);
+      if (L === null) L = lumOf(getComputedStyle(D.documentElement).backgroundColor);
+      if (L === null) continue; seen++; if (L > 160) light++;
+    }
+    return seen ? light / seen : 0;
+  }
+  var swScrollT = 0;
+  addEventListener("scroll", function () {                         // (scrolled on to a part its own dark design does not cover: written dark for it too)
+    if (!siteSw || gen || swScrollT) return;
+    swScrollT = setTimeout(function () { swScrollT = 0; if (siteSw && !gen && want() && lightShare() > 0.2) genOn(); }, 900);
+  }, { passive: true, capture: true });
   function judge() {
     clearTimeout(genT); genT = 0;
     if (!/html/i.test(document.contentType || "")) return;
     if (!want()) { swOff(); swTried = false; return genOff(); }
-    if (siteSw) return;                                            // (the site's own dark design is on)
+    if (siteSw && gen) return;
+    if (siteSw) return;                                            // (the site's own dark design is on - with written dark for what it leaves light)
     if (swept.length || inl.length) { if (gen) return; }
     var L = pageLum(); if (L === null) return;
     if (gen) { if (L < 110) genOff(); return; }                  // (it turned dark by itself)
     if (L <= 160) return;
     if (!swTried) {                                                // its own dark switch, if it has one
       swTried = true; var sw = findSwitch();
-      if (sw) { swOn(sw); setTimeout(function () { var L2 = pageLum(); if (L2 !== null && L2 < 110) return; swOff(); if (want()) genOn(); }, 350); return; }
+      if (sw) { swOn(sw); setTimeout(function () {
+        var L2 = pageLum(); if (L2 === null || L2 >= 110) { swOff(); if (want()) genOn(); return; }   // (its switch did nothing: written dark instead)
+        if (want() && lightShare() > 0.2) genOn();               // 1.0.316: its own dark design, and written dark for the parts it leaves light
+      }, 350); return; }
     }
     genOn();
   }

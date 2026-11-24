@@ -333,3 +333,7 @@
 
 /* 1.0.305: its tab circle changes with it, the same 0.45s */
 #browser#browser #tabs-container .tab { transition: background-color 0.45s ease !important; }
+
+/* 1.0.316: an icon too dim for the dark bar (a dark tile, a dark mark): a little brighter, on its far deeper circle */
+#browser #tabs-container .tab[data-vos-dim] :is(.favicon, .site-icon) img,
+#browser #webpage-stack > .vos-pin-badge[data-vos-dim] > img, #browser > .vos-wctl .vos-wctl-ic[data-vos-dim] img { filter: brightness(1.45) saturate(1.15) !important; }

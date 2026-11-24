@@ -1734,22 +1734,15 @@ window.vosBeat = window.vosBeat || (() => {
     if (b.__gone) return; b.__gone = true; b.style.pointerEvents = "none";
     const el = targetOf(pageOf(id)), r = b.getBoundingClientRect();   // 1.0.312: it travels into its window - wherever the window is as it goes (still growing back)
     if (!el || !r.width || awayWs(id)) { b.remove(); return; }
-    // 1.0.315: as it came, backwards - it slides to its window and in behind it (under the window, which covers it as it goes)
+    // 1.0.316: ITS OWN ENTRANCE, REVERSED - its buttons go first (their own way out: they pop away, the pill rolls up into it),
+    // then the circle slides back behind its window and fades (the same 30px, scale and 0.32s it came out with, backwards)
     const zw = parseInt(getComputedStyle(el).zIndex, 10); b.style.setProperty("z-index", String(Number.isFinite(zw) ? Math.max(0, zw - 1) : 1), "important");
-    b.querySelector(":scope > .vos-pin-ctl")?.style.setProperty("display", "none", "important");
-    const t0 = performance.now(), D = 340, cx0 = r.left + r.width / 2, cy0 = r.top + r.height / 2, ease = k => k * k * k;   // (it speeds up as it goes in)
-    const step = now => {
-      if (!b.isConnected) return;
-      const k = Math.min(1, (now - t0) / D), e = ease(k), w = el.getBoundingClientRect();
-      const tx = Math.min(Math.max(cx0, w.left + 16), w.right - 16), ty = Math.min(Math.max(cy0, w.top + 16), w.bottom - 16);   // (just inside its nearest edge)
-      b.style.setProperty("transform", `translate(${Math.round((tx - cx0) * e)}px, ${Math.round((ty - cy0) * e)}px) scale(${(1 - 0.15 * e).toFixed(3)})`, "important");
-      b.style.setProperty("opacity", String(k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3), "important");
-      b.style.setProperty("animation", "none", "important");
-      if (k < 1) requestAnimationFrame(step); else b.remove();
-    };
-    b.style.setProperty("transition", "none", "important");
-    requestAnimationFrame(step);
-    setTimeout(() => b.remove(), 600);
+    const had = b.hasAttribute("data-show");                         // (its buttons still out: they go first)
+    b.removeAttribute("data-show"); b.removeAttribute("data-bare"); b.removeAttribute("data-in"); b.removeAttribute("data-held");
+    const w = el.getBoundingClientRect(), dir = (w.left + w.width / 2) >= (r.left + r.width / 2) ? 1 : -1;   // (toward its window, behind it)
+    b.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: `translateX(${dir * 30}px) scale(0.85)` }],
+      { duration: 320, delay: had ? 200 : 0, easing: "cubic-bezier(0.75, 0, 0.8, 0.1)", fill: "both" }).finished.catch(() => {}).then(() => b.remove());
+    setTimeout(() => b.remove(), 900);
   }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
@@ -2861,7 +2854,7 @@ window.vosBeat = window.vosBeat || (() => {
   }, { capture: true, passive: true });
   let pinShown = null, pinShowT = 0;
   function pinShow(id, bar) {                                        // a pinned app's circle and buttons, brought from inside its corner
-    const b = pinBadges.get(id); if (!b) return;
+    const b = pinBadges.get(id); if (!b || badgeHeld === id) return;   // (held by its circle: no buttons)
     if (pinShown && pinShown !== b) pinShown.removeAttribute("data-show");
     pinShown = b; if (!b.hasAttribute("data-show")) b.setAttribute("data-show", "");
     clearInterval(pinShowT);
@@ -7088,6 +7081,7 @@ window.vosBeat = window.vosBeat || (() => {
     const bg = getComputedStyle(tab).backgroundColor, clear = /rgba\(0, 0, 0, 0\)|transparent/.test(bg);
     if (el.__vosBg !== bg) { el.__vosBg = bg; if (clear) el.style.removeProperty("background"); else el.style.setProperty("background", bg, "important"); }
     const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
+    const dim = tab.hasAttribute("data-vos-dim"); if (el.hasAttribute("data-vos-dim") !== dim) el.toggleAttribute("data-vos-dim", dim);   // (1.0.316: its icon brightened as the tab's)
   }
   setInterval(() => {                                                 // (the tab's circle changes - a tint read, a look switched: they follow)
     if (document.hidden) return;                                     // (1.0.309: nothing to keep in step while it is not seen)
