@@ -1150,15 +1150,16 @@ window.vosBeat = window.vosBeat || (() => {
     const el = targetOf(pageOf(id));
     if (!el || pip.includes(id)) return;
     const r = { width: el.offsetWidth, height: el.offsetHeight }, others = pip.map(p => targetOf(pageOf(p))).filter(Boolean);
-    flip([el, ...others], () => {                                    // from how it looks now (shrunk) into its place
-      pinLook(el, id, null); el.__vosRad = null;
-      for (const e of [el, frames.get(id)]) e?.removeAttribute("data-vos-pinlook");
-      if (cover === id) cover = null;
-      if (backToBento.delete(id)) bento.skip.delete(id);
-      pinBack(id, slot?.corner || c, r);
-      if (slot) { pinOrder(id, slot); fillGap(id, slot); }           // between the ones it was dropped between
-      persist(id); render();
-    });
+    flip([el, ...others], () => { pinNow(id, el, c, slot, r); render(); });   // from how it looks now (shrunk) into its place
+  }
+  function pinNow(id, el, c, slot, r) {             // (pinned - without drawing or animating: the caller does that once)
+    pinLook(el, id, null); el.__vosRad = null;
+    for (const e of [el, frames.get(id)]) e?.removeAttribute("data-vos-pinlook");
+    if (cover === id) cover = null;
+    if (backToBento.delete(id)) bento.skip.delete(id);
+    pinBack(id, slot?.corner || c, r);
+    if (slot) { pinOrder(id, slot); fillGap(id, slot); }             // between the ones it was dropped between
+    persist(id);
   }
   function pinBack(id, c, r) {                     // pinned: back where it was the last time (else as given)
     const m = pinMem.get(id), corner = c || m?.c || "bl", same = m && m.c?.[1] === corner[1];
@@ -1785,11 +1786,13 @@ window.vosBeat = window.vosBeat || (() => {
     if (mission) mission.slots = slots;
     missionIcons(slots, s);
     missionMax(s, slots);
+    const seenNow = new Map(); deskSeen = { key: deskKey(), w: s.width, h: s.height, map: seenNow };
     for (const { id, el } of windows) {
       addChrome(el, id);
       const held = missionDrag?.id === id;
       const r = held ? missionDrag.r : liveMove?.id === id ? liveMove.base
         : (awayWs(id) && !mission && otherTiles(wsOfTab.get(String(id)), s).get(id)) || pxRect(id, s), o = origins.get(el.parentElement);   // another desktop with Bento on: its place in that Bento (as it shows when you get there)
+      if (!held && !awayWs(id)) seenNow.set(id, { r, pin: pip.includes(id) });   // (what this desktop looks like - for its preview from another one)
       const vs = vSplit(id);
       if (vs) {                                                      // a split not drawn: its panes side by side (or one above the other)
         const F = FRAME;                                             // the real split's frame and gap
@@ -2866,9 +2869,13 @@ window.vosBeat = window.vosBeat || (() => {
     focusSeenWin = winOf(activePage()?.dataset.id);
     focusQuietUntil = Date.now() + 800;                              // the arrival's own tab changes are not choices
   }
+  /* A DESKTOP'S PREVIEW from another desktop shows it as you last saw it: when you leave a desktop, where its windows
+     were is kept (the last redraw's boxes - nothing measured again) */
+  var deskSeen = null, deskLook = null;              // (var: safe before this line has run)
   function bentoForDesk() {                            // another desktop: its own Bento comes out
     const k = deskKey();
     if (bento.ws === k) return;
+    if (deskSeen && deskSeen.key === bento.ws) (deskLook ||= new Map()).set(deskSeen.key, deskSeen);   // (the desktop being left)
     if (bento.ws != null) bentoWs.set(bento.ws, { on: bento.on, root: bento.root, pre: bento.pre, skip: bento.skip,
       memo: bento.memo, undo: bento.undo, redo: bento.redo });
     bento.ws = k; bento.shape = ""; bentoDrag = null; bSaved = "";
@@ -3249,8 +3256,7 @@ window.vosBeat = window.vosBeat || (() => {
       setPx(id, clampRect({ x: ev.clientX - s2.left - r.w / 2, y: Math.max(MARGIN, ev.clientY - s2.top - 14), w: r.w, h: r.h }, s2), s2);
       render();
       const w = targetOf(pageOf(id));
-      if (w?.hasAttribute("data-ft-float")) startGesture(ev, w, "move");
-      setTimeout(() => shakeWindows(id), 420);                       // (and the others pinned, as any shake)
+      if (w?.hasAttribute("data-ft-float")) startGesture(ev, w, "move", ev.timeStamp);   // (the hold goes on; its next shake counts 2 s from now)
     };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
@@ -3698,7 +3704,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (Object.keys(from).length) el.animate([from, to], { duration: 420, easing: EASE });
   }
 
-  function startGesture(e, el, how) {
+  function startGesture(e, el, how, shookAt) {
     { const g = el.dataset.ftFloat;                                  // full view / the corner stack: a press only picks it
       if (!mission && pip.includes(g)) return pipGesture(e, el, g, how);
       if (!mission && cover === g) { e.preventDefault(); e.stopPropagation(); raise(g); activate(splitFocus.get(g) || g); render(); return; } }
@@ -3767,7 +3773,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (shown) { snapPreview(null); shown = null; }
       if (!wsStrip) openWsStrip().then(() => { if (ended && wsStrip) closeWsStrip(); });   // let go meanwhile: not after
     };
-    const shake = shaker(); let shook = false;
+    const shake = shaker(); let shook = shookAt ?? -1e9;
     let pinAt = null;                                                // over a corner or a side's pinned windows: it shrinks; let go - pinned there
     let pinSl = null;
     const pinShow = (c, x, y) => {
@@ -3842,9 +3848,9 @@ window.vosBeat = window.vosBeat || (() => {
       snapCheck(px, py);
       deskCheck(px, py);
       splitCheck(px, py);
-      if (how === "move" && !shook && shake(px, ev.timeStamp)) {      // shake: the others pinned to the corners (Bento off first)
-        shook = true;
-        if (bento.on) { bentoToggle(false); setTimeout(() => shakeWindows(id), 420); } else shakeWindows(id);
+      if (how === "move" && shake(px, ev.timeStamp) && ev.timeStamp - shook > 2000) {   // shaken (again and again in one hold - 2 s apart):
+        shook = ev.timeStamp;                                        // Bento on: Bento off; else the others pinned to the corners / back
+        if (bento.on) bentoToggle(false); else shakeWindows(id);
       }
       if (Math.hypot(px - sx, py - sy) > 4) moved = true;
       if (frame) return;                                            // at most one update per frame
@@ -4180,13 +4186,28 @@ window.vosBeat = window.vosBeat || (() => {
   function shakeWindows(id) {                       // shaken: the others pinned - shaken again (pins there): every pin back to a window
     const live = pip.filter(p => p !== id && !awayWs(p) && !minimized.has(p));
     if (!live.length) return pinOthers(id);
-    flip(live.map(p => targetOf(pageOf(p))), () => { for (const p of live) { pipOff(p); persist(p); } render(); });   // (they glide back to their places)
+    flip(live.map(p => targetOf(pageOf(p))), () => { for (const p of live) { pipOff(p); persist(p); } raise(id); render(); });   // (they glide back; the one held stays on top)
   }
   function pinOthers(id) {
     const C = ["tl", "tr", "bl", "br"];
     const others = [...floating].filter(w => w !== id && !pip.includes(w) && !minimized.has(w) && !awayWs(w) && w !== cover && !groupFloat.has(w))
       .sort((a, b) => zOrder.indexOf(b) - zOrder.indexOf(a));
-    others.forEach((w, i) => { try { pinInto(w, C[i % 4], null); } catch (e) {} });
+    if (!others.length) return;
+    const els = others.map(w => targetOf(pageOf(w))), sizes = els.map(e => e ? { width: e.offsetWidth, height: e.offsetHeight } : null);
+    // each to the corner it had last time (then its place there too); one never pinned: the corner nearest to it, while
+    // that corner has room (so they still share the four corners) - a shake never shuffles them
+    const ss = stackRect(), cap = Math.ceil(others.length / 4), used = { tl: 0, tr: 0, bl: 0, br: 0 }, to = new Map();
+    for (const w of others) { const c = pinMem.get(w)?.c; if (/^[tb][lr]$/.test(c || "")) { to.set(w, c); used[c]++; } }
+    for (const w of others) {
+      if (to.has(w)) continue;
+      const r = pxRect(w, ss), cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      const near = C.slice().sort((a, b) => Math.hypot((a[1] === "l" ? 0 : ss.width) - cx, (a[0] === "t" ? 0 : ss.height) - cy) - Math.hypot((b[1] === "l" ? 0 : ss.width) - cx, (b[0] === "t" ? 0 : ss.height) - cy));
+      const c = near.find(k => used[k] < cap) || near[0]; to.set(w, c); used[c]++;
+    }
+    flip([...els, ...pip.map(p => targetOf(pageOf(p)))].filter(Boolean), () => {   // all of them in ONE animation (one measure, one draw)
+      others.forEach((w, i) => { if (els[i] && sizes[i]) { try { pinNow(w, els[i], to.get(w), null, sizes[i]); } catch (e) {} } });
+      raise(id); render();
+    });
   }
   function shaker() {
     let dir = 0, turnX = null, turns = [];
@@ -5830,7 +5851,9 @@ window.vosBeat = window.vosBeat || (() => {
       }
       const wins = onlyFull ? [] : [...zOrder].filter(id => floating.has(id) && !minimized.has(id) && wsOfTab.has(String(id)) && same(wsOfTab.get(String(id)), sp.id));
       for (const id of wins) {
-        const r = same(sp.id, cur) ? pxRect(id, ss) : pip.includes(id) ? pipSide((pipCorner.get(id) || "bl")[1], ss, sp.id).get(id)   // pinned there: pinned in its preview
+        const seen = same(sp.id, cur) ? null : deskLook?.get(sp.id == null ? "default" : String(sp.id)), was = seen?.map.get(id);
+        const r = same(sp.id, cur) ? pxRect(id, ss) : was && was.pin === pip.includes(id) && seen.w === ss.width && seen.h === ss.height ? was.r   // as you last saw it there
+          : pip.includes(id) ? pipSide((pipCorner.get(id) || "bl")[1], ss, sp.id).get(id)   // pinned there: pinned in its preview
           : (otherTiles(sp.id, ss).get(id) || (() => { const f = frac[id]; return f ? { x: f.x * ss.width, y: f.y * ss.height, w: f.w * ss.width, h: f.h * ss.height } : null; })());
         if (!r) continue;
         const w = document.createElement("div");
