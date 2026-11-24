@@ -2076,3 +2076,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-fsctl[data-out] .vos-pin-ctl::after { animation: vos-pill-h-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
 #browser .vos-fsctl[data-out] .vos-wctl-ic { animation: vos-fs-ic-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.12s both !important; }
 @keyframes vos-fs-ic-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.85); } }
+
+/* 1.0.322: over the tab bar (a part Vivaldi lets you drag its window by) the buttons still take the pointer - they, and the
+   hold round them, are never part of that */
+#browser > .vos-wctl, #browser > .vos-wctl *, #browser > .vos-wctl::after, #browser > .vos-wctl *::before, #browser > .vos-wctl *::after,
+#browser #webpage-stack > .vos-pin-badge, #browser #webpage-stack > .vos-pin-badge *, #browser .vos-fsctl, #browser .vos-fsctl * { -webkit-app-region: no-drag !important; app-region: no-drag !important; }
