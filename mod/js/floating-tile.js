@@ -1772,7 +1772,7 @@ window.vosBeat = window.vosBeat || (() => {
     b.removeAttribute("data-show"); b.removeAttribute("data-bare"); b.removeAttribute("data-in"); b.removeAttribute("data-held");
     const w = el.getBoundingClientRect(), dir = (w.left + w.width / 2) >= (r.left + r.width / 2) ? 1 : -1;   // (toward its window, behind it)
     b.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: `translateX(${dir * 30}px) scale(0.85)` }],
-      { duration: 320, delay: had ? 200 : 0, easing: "cubic-bezier(0.75, 0, 0.8, 0.1)", fill: "both" }).finished.catch(() => {}).then(() => b.remove());
+      { duration: 320, delay: had ? 200 : 0, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "both" }   /* (1.0.332: every way out's curve) */).finished.catch(() => {}).then(() => b.remove());
     setTimeout(() => b.remove(), 900);
   }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
@@ -7120,11 +7120,10 @@ window.vosBeat = window.vosBeat || (() => {
     const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
     const dim = tab.hasAttribute("data-vos-dim"); if (el.hasAttribute("data-vos-dim") !== dim) el.toggleAttribute("data-vos-dim", dim);   // (1.0.316: its icon brightened as the tab's)
   }
-  setInterval(() => {                                                 // (the tab's circle changes - a tint read, a look switched: they follow)
-    if (document.hidden) return;                                     // (1.0.309: nothing to keep in step while it is not seen)
+  const circlesSync = () => {                                        // (the tab's circle changes - a tint read, a look switched: they follow)
     for (const [id, b] of pinBadges) { if (b.hasAttribute("data-multi")) continue; const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id; mirrorTab(b, b.querySelector(":scope > img"), t); }
     if (wctl && wctlFor && wctl.hasAttribute("data-on")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
-  }, 500);
+  };
   /* 1.0.320: A PAGE FULL SCREEN (no Bento, no pinned apps over it - the page alone): its window buttons, with its app's
      circle, sit in the toolbar right after the Desktops button - the same component as a window's, side by side */
   let fsctl = null;
@@ -7145,13 +7144,13 @@ window.vosBeat = window.vosBeat || (() => {
     mirrorTab(fsctl.querySelector(".vos-wctl-ic"), fsctl.querySelector(".vos-wctl-ic img"), id);
     if (!fsctl.hasAttribute("data-on")) { clearTimeout(fsctl.__outT); fsctl.removeAttribute("data-out"); void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
   }
-  setInterval(() => { if (!document.hidden) fsCtlSync(); }, 400);
-  setInterval(() => {                                                 // 1.0.328: the address field's hint without the search engine's name
+  const hintSync = () => {                                           // 1.0.328: the address field's hint without the search engine's name
     for (const i of document.querySelectorAll("#browser .UrlBar-AddressField input[placeholder]")) {
       const ph = i.getAttribute("placeholder"), clean = ph.replace(/^(\S+)\s+.+?\s+(or\s+.+)$/i, "$1 $2");
       if (/google|bing|duckduckgo|ecosia|startpage|yahoo|qwant|brave|kagi|yandex|baidu/i.test(ph) && clean !== ph) i.setAttribute("placeholder", clean);
     }
-  }, 700);
+  };
+  setInterval(() => { if (document.hidden) return; circlesSync(); fsCtlSync(); hintSync(); }, 450);   // 1.0.332: one light beat for the three (none while not seen)
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
     const im = document.getElementById("tab-" + id)?.querySelector("img");
