@@ -2681,7 +2681,7 @@ window.vosBeat = window.vosBeat || (() => {
      edge near it - shows that corner's buttons (left: the coloured ones, right: the scale one). A press there still resizes;
      they go again once the pointer is neither there nor on them */
   let cornerBox = null, cornerH = null;
-  const cornerOff = () => { if (cornerBox?.hasAttribute("data-vos-corner")) { cornerBox.removeAttribute("data-vos-corner"); cornerBox.removeAttribute("data-ft-shown"); } cornerBox = null; };
+  const cornerOff = () => { if (cornerBox?.hasAttribute("data-vos-corner")) { cornerBox.removeAttribute("data-vos-corner"); cornerBox.removeAttribute("data-ft-shown"); cornerBox.toggleAttribute("data-up", false); } cornerBox = null; };
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
     const t = ev.target;
@@ -2706,6 +2706,15 @@ window.vosBeat = window.vosBeat || (() => {
     { const w = box.closest("[data-ft-float]")?.getBoundingClientRect(), st = document.getElementById("webpage-stack")?.getBoundingClientRect();   // 1.0.279: room above it?
       box.toggleAttribute("data-up", !!w && !!st && w.top - st.top >= 36); }                                    // the buttons float above the window
     box.setAttribute("data-ft-shown", ""); box.setAttribute("data-vos-corner", ""); cornerBox = box;
+    if (box.hasAttribute("data-up")) {                               // 1.0.280: out of the window's clip, kept just above it (it may move)
+      const follow = () => {
+        if (cornerBox !== box || !box.hasAttribute("data-up")) return;
+        const w = box.closest("[data-ft-float]")?.getBoundingClientRect(), st = document.getElementById("webpage-stack")?.getBoundingClientRect();
+        if (w && st) { box.style.setProperty("--vos-up-l", (w.left - st.left) + "px"); box.style.setProperty("--vos-up-t", (w.top - st.top - 34) + "px"); }
+        requestAnimationFrame(follow);
+      };
+      follow();
+    }
     const tick = setInterval(() => {                                 // (over the page the browser hears no moves: checked here)
       if (cornerBox !== box) return clearInterval(tick);
       if (box.matches(":hover") || cornerH?.matches(":hover")) return;
