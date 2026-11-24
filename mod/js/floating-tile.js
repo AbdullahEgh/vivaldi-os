@@ -749,6 +749,7 @@ window.vosBeat = window.vosBeat || (() => {
                                           h: pc ? { c: pc, h: Math.round(pipH.get(id) || 240), w: Math.round(pipW.get(id) || 360), o: pip.indexOf(id),
                                                     z: pipUserZoom.has(id) ? +pipUserZoom.get(id).toFixed(3) : undefined, b: pipZoomWas.has(id) ? +Number(pipZoomWas.get(id)).toFixed(3) : undefined } : undefined,   // pinned: its corner, size, place in the stack, page scale
                                           m: minimized.has(id) && minKind.get(id) === "float" ? 1 : undefined,   // minimized: so again after a restart
+                                          dk: darkWins.has(id) ? 1 : undefined,   // 1.0.270: its look switched (light <-> dark)
                                           lp: !pc && pinMem.has(id) ? pinMem.get(id) : undefined,   // where it was pinned last (pinned again: there)
  } : undefined;
         if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want)) return;
@@ -800,6 +801,7 @@ window.vosBeat = window.vosBeat || (() => {
           pip.push(id);
         }
         if (f.m && !f.h) { minimized.add(id); minKind.set(id, "float"); }
+        if (f.dk) darkWins.add(id);
         if (f.lp && /^[tb][lr]$/.test(f.lp.c || "")) pinMem.set(id, f.lp);   // minimized before the restart: so again (its tab brings it back)
         noTitle.add(id);                                          // floating windows never show a title bar
         if (f.g) groupFloat.add(id);
@@ -953,19 +955,37 @@ window.vosBeat = window.vosBeat || (() => {
     const pid = e.pointerId, y0 = e.clientY, s0 = stackRect(), avail = s0.height - 2 * MARGIN;
     const ha = Math.max(100, Math.min(avail, pipH.get(a) || s0.height * PIP_K)), hb = Math.max(100, Math.min(avail, pipH.get(b) || s0.height * PIP_K));
     const shield = document.createElement("div"); shield.className = "ft-shield"; shield.style.cursor = "ns-resize"; document.body.appendChild(shield);
+    const line = () => document.querySelector(`#webpage-stack > .vos-pip-hdiv[data-key="${a}:${b}"]`);
+    line()?.setAttribute("data-held", "");                          // 1.0.270: its pill stays while it is dragged
+    // 1.0.270: held still first, then dragged - they come apart: only the one you drag toward changes, the other keeps its size
+    const side = (pipCorner.get(a) || "bl")[1], col = pipSide(side, s0), da = col.get(a)?.h || ha * (k || 1), db = col.get(b)?.h || hb * (k || 1);
+    let apart = false;
+    const holdT = setTimeout(() => { apart = true; const l = line(); l?.setAttribute("data-apart", ""); }, BTN_HOLD);
     let frame = 0, last = null;
     const apply = () => {
       if (!last) return;
-      const MIN = 100, d = Math.max(MIN - ha, Math.min(hb - MIN, (last.clientY - y0) / (k || 1)));   // in their own heights; neither below 100px
+      const MIN = 100, dy = last.clientY - y0;
+      if (apart) {                                                   // up: the upper one gives way; down: the lower one
+        if (dy < 0) { pipH.set(a, Math.round(Math.max(MIN, da + dy))); pipH.set(b, Math.round(db)); }
+        else { pipH.set(b, Math.round(Math.max(MIN, db - dy))); pipH.set(a, Math.round(da)); }
+        pipAspect.set(a, pipH.get(a) / Math.max(1, pipW.get(a) || 1)); pipAspect.set(b, pipH.get(b) / Math.max(1, pipW.get(b) || 1));
+        return render();
+      }
+      const d = Math.max(MIN - ha, Math.min(hb - MIN, dy / (k || 1)));   // in their own heights; neither below 100px
       pipH.set(a, Math.round(ha + d)); pipH.set(b, Math.round(hb - d));
       render();
     };
-    const move = ev => { if (ev.pointerId !== pid) return; last = ev; if (!frame) frame = requestAnimationFrame(() => { frame = 0; apply(); }); };
+    const move = ev => {
+      if (ev.pointerId !== pid) return; last = ev;
+      if (!apart && Math.abs(ev.clientY - y0) > 4) clearTimeout(holdT);   // (moved at once: joined, as before)
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; apply(); });
+    };
     const up = ev => {
       if (ev.pointerId !== pid) return;
       removeEventListener("pointermove", move, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
-      shield.remove(); cancelAnimationFrame(frame); frame = 0;
+      shield.remove(); cancelAnimationFrame(frame); frame = 0; clearTimeout(holdT);
       if (ev.type === "pointerup") { last = ev; apply(); }
+      const l = line(); l?.removeAttribute("data-held"); l?.removeAttribute("data-apart");
       persist(a); persist(b);
     };
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
@@ -1483,15 +1503,54 @@ window.vosBeat = window.vosBeat || (() => {
     if (!id || mission || lpOn() || !pip.includes(id) || e.target.closest(".vos-pin-ctl")) return;   // (its buttons: a click)
     const el = targetOf(pageOf(id)); if (el) pipGesture(e, el, id, "move");
   }, true);
+  let pcHold = null;
+  addEventListener("pointerdown", e => {                          // 1.0.270: its grey one held: light <-> dark
+    const g = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge .vos-pc-gray"); if (!g) return;
+    const id = g.closest(".vos-pin-badge").dataset.for; clearTimeout(pcHold?.t);
+    pcHold = { id, done: false, t: setTimeout(() => { pcHold.done = true; toggleDark(id); }, BTN_HOLD) };
+  }, true);
+  addEventListener("pointerup", () => { if (pcHold && !pcHold.done) { clearTimeout(pcHold.t); pcHold = null; } }, true);
   addEventListener("click", e => {                                // 1.0.265: the pinned app's own buttons
     const btn = e.target?.closest?.("#webpage-stack > .vos-pin-badge .vos-pc"); if (!btn) return;
     e.preventDefault(); e.stopPropagation();
+    if (pcHold?.done) { pcHold = null; return; }                    // (it was held)
     const id = btn.closest(".vos-pin-badge").dataset.for, pg = pageOf(id);
     if (!pg || !pip.includes(id)) return;
     if (btn.dataset.pc === "close") act("close", pg);
     else if (btn.dataset.pc === "unpin") holdAct("minimize", id);      // back to its window (as the yellow button did)
     else act("res", pg);                                             // its page size: 40% / 75% / 100%
   }, true);
+  /* 1.0.270: one window's look, light <-> dark, on its own (the others as they are). The page's own dark (or light) theme
+     first - "prefer dark" for that page only - and only when the page does not change with it: its colours turned over,
+     pictures and video kept as they are. Kept through new pages in it and a restart. */
+  const darkWins = new Set();
+  const DARK_CODE = on => `(function(){
+    var st = document.getElementById("vos-look"); if (st) st.remove();
+    if (!${on}) return "off";
+    var lum = function(){ var els = [document.body, document.documentElement];
+      for (var i = 0; i < els.length; i++) { if (!els[i]) continue; var c = (getComputedStyle(els[i]).backgroundColor.match(/[\\d.]+/g) || []).map(Number);
+        if (c.length >= 3 && (c.length < 4 || c[3] > 0.1)) return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+      return 255; };
+    var was = lum(), toDark = was > 128;
+    st = document.createElement("style"); st.id = "vos-look"; (document.head || document.documentElement).appendChild(st);
+    st.textContent = ":root{color-scheme:" + (toDark ? "dark" : "light") + " !important}";
+    var now = lum();
+    if ((now > 128) === (was > 128)) st.textContent = "html{filter:invert(1) hue-rotate(180deg) !important} img,video,picture,canvas,iframe,svg image,[style*=background-image]{filter:invert(1) hue-rotate(180deg) !important}";
+    return "on";
+  })()`;
+  function darkApply(wv, on) { try { wv.executeScript({ code: DARK_CODE(!!on) }, () => void chrome.runtime.lastError); } catch (e) {} }
+  function darkHook(id) {                                             // every page of it, now and on each new page
+    for (const wv of webviewsOf(id)) {
+      if (!wv.__vosDarkHook) { wv.__vosDarkHook = true; wv.addEventListener("loadstop", () => { const w = winOf(wv.closest(".webpageview")?.dataset.id) || wv.closest(".webpageview")?.dataset.id; if (w && darkWins.has(w)) darkApply(wv, true); }); }
+      darkApply(wv, darkWins.has(id));
+    }
+  }
+  function toggleDark(win) {
+    if (!floating.has(win)) return;
+    if (darkWins.has(win)) darkWins.delete(win); else darkWins.add(win);
+    darkHook(win); persist(win);
+  }
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of darkWins) if (floating.has(w)) for (const wv of webviewsOf(w)) if (!wv.__vosDarkHook) darkHook(w); });   // (a pane added to it, a restart)
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
@@ -2471,6 +2530,7 @@ window.vosBeat = window.vosBeat || (() => {
     finally { fullOnNewDesk.busy = false; }
   }
   function holdAct(what, win) {
+    if (what === "res") return toggleDark(win);                     // 1.0.270: the grey one held: this window light <-> dark
     const el = targetOf(pageOf(win));
     if (!el || !floating.has(win)) return;
     raise(win); activate(splitFocus.get(win) || win);
@@ -2522,7 +2582,7 @@ window.vosBeat = window.vosBeat || (() => {
     btnHeldAt = 0;                                                   // a new press: the last hold's click is long gone
     if (btnHold) { clearTimeout(btnHold.t); btnHold.btn.removeAttribute("data-ft-holding"); btnHold = null; }
     if (ev.button !== 0) return;
-    const btn = ev.target?.closest?.('.ft-titlebar .ft-light[data-act="zoom"], .ft-titlebar .ft-light[data-act="minimize"], .ft-lights .ft-light[data-act="minimize"]');
+    const btn = ev.target?.closest?.('.ft-titlebar .ft-light[data-act="zoom"], .ft-titlebar .ft-light[data-act="minimize"], .ft-lights .ft-light[data-act="minimize"], .ft-titlebar .ft-light[data-act="res"]');
     let win = btn && winOf(btn.closest(".ft-titlebar")?.dataset.ftPage);
     const maxPg = !win && btn?.closest(".ft-lights") ? btn.closest(".webpageview[data-id]") : null;   // a full-screen page's own buttons
     if (maxPg) { if (winOf(maxPg.dataset.id) || isTiled(maxPg) || isStart(maxPg)) return; win = maxPg.dataset.id; }
@@ -7495,7 +7555,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (box && !box.hasAttribute("data-ft-shown")) return reveal(box);
         hideShown();
       }
-      if (btnHeldAt && Date.now() - btnHeldAt < 1500 && btn.matches('[data-act="zoom"], [data-act="minimize"]')) { btnHeldAt = 0; return; }   // it was held
+      if (btnHeldAt && Date.now() - btnHeldAt < 1500 && btn.matches('[data-act="zoom"], [data-act="minimize"], [data-act="res"]')) { btnHeldAt = 0; return; }   // it was held
       const barId = btn.closest(".ft-titlebar")?.dataset.ftPage;
       const page = barId ? pageOf(barId) : btn.closest(".webpageview");
       if (page) act(btn.dataset.act, page);
