@@ -6658,7 +6658,8 @@ window.vosBeat = window.vosBeat || (() => {
       b.title = TITLES[lv];
     };
     addEventListener("resize", () => apply());
-    let q = 0; new MutationObserver(ms => { if (ms.every(m => [...m.addedNodes, ...m.removedNodes].every(n => n.id === "vos-wa-btn"))) return; if (!q) q = requestAnimationFrame(() => { q = 0; apply(); }); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
+    // (WhatsApp changes all the time - messages, typing, its list while scrolling: looked at once soon, then at most ~7 times a second)
+    let q = 0, lastWa = 0; new MutationObserver(ms => { if (ms.every(m => [...m.addedNodes, ...m.removedNodes].every(n => n.id === "vos-wa-btn"))) return; if (q) return; const wait = Math.max(0, 150 - (performance.now() - lastWa)); q = setTimeout(() => requestAnimationFrame(() => { q = 0; lastWa = performance.now(); apply(); }), wait); }).observe(document.body || document.documentElement, { childList: true, subtree: true });
     window.__vosWa = apply; apply(); return "set";
   })()`;
   function waHook(wv) {
