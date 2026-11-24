@@ -1533,6 +1533,8 @@ window.vosBeat = window.vosBeat || (() => {
       st.attrs.forEach(function (x) { x[0].setAttribute(x[1], x[2]); }); st.attrs = [];
       st.done = new WeakSet(); if (st.obs) { st.obs.disconnect(); st.obs = null; }
       var s0 = D.getElementById("vos-look"); if (s0) s0.remove();
+      var f0 = D.getElementById("vos-look-flip"); if (f0) f0.remove();
+      if (st.imgObs) { st.imgObs.disconnect(); st.imgObs = null; } st.flip = false;
       st.target = null;
     }
     if (!on) { undo(); return "off"; }
@@ -1573,6 +1575,30 @@ window.vosBeat = window.vosBeat || (() => {
       }
     }
     pass();
+    // 1.0.274: a site that does not change with it (its look picked by its own script): its colours turned over instead,
+    // every picture (and a site's background picture) turned back once - never twice
+    function lum() {
+      var e = D.elementFromPoint(Math.round(innerWidth / 2), Math.round(innerHeight / 2));
+      for (; e; e = e.parentElement) { var c = (getComputedStyle(e).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+        if (c.length >= 3 && (c.length < 4 || c[3] > 0.5)) return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+      var b = D.body && (getComputedStyle(D.body).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+      return b && b.length >= 3 && (b.length < 4 || b[3] > 0.5) ? 0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2] : 255;
+    }
+    function flipOn() {
+      if (st.flip || st.target !== target) return; st.flip = true;
+      var M = "img,video,canvas,iframe,embed,object,svg image,[data-vos-img]";
+      var f = D.createElement("style"); f.id = "vos-look-flip";
+      f.textContent = "html{filter:invert(1) hue-rotate(180deg) !important} :is(" + M + "):not(:is(" + M + ") *){filter:invert(1) hue-rotate(180deg) !important} :is(" + M + ") :is(" + M + "){filter:none !important}";
+      (D.head || D.documentElement).appendChild(f);
+      var mark = function () { var all = D.querySelectorAll("*"); for (var i = 0; i < all.length && i < 6000; i++) { var el = all[i]; if (el.hasAttribute("data-vos-img")) continue;
+        var bg = getComputedStyle(el).backgroundImage; if (bg && bg.indexOf("url(") >= 0) el.setAttribute("data-vos-img", ""); } };
+      mark();
+      var tt = 0; st.imgObs = new MutationObserver(function () { if (tt) return; tt = setTimeout(function () { tt = 0; if (st.flip) mark(); }, 400); });
+      st.imgObs.observe(D.documentElement, { childList: true, subtree: true });
+    }
+    function check() { if (!st.target || st.flip || !D.body) return; var L = lum(); if (target === "light" ? L < 110 : L > 150) flipOn(); }
+    setTimeout(check, 500); setTimeout(check, 1800);
+    if (D.readyState !== "complete") W.addEventListener("load", function () { setTimeout(check, 600); });
     if (!st.obs) {                                                   // what the page adds later (and the sheets still loading)
       st.obs = new MutationObserver(function () { if (st.t) return; st.t = setTimeout(function () { st.t = 0; if (st.target) pass(); }, 250); });
       st.obs.observe(D.documentElement, { childList: true, subtree: true });
