@@ -1503,7 +1503,7 @@ window.vosBeat = window.vosBeat || (() => {
       for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (b.style.getPropertyValue(v) !== x) { if (x) b.style.setProperty(v, x); else b.style.removeProperty(v); } } }
     b.toggleAttribute("data-multi", ids.length > 1);
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
-    const dragging = pipDrag?.id === id && badgeHeld !== id;          // (1.0.292: held by its own circle: it stays, and goes with its app)
+    const moving = pipDrag?.id === id || badgeHeld === id, dragging = false;   // 1.0.319: moved any way - it never hides, it goes with its app          // (1.0.292: held by its own circle: it stays, and goes with its app)
     b.toggleAttribute("data-drag", dragging);                          // 1.0.247: held and moved: gone at once (back where it lands)
     b.toggleAttribute("data-bare", bare);
     const S = 24, G = 6, H = S + (ids.length - 1) * 20, x = side === "r" ? r.x - S - G : r.x + r.w + G;
@@ -1514,7 +1514,8 @@ window.vosBeat = window.vosBeat || (() => {
       b.__vosIn = side;
     }
     b.__vosWasDrag = dragging;
-    if (badgeHeld !== id) place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
+    if (moving) badgeFollow(b, id);
+    if (!moving && !b.__vosFollow) place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
     setStyle(b, "z-index", "2147483000");                            // 1.0.309: over everything, always (never under a window)
   }
   addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
@@ -1522,19 +1523,32 @@ window.vosBeat = window.vosBeat || (() => {
     if (!id || mission || lpOn() || !pip.includes(id) || e.target.closest(".vos-pin-ctl")) return;   // (its buttons: a click)
     const el = targetOf(pageOf(id)); if (!el) return;
     badgeHeld = id; b.removeAttribute("data-drag"); b.setAttribute("data-held", ""); b.removeAttribute("data-show");   // 1.0.292: held: it stays in sight and goes with its app (1.0.315: only the circle - its buttons away)
-    { const r0 = el.getBoundingClientRect(), side = (pipCorner.get(id) || "bl")[1];
-      const follow = () => {
-        if (badgeHeld !== id || !b.isConnected) { if (!b.__gone) b.style.translate = ""; return; }   // (going into its window: from where it is)
-        const r = el.getBoundingClientRect();
-        b.style.translate = `${Math.round(side === "r" ? r.left - r0.left : r.right - r0.right)}px ${Math.round(r.top - r0.top)}px`;
-        requestAnimationFrame(follow);
-      };
-      requestAnimationFrame(follow); }
+    badgeFollow(b, id);
     const up = ev => { if (ev.pointerId !== e.pointerId) return; badgeHeld = null; b.removeAttribute("data-held"); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); setTimeout(render, 0); };
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     pipGesture(e, el, id, "move");
   }, true);
   var badgeHeld = null;
+  /* 1.0.319: A PINNED APP MOVED - by its circle, its body or an edge: its circle stays in sight at its corner, going with it
+     (where it is drawn this moment, its look while dragged included), its buttons rolled away (their own way out); let go,
+     it is placed again - on the other side, it comes out from behind its app there; on the desktop, it goes in behind it */
+  function badgeFollow(b, id) {
+    if (b.__vosFollow) return; b.__vosFollow = true;
+    const el = targetOf(pageOf(id)); if (!el) { b.__vosFollow = false; return; }
+    b.setAttribute("data-held", ""); b.removeAttribute("data-show");
+    b.style.translate = ""; const base = b.getBoundingClientRect();
+    const S = 24, G = 6;
+    const follow = () => {
+      if (b.__gone) { b.__vosFollow = false; return; }               // (going into its window: from where it is)
+      if (!b.isConnected || !(pipDrag?.id === id || badgeHeld === id)) {
+        b.__vosFollow = false; b.removeAttribute("data-held"); b.style.translate = ""; setTimeout(render, 0); return; }
+      const r = el.getBoundingClientRect(), side = pipDrag?.id === id && pipDrag.side ? pipDrag.side : (pipCorner.get(id) || "bl")[1];
+      const x = side === "r" ? r.left - S - G : r.right + G;
+      b.style.translate = `${Math.round(x - base.left)}px ${Math.round(r.top - base.top)}px`;
+      requestAnimationFrame(follow);
+    };
+    requestAnimationFrame(follow);
+  }
   let pcHold = null;
   addEventListener("pointerdown", e => {                          // 1.0.270: its grey one held: light <-> dark
     const g = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge .vos-pc-gray"); if (!g) return;
