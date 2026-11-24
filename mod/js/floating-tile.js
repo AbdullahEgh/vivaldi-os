@@ -1028,7 +1028,8 @@ window.vosBeat = window.vosBeat || (() => {
       const o = [...R.all].filter(([p]) => p !== id).map(([, r]) => r);
       const up = o.filter(r => r.y < R.y), dn = o.filter(r => r.y > R.y);
       const upEdge = up.length ? Math.max(...up.map(r => r.y + r.h)) : null, dnEdge = dn.length ? Math.min(...dn.map(r => r.y)) : null;
-      between = upEdge != null && dnEdge != null && R.y - upEdge <= PIP_GAP + 6 && dnEdge - (R.y + R.h) <= PIP_GAP + 6;
+      // (1.0.247: also when it NEARLY fills it - a few px left over gave uneven gaps and one line: it takes the box exactly)
+      between = upEdge != null && dnEdge != null && R.y - upEdge >= PIP_GAP - 2 && dnEdge - (R.y + R.h) >= PIP_GAP - 2 && (R.y - upEdge) + (dnEdge - (R.y + R.h)) <= 2 * PIP_GAP + 48;
     }
     let gap = null;                                  // the box: the free gap itself, as it is now - never over a pinned window
     if (between) {
@@ -1438,6 +1439,7 @@ window.vosBeat = window.vosBeat || (() => {
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     const im = b.firstChild; if (src && im.getAttribute("src") !== src) im.src = src;
     b.toggleAttribute("data-empty", !src);
+    b.toggleAttribute("data-drag", pipDrag?.id === id);                // 1.0.247: held and moved: gone at once (back where it lands)
     const S = 30, G = 6, x = side === "r" ? r.x - S - G : r.x + r.w + G;
     place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: S }, s, o);
     setStyle(b, "z-index", "99");
@@ -2435,7 +2437,7 @@ window.vosBeat = window.vosBeat || (() => {
     const h = t?.closest?.(".ft-frame > .ft-resize");
     if (h && /\bft-(tl|tr|t)\b/.test(h.className)) {
       const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
-      if (el && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !minimized.has(id)) {
+      if (el && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip") && !minimized.has(id)) {   // (1.0.247: a pinned app has no buttons)
         const r = h.parentElement.getBoundingClientRect(), edge = h.classList.contains("ft-t");
         const left = h.classList.contains("ft-tl") || (edge && ev.clientX - r.left < 90);
         const right = h.classList.contains("ft-tr") || (edge && r.right - ev.clientX < 90);
