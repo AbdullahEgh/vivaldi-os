@@ -1590,7 +1590,14 @@ window.vosBeat = window.vosBeat || (() => {
       var f = D.createElement("style"); f.id = "vos-look-flip";
       f.textContent = "html{filter:invert(1) hue-rotate(180deg) !important} :is(" + M + "):not(:is(" + M + ") *){filter:invert(1) hue-rotate(180deg) !important} :is(" + M + ") :is(" + M + "){filter:none !important}";
       (D.head || D.documentElement).appendChild(f);
-      var mark = function () { var all = D.querySelectorAll("*"); for (var i = 0; i < all.length && i < 6000; i++) { var el = all[i]; if (el.hasAttribute("data-vos-img")) continue;
+      var tint = function (v) { return v && v !== "none" && v.indexOf("url(") < 0 && !/rgba?\([^)]*,\s*0\)$/.test(v) ? v : null; };
+      var coloured = function (svg) {                               // 1.0.275: an icon with colours of its own (a logo): 2+ colours, not just the text's
+        var cols = {}, n = 0, txt = getComputedStyle(svg).color, parts = svg.querySelectorAll("path,circle,rect,polygon,ellipse,g,use,line,polyline");
+        for (var k = 0; k < parts.length && k < 60; k++) { var cs = getComputedStyle(parts[k]); [tint(cs.fill), tint(cs.stroke)].forEach(function (c) { if (c && c !== txt && c !== "rgb(0, 0, 0)" && c !== "rgb(255, 255, 255)" && !cols[c]) { cols[c] = 1; n++; } }); }
+        return n >= 2;
+      };
+      var mark = function () { var all = D.querySelectorAll("*"); for (var i = 0; i < all.length && i < 6000; i++) { var el = all[i]; if (el.hasAttribute("data-vos-img") || el.__vosSeen) continue;
+        if (el.tagName === "svg" || el.tagName === "SVG") { el.__vosSeen = 1; if (coloured(el)) el.setAttribute("data-vos-img", ""); continue; }
         var bg = getComputedStyle(el).backgroundImage; if (bg && bg.indexOf("url(") >= 0) el.setAttribute("data-vos-img", ""); } };
       mark();
       var tt = 0; st.imgObs = new MutationObserver(function () { if (tt) return; tt = setTimeout(function () { tt = 0; if (st.flip) mark(); }, 400); });
@@ -1627,6 +1634,18 @@ window.vosBeat = window.vosBeat || (() => {
     lookSync(win); persist(win);
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w); });   // (a pane added to it, a restart)
+  { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
+    const themeCheck = () => {
+      const b = browserEl(); if (!b) return;
+      const now = b.classList.contains("theme-dark");
+      if (themeWas !== null && now !== themeWas && lookWins.size) {
+        const ws = [...lookWins.keys()]; lookWins.clear();
+        for (const w of ws) { if (floating.has(w)) lookSync(w); persist(w); }
+      }
+      themeWas = now;
+    };
+    const watchTheme = () => { const b = browserEl(); if (!b) return setTimeout(watchTheme, 800); themeCheck(); new MutationObserver(themeCheck).observe(b, { attributes: true, attributeFilter: ["class"] }); };
+    watchTheme(); }
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
