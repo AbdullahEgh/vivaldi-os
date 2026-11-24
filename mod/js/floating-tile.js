@@ -1465,7 +1465,7 @@ window.vosBeat = window.vosBeat || (() => {
   const pinBadges = new Map();                       // window id -> its circle (in the page area, beside the windows)
   function pinBadge(el, id, r, s, o) {
     let b = pinBadges.get(id);
-    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r || bento.on || roomActive()) { if (b) { b.remove(); pinBadges.delete(id); } return; }   // (1.0.250: none with Bento on)
+    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r || bento.on || roomActive()) { if (b) badgeGone(b, id); return; }   // (1.0.250: none with Bento on)
     const host = stack(); if (!host) return;
     // 1.0.251: a split: every pane's icon, one above the other in one pill (the tab bar's split pill, upright)
     const ids = (groupFloat.has(id) && membersOf(pageOf(id)).length > 1) ? membersOf(pageOf(id)) : [groupFloat.has(id) ? (splitFocus.get(id) || id) : id];
@@ -1493,6 +1493,9 @@ window.vosBeat = window.vosBeat || (() => {
     srcs.forEach((src, i) => { const im = imgs()[i]; if (src && im.getAttribute("src") !== src) im.src = src; im.style.visibility = src ? "" : "hidden"; });
     const side = (pipCorner.get(id) || "bl")[1], plate = ids.length === 1 ? (document.getElementById("tab-" + ids[0])?.getAttribute("data-vos-plate") || "") : "";
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
+    { const tb = ids.length === 1 ? document.getElementById("tab-" + ids[0]) : null, k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
+      if ((b.dataset.tint || "") !== k) { if (k) b.dataset.tint = k; else delete b.dataset.tint; }
+      if (b.style.getPropertyValue("--vos-tint") !== c) { if (c) b.style.setProperty("--vos-tint", c); else b.style.removeProperty("--vos-tint"); } }
     b.toggleAttribute("data-multi", ids.length > 1);
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
     const dragging = pipDrag?.id === id && badgeHeld !== id;          // (1.0.292: held by its own circle: it stays, and goes with its app)
@@ -1515,7 +1518,7 @@ window.vosBeat = window.vosBeat || (() => {
     badgeHeld = id; b.removeAttribute("data-drag");                 // 1.0.292: held: it stays in sight and goes with its app
     { const r0 = el.getBoundingClientRect(), side = (pipCorner.get(id) || "bl")[1];
       const follow = () => {
-        if (badgeHeld !== id || !b.isConnected) { b.style.translate = ""; return; }
+        if (badgeHeld !== id || !b.isConnected) { if (!b.__gone) b.style.translate = ""; return; }   // (going into its window: from where it is)
         const r = el.getBoundingClientRect();
         b.style.translate = `${Math.round(side === "r" ? r.left - r0.left : r.right - r0.right)}px ${Math.round(r.top - r0.top)}px`;
         requestAnimationFrame(follow);
@@ -1696,7 +1699,17 @@ window.vosBeat = window.vosBeat || (() => {
     };
     const watchTheme = () => { const b = browserEl(); if (!b) return setTimeout(watchTheme, 800); themeSettled(); new MutationObserver(themeCheck).observe(b, { attributes: true, attributeFilter: ["class"] }); };
     watchTheme(); }
-  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
+  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) badgeGone(b, id); }
+  function badgeGone(b, id) {                                        // 1.0.301: a pinned app's circle, no longer needed: it goes into its window
+    if (pinBadges.get(id) === b) pinBadges.delete(id);
+    if (b.__gone) return; b.__gone = true; b.style.pointerEvents = "none";
+    const el = targetOf(pageOf(id)), w = el?.getBoundingClientRect(), r = b.getBoundingClientRect();
+    if (!w || !w.width || !r.width || awayWs(id)) { b.remove(); return; }
+    const dx = w.left + Math.min(w.width, 80) / 2 - (r.left + r.width / 2), dy = w.top + Math.min(w.height, 80) / 2 - (r.top + r.height / 2);   // (toward its window's corner)
+    b.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${Math.round(dx)}px, ${Math.round(dy)}px) scale(0.5)`, opacity: 0 }],
+      { duration: 280, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "forwards" }).finished.catch(() => {}).then(() => b.remove());
+    setTimeout(() => b.remove(), 600);
+  }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
   /* resize only from outside: an invisible frame around the window, a few px
@@ -2766,7 +2779,10 @@ window.vosBeat = window.vosBeat || (() => {
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
     { const lk = lookWins.get(id) || ""; if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look)
     { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
-      if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; } }
+      if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; }
+      const tb = document.getElementById("tab-" + t), k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
+      if ((ic.dataset.tint || "") !== k) { if (k) ic.dataset.tint = k; else delete ic.dataset.tint; }
+      if (ic.style.getPropertyValue("--vos-tint") !== c) { if (c) ic.style.setProperty("--vos-tint", c); else ic.style.removeProperty("--vos-tint"); } }
     const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
     if (g.title !== tip) g.title = tip;
     if (!wctlPlace()) return wctlOff();

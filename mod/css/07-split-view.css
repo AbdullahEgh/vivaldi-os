@@ -1973,3 +1973,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after { background: rgba(255, 255, 255, 0.55) !important; }
 #browser#browser#browser#browser#browser.theme-dark :is(#webpage-stack > .vos-pin-badge:not([data-vos-look="light"]), #browser > .vos-wctl:not([data-vos-look="light"])) > .vos-pin-ctl::after,
 #browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="dark"] > .vos-pin-ctl::after { background: rgba(40, 40, 46, 0.62) !important; }
+
+/* 1.0.301: the pinned circle and the window's circle: as their tab's (its tile, its plate, or a gentle tint of its colour) */
+#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-tint="soft"] { background: color-mix(in srgb, var(--vos-tint) 16%, #000000) !important; }
+#browser#browser#browser#browser.theme-light :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-tint="soft"] { background: color-mix(in srgb, var(--vos-tint) 12%, #ffffff) !important; }
+#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-plate="light"] { background: #ffffff !important; }
+#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-plate="dark"] { background: #000000 !important; }
+#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-tint="tile"] { background: var(--vos-tint) !important; }

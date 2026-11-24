@@ -296,3 +296,19 @@
 #browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab:hover { background-color: #ffffff !important; }
 #browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab,
 #browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab:hover { background-color: #000000 !important; }
+
+/* 1.0.301: AN APP'S CIRCLE AND ITS ICON. An icon drawn on a tile of its own: the circle is that tile (the icon whole). An icon
+   that would vanish into the circle: the other one (white in dark, black in light). Any other: black in dark, white in light,
+   gently tinted with the icon's own colour */
+#browser#browser#browser#browser #tabs-container .tab[data-vos-tint="soft"],
+#browser#browser#browser#browser #tabs-container .tab[data-vos-tint="soft"]:hover { background-color: color-mix(in srgb, var(--vos-tint) 16%, #000000) !important; }
+#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint="soft"],
+#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint="soft"]:hover,
+#browser#browser#browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab[data-vos-tint="soft"] { background-color: color-mix(in srgb, var(--vos-tint) 12%, #ffffff) !important; }
+#browser#browser#browser#browser.theme-light #tabs-container .tab-position[data-vos-look="dark"] .tab[data-vos-tint="soft"] { background-color: color-mix(in srgb, var(--vos-tint) 16%, #000000) !important; }
+#browser#browser#browser#browser #tabs-container .tab[data-vos-plate="light"],
+#browser#browser#browser#browser #tabs-container .tab[data-vos-plate="light"]:hover { background-color: #ffffff !important; }
+#browser#browser#browser#browser #tabs-container .tab[data-vos-plate="dark"],
+#browser#browser#browser#browser #tabs-container .tab[data-vos-plate="dark"]:hover { background-color: #000000 !important; }
+#browser#browser#browser#browser #tabs-container .tab[data-vos-tint="tile"],
+#browser#browser#browser#browser #tabs-container .tab[data-vos-tint="tile"]:hover { background-color: var(--vos-tint) !important; }

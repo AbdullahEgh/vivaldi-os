@@ -193,6 +193,22 @@
       const N = 16, c = document.createElement("canvas"); c.width = c.height = N;
       const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, N, N);
       const d = g.getImageData(0, 0, N, N).data; let n = 0, hi = 0, lo = 0;
+      // 1.0.301: its own tile (the ring round its edge: solid, one colour) - the circle takes it, so the icon is whole;
+      // and its own colour (its coloured parts) - for a gentle tint of the circle
+      const ring = [], acc = [0, 0, 0, 0];
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const i = (y * N + x) * 4, r = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2);
+        if (r >= 6 && r <= 7.6) ring.push(d[i + 3] > 200 ? [d[i], d[i + 1], d[i + 2]] : null);
+        if (d[i + 3] > 160) { const C = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); if (C > 60) { acc[0] += d[i]; acc[1] += d[i + 1]; acc[2] += d[i + 2]; acc[3]++; } }
+      }
+      const solid = ring.filter(Boolean);
+      let tile = null;
+      if (ring.length && solid.length / ring.length > 0.8) {
+        const m = [0, 1, 2].map(k => solid.reduce((a, c) => a + c[k], 0) / solid.length);
+        const dev = solid.reduce((a, c) => a + Math.abs(c[0] - m[0]) + Math.abs(c[1] - m[1]) + Math.abs(c[2] - m[2]), 0) / solid.length / 3;
+        if (dev < 28) tile = m.map(Math.round).join(",");
+      }
+      const tint = acc[3] >= 4 ? [acc[0], acc[1], acc[2]].map(x => Math.round(x / acc[3])).join(",") : null;
       for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 120) {
         const L = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++;
         const C = (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2])) / 255;   // 1.0.282: a strong colour shows on black and on white
@@ -200,7 +216,7 @@
       }
       // 1.0.244: not its average - how much of it shows against the circle: a dark tile with bright marks (its own
       // background) shows on black and needs no plate; only an icon with hardly any bright (or, in light mode, dark) part does
-      v = n > 12 ? { hi: hi / n, lo: lo / n } : null;   // (almost nothing drawn: leave it)
+      v = n > 12 ? { hi: hi / n, lo: lo / n, tile, tint } : null;   // (almost nothing drawn: leave it)
     } catch (e) {}
     busy.delete(src); seen.set(src, v);
     return v;
@@ -221,6 +237,10 @@
       const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
+      const kind = v && typeof v === "object" ? (v.tile ? "tile" : v.tint && !want ? "soft" : "") : "", col = kind === "tile" ? v.tile : kind === "soft" ? v.tint : "";   // 1.0.301
+      if ((tab.getAttribute("data-vos-tint") || "") !== kind) { if (kind) tab.setAttribute("data-vos-tint", kind); else tab.removeAttribute("data-vos-tint"); }
+      if (col) { if (tab.style.getPropertyValue("--vos-tint") !== `rgb(${col})`) tab.style.setProperty("--vos-tint", `rgb(${col})`); }
+      else if (tab.style.getPropertyValue("--vos-tint")) tab.style.removeProperty("--vos-tint");
     }
   }
   const soon = () => { if (!t) t = setTimeout(check, 250); };
