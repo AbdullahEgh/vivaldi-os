@@ -1611,3 +1611,13 @@
 #browser .lp-iconpick .lp-ip-save[disabled] { color: var(--lp-ios-sub, rgba(60, 60, 67, 0.35)) !important; opacity: 1 !important; cursor: default !important; }
 #browser .lp-iconpick .lp-ip-cancel:active, #browser .lp-iconpick .lp-ip-save:not([disabled]):active { opacity: 0.5 !important; }
 #browser .lp-iconpick .lp-ip-mode { margin: 0 0 14px !important; }
+
+/* 1.0.229: the icon picker keeps one size - whatever the results (none, a few, many): the top bar, Light | Dark and the
+   search stay; only the icons scroll, inside it */
+#browser .lp-iconpick { height: min(560px, 86vh) !important; max-height: none !important; overflow: hidden !important;
+  display: flex !important; flex-direction: column !important; }
+#browser .lp-iconpick > :is(.lp-ip-nav, .lp-ip-mode, .lp-ip-head, .lp-ip-msg, .lp-ip-key) { flex: none !important; }
+#browser .lp-iconpick .lp-ip-nav { position: relative !important; top: 0 !important; }
+#browser .lp-iconpick .lp-ip-grid { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; overscroll-behavior: contain !important;
+  align-content: start !important; margin: 8px -14px 0 !important; padding: 2px 14px 14px !important; scrollbar-width: thin !important; }
+#browser .lp-iconpick .lp-ip-key:not([hidden]) { margin-top: auto !important; padding-top: 10px !important; }
