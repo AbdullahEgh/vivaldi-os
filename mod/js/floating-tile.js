@@ -3318,7 +3318,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (away) toOtherWindow(id, ev.screenX, ev.screenY, awayTo);
       if (toCard) {                                                  // to that desktop (Bento closes the gap here)
         persist(id);
-        toDesk(id, toCard.dataset.ws ? (deskList.find(w => String(w.id) === toCard.dataset.ws)?.id ?? null) : null);
+        toDeskAndGo(id, toCard.dataset.ws ? (deskList.find(w => String(w.id) === toCard.dataset.ws)?.id ?? null) : null);
       }
     };
     const onKey = ev => { if (ev.key === "Escape") { ev.preventDefault(); proposal = null; onUp({ pointerId: pid, type: "pointercancel" }); } };
@@ -3959,7 +3959,7 @@ window.vosBeat = window.vosBeat || (() => {
             if (mini) card.querySelector(".vos-ws-mini")?.appendChild(mini);
             return flyInto(id, el, card, heldMD, () => toDesk(id, ws));
           }
-          return toDesk(id, ws);
+          return toDeskAndGo(id, ws);                                // dragged up to the desktops (not from the desktops button): you go with it
         }
         if (inMission) { if (wasHeld) { missionGlide(); queueRender(); } return; }   // let go elsewhere: it glides back
       }
@@ -4359,7 +4359,7 @@ window.vosBeat = window.vosBeat || (() => {
     }).catch(() => {});
   }, 5000);
   function patchCloseCmd(tries = 0) {
-    if (closeCmdPatched) return;
+    if (closeCmdPatched && zoomInCmd) return;
     try {
       let host = null; try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
       const ch = (host || self).webpackChunkgapp_browser_react || self.webpackChunkgapp_browser_react;
@@ -4367,10 +4367,11 @@ window.vosBeat = window.vosBeat || (() => {
       if (ch?.push) ch.push([["vos-close-" + Date.now()], {}, r => { req = r; }]);
       for (const mid of Object.keys(req?.m || {})) {
         let src = ""; try { src = Function.prototype.toString.call(req.m[mid]); } catch (e) { continue; }
-        if (!src.includes('name:"COMMAND_CLOSE_TAB"')) continue;
+        if (!src.includes('name:"COMMAND_CLOSE_TAB"') && !src.includes('name:"COMMAND_MAIN_ZOOM_IN"')) continue;
         let ex; try { ex = req(mid); } catch (e) { continue; }
         for (const k of Object.keys(ex || {})) {
           let v; try { v = ex[k]; } catch (e) { continue; }
+          if (Array.isArray(v) && !zoomInCmd) zoomInCmd = v.find(x => x?.name === "COMMAND_MAIN_ZOOM_IN" && typeof x.action === "function") || null;
           const c = Array.isArray(v) ? v.find(x => x?.name === "COMMAND_CLOSE_TAB") : null;
           if (!c || typeof c.action !== "function" || c.__vosOrig) continue;
           const orig = c.action;
@@ -4378,12 +4379,33 @@ window.vosBeat = window.vosBeat || (() => {
           c.action = function (...a) { try { if (closeAppNow()) return; } catch (e) {} return orig.apply(this, a); };
           closeCmdPatched = true;
         }
-        if (closeCmdPatched) return;
+        if (closeCmdPatched && zoomInCmd) return;
       }
     } catch (e) { LOG("close shortcut", e); }
     if (tries < 10) setTimeout(() => patchCloseCmd(tries + 1), 1500);
   }
   setTimeout(patchCloseCmd, 1500);
+  /* 1.0.240: zoom in from the keyboard on every layout - Ctrl (Cmd) with "=", Shift + "=" ("+") or the keypad's "+". A key
+     pressed in a page reaches Vivaldi as a name its engine makes; on some keyboards that name for "=" / "+" matches no
+     shortcut, so nothing happens (Ctrl + "-" works). Heard here too: if the page's zoom has not changed a moment later,
+     Vivaldi's own Zoom In runs (where the key already works, it is not done twice) */
+  let zoomInCmd = null;
+  try {
+    vivaldi.tabsPrivate.onKeyboardShortcut.addListener((winId, combo, rep) => {
+      const k = String(combo || "").toLowerCase().replace(/\s+/g, "");
+      if (!/^(ctrl|meta)\+(shift\+)?(=|\+|plus|equal|add|numpadadd|numpad\+)$/.test(k) || !zoomInCmd) return;
+      chrome.tabs.query({ active: true, currentWindow: true }, ([t]) => {
+        if (!t) return;
+        chrome.tabs.getZoom(t.id, z0 => {
+          if (chrome.runtime.lastError) return;
+          setTimeout(() => chrome.tabs.getZoom(t.id, z1 => {
+            if (chrome.runtime.lastError || Math.abs(z1 - z0) > 0.001) return;   // Vivaldi zoomed it: done
+            try { zoomInCmd.action({ windowId: winId }); } catch (e) { LOG("zoom in", e); }
+          }), 180);
+        });
+      });
+    });
+  } catch (e) { LOG("zoom keys", e); }
   /* a split re-arranged from inside: pane `id` goes to `side` of pane `to` - left / right: the panes side by side,
      top / bottom: one above the other (three or more: one row / one column, in the new order) */
   const tabLeaves = (n, out = []) => { if (typeof n === "string") out.push(n); else if (n) { tabLeaves(n.first, out); tabLeaves(n.second, out); } return out; };
@@ -4665,6 +4687,21 @@ window.vosBeat = window.vosBeat || (() => {
       await new Promise(r => setTimeout(r, 70));
     }
     return false;
+  }
+  /* 1.0.240: a window dragged up to the desktops and let go on one: it goes there and you go with it, swiping (from the
+     desktops button you stay where you are - toDesk alone) */
+  async function toDeskAndGo(id, ws) {
+    const key = String(id), pg = pageOf(key), list = (await prefGet("vivaldi.workspaces.list")) || [];
+    const ids = [...new Set([key, ...(pg && isTiled(pg) && groupFloat.has(key) ? membersOf(pg) : [])])];
+    const from = curWs();
+    await toDesk(id, ws);
+    if (sameWs(from, ws) || !(await arrivedAt(ids, ws, 1500))) return;
+    const at = w => list.findIndex(x => sameWs(x.id, w)), name = list.find(w => sameWs(w.id, ws))?.name || "Desktop";
+    swipeTo({ id: ws, name, keep: ids, go: async () => {
+      if (!sameWs(vivActiveWs(), ws)) await switchWs({ id: ws, name }, list);
+      chrome.tabs.update(Number(key), { active: true }, () => void chrome.runtime.lastError);
+      raise(winOf(key) || key);
+    } }, list, at(ws) >= at(from) ? 1 : -1);
   }
   async function toDesk(id, ws) {
     { const w = winOf(String(id)) || String(id); if (cover === w) cover = null; }   // to another desktop: held small stays held small, same corner and size

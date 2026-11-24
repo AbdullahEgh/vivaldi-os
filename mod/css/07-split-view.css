@@ -1658,3 +1658,26 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser #webpage-stack > .vos-pin-slot,
 #browser#browser #webpage-stack > .vos-pip-hdiv::after { background: rgba(255, 255, 255, 0.75) !important; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15) !important; border-radius: 2px !important; }
 #browser#browser #webpage-stack > .vos-pip-hdiv::after { width: min(120px, 60%) !important; margin: -2px 0 0 0 !important; translate: -50% 0 !important; }
+
+/* 1.0.240: ONE tone for every grabber - the pin divider (and the marker where a pin goes) joins the smart grabbers (no
+   edge, no shadow; white on a dark wallpaper, dark on a light one, as the Bento grips), and all of them a little stronger
+   than before so none is brighter or dimmer than the others */
+#browser#browser #webpage-stack .tile > .SlideBar::after,
+#browser#browser .tiled[data-ft-float]:not(.webpageview) .webpageview .mosaic-tile::after,
+#browser#browser .ft-frame[data-ft-grab] > .ft-grab::after,
+#browser#browser #webpage-stack > .ft-max-grab::after,
+#browser#browser .bento-grip,
+#browser#browser #webpage-stack > .vos-pin-slot,
+#browser#browser #webpage-stack > .vos-pip-hdiv::after { background: rgba(0, 0, 0, 0.34) !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+#browser#browser .tiled[data-ft-float]:not(.webpageview) .webpageview[data-vos-tone="dark"] .mosaic-tile::after,
+#browser#browser .ft-frame[data-ft-grab][data-vos-tone="dark"] > .ft-grab::after,
+#browser#browser[data-vos-maxtone="dark"] #webpage-stack > .ft-max-grab::after,
+#browser#browser:not([data-ft-clock-tone="dark"]) .bento-grip,
+#browser#browser:not([data-ft-clock-tone="dark"]) #webpage-stack > .vos-pin-slot,
+#browser#browser:not([data-ft-clock-tone="dark"]) #webpage-stack > .vos-pip-hdiv::after { background: rgba(255, 255, 255, 0.46) !important; }
+#browser#browser #webpage-stack .tile > .SlideBar::after { background: color-mix(in srgb, var(--colorFg) 40%, transparent) !important; }
+#browser#browser .bento-grip[data-long][data-hot] { opacity: 0.6 !important; }   /* the long joined seam: still a little quieter than a single grip */
+
+/* 1.0.241: the pinned app's circle at the OUTER bottom corner (right pins: lower right, left pins: lower left) */
+#browser#browser #main [data-ft-pip] > .vos-pin-badge[data-side="r"] { right: 10px !important; left: auto !important; }
+#browser#browser #main [data-ft-pip] > .vos-pin-badge[data-side="l"] { left: 10px !important; right: auto !important; }
