@@ -1287,6 +1287,7 @@ window.vosBeat = window.vosBeat || (() => {
   const SPR_OPEN = spring(0.27, 0.88);   // open, close and minimize all take ~0.3 s   // a window zooms out of its icon, a hint of bounce
   const SPR_MOVE = spring(0.42, 0.90);   // move / resize / place changes
   const SPR_SHUT = spring(0.30, 1.00);   // close / minimize: quick, no bounce
+  const SPR_GROW = spring(0.40, 1.00);   // 1.0.278: full screen in / out (a big size change): no bounce
   const fadeTo = (el, from, to, ms, delay = 0) =>
     el.animate([{ filter: `opacity(${from})` }, { filter: `opacity(${to})` }],
                { duration: ms, delay, easing: "linear", fill: "both" });
@@ -1312,7 +1313,7 @@ window.vosBeat = window.vosBeat || (() => {
       const a = e.animate(
         [{ transformOrigin: "0 0", transform: `translate(${tx}px, ${ty}px) scale(${kx}, ${ky})` },
          { transformOrigin: "0 0", transform: "none" }],
-        SPR_MOVE
+        Math.abs(kx - 1) > 0.12 || Math.abs(ky - 1) > 0.12 ? SPR_GROW : SPR_MOVE
       );
       a.finished.catch(() => {}).then(() => { if (!e.getAnimations().length) e.style.removeProperty("will-change"); });
     });
@@ -2320,6 +2321,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (busy.has(id)) return;
     const tiled = isTiled(page);
     const el = targetOf(page);
+    if (action === "minimize" && !tiled && !winOf(id) && !floating.has(id) && !isStart(page)) action = "zoom";   // 1.0.278: full screen - yellow brings the window back
 
     if (action === "zoom") {
       const win = winOf(id);
