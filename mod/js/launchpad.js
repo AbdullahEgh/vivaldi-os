@@ -3307,7 +3307,9 @@
     const f = document.querySelector("#browser .UrlBar-AddressField");
     if (!f || !tagEl) return;
     const cs = getComputedStyle(f);
-    for (const k of ["background-color", "color", "border-top-width", "border-top-style", "border-top-color", "border-radius", "height", "font-size", "font-weight"]) {
+    // (1.0.266: not its colours - a copy only every few seconds lagged behind the bar; the CSS gives the field's own live colours)
+    tagEl.style.removeProperty("background-color"); tagEl.style.removeProperty("color");
+    for (const k of ["border-top-width", "border-top-style", "border-top-color", "border-radius", "height", "font-size", "font-weight"]) {
       const v = k.startsWith("border-top-") ? cs.getPropertyValue(k) : cs.getPropertyValue(k);
       const prop = k.startsWith("border-top-") ? "border-" + k.slice(11) : k;
       if (tagEl.style.getPropertyValue(prop) !== v) tagEl.style.setProperty(prop, v, "important");
