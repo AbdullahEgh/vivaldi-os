@@ -2177,6 +2177,11 @@ window.vosBeat = window.vosBeat || (() => {
       }
       for (const o of $$(".tab-position[data-vos-look]")) if (!want.has(o)) o.toggleAttribute("data-vos-look", false);
       for (const [tp, look] of want) if (tp.getAttribute("data-vos-look") !== look) tp.setAttribute("data-vos-look", look);
+      const parts = new Map();                                       // 1.0.293: the window itself, its pinned circle and buttons - all that look
+      for (const [w, look] of lookWins) { if (!floating.has(w)) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); }
+      for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
+      for (const [o, look] of parts) if (o.getAttribute("data-vos-look") !== look) o.setAttribute("data-vos-look", look);
+      if (wctl && wctlFor) { const lk = lookWins.get(wctlFor) || ""; if ((wctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) wctl.setAttribute("data-vos-look", lk); else wctl.removeAttribute("data-vos-look"); } }
     }
     if (selId !== lastSiteTab) { lastSiteTab = selId; updateSiteName(); }
     else if (siteFor != null) for (const f of $$(".UrlBar-AddressField .UrlField")) {   // a re-drawn field
@@ -2354,7 +2359,10 @@ window.vosBeat = window.vosBeat || (() => {
     if (busy.has(id)) return;
     const tiled = isTiled(page);
     const el = targetOf(page);
-    if (action === "minimize" && !tiled && !winOf(id) && !floating.has(id) && !isStart(page)) action = "zoom";   // 1.0.278: full screen - yellow brings the window back
+    if (action === "minimize" && !tiled && !winOf(id) && !floating.has(id) && !isStart(page)) action = "zoom";
+    { const w = winOf(id);                                            // 1.0.293: full screen of any kind - yellow brings the window back
+      if (action === "minimize" && w && floating.has(w) && roomOn.has(w)) action = "zoom";                 // (beside pinned apps: back to its size)
+      if (action === "minimize" && w && cover === w) { cover = null; raise(w); render(); return; } }      // (the full view over the tab bar: a window again)   // 1.0.278: full screen - yellow brings the window back
 
     if (action === "zoom") {
       const win = winOf(id);
@@ -2717,6 +2725,12 @@ window.vosBeat = window.vosBeat || (() => {
     return wctl;
   };
   let wctlOutT = 0;
+  addEventListener("click", e => {                                // 1.0.293: a button clicked: gone quickly (its window's own animation is next)
+    if (!wctl || !wctl.contains(e.target) || !e.target.closest?.(".vos-pc")) return;
+    const b = wctl; b.removeAttribute("data-out"); b.setAttribute("data-gone", ""); b.removeAttribute("data-on");
+    wctlFor = null; cornerH = null; clearInterval(wctlTick); clearTimeout(wctlOutT);
+    wctlOutT = setTimeout(() => b.removeAttribute("data-gone"), 120);
+  }, true);
   const wctlOff = () => {                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
     if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => b.removeAttribute("data-out"), 380); }
     wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
@@ -2741,12 +2755,13 @@ window.vosBeat = window.vosBeat || (() => {
     const im = b.querySelector(".vos-wctl-ic img");
     if (src && im.getAttribute("src") !== src) im.src = src;
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
+    { const lk = lookWins.get(id) || ""; if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look)
     { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; } }
     const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
     if (g.title !== tip) g.title = tip;
     if (!wctlPlace()) return wctlOff();
-    clearTimeout(wctlOutT); b.removeAttribute("data-out");
+    clearTimeout(wctlOutT); b.removeAttribute("data-out"); b.removeAttribute("data-gone");
     b.removeAttribute("data-on"); void b.offsetWidth; b.setAttribute("data-on", "");
     const follow = () => { if (wctlFor !== id) return; if (!wctlPlace()) return wctlOff(); requestAnimationFrame(follow); };
     requestAnimationFrame(follow);

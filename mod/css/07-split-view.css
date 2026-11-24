@@ -1899,3 +1899,23 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser > .vos-wctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.35s !important; }
 /* 1.0.292: a pinned app's circle stays while it is held and dragged (it goes with its app) */
 #browser#browser #webpage-stack > .vos-pin-badge[data-drag] { display: grid !important; }
+
+/* 1.0.293: a button clicked: the buttons go quickly (a 0.1s fade), out of the way of their window's own animation */
+@keyframes vos-wctl-gone { from { opacity: 1; } to { opacity: 0; } }
+#browser#browser > .vos-wctl[data-gone] { visibility: visible !important; pointer-events: none !important; animation: vos-wctl-gone 0.1s ease-out both !important; }
+#browser#browser > .vos-wctl[data-gone] * , #browser#browser > .vos-wctl[data-gone] .vos-pc::before { animation: none !important; }
+
+/* 1.0.293: A WINDOW IN ITS OWN LOOK (grey held): all its parts that look too - the window, its circle and buttons' pill above
+   it, a pinned app's circle and pill (its tab circle: 04-tab-visuals) - through Vivaldi's own colour names */
+#browser#browser :is(#main [data-ft-float][data-vos-look="light"], #webpage-stack > .vos-pin-badge[data-vos-look="light"], #browser > .vos-wctl[data-vos-look="light"]) {
+  --colorBg: #ffffff; --colorBgDark: #f2f2f4; --colorBgLight: #ffffff; --colorBgLighter: #ffffff; --colorBgAlpha: rgba(255, 255, 255, 0.85);
+  --colorFg: #000000; --colorFgIntense: #000000; --colorFgFaded: rgba(0, 0, 0, 0.6); --colorFgFadedMore: rgba(0, 0, 0, 0.4); --colorBorder: rgba(0, 0, 0, 0.14);
+}
+#browser#browser :is(#main [data-ft-float][data-vos-look="dark"], #webpage-stack > .vos-pin-badge[data-vos-look="dark"], #browser > .vos-wctl[data-vos-look="dark"]) {
+  --colorBg: #1c1c1e; --colorBgDark: #000000; --colorBgLight: #2c2c2e; --colorBgLighter: #3a3a3c; --colorBgAlpha: rgba(28, 28, 30, 0.85);
+  --colorFg: #ffffff; --colorFgIntense: #ffffff; --colorFgFaded: rgba(255, 255, 255, 0.6); --colorFgFadedMore: rgba(255, 255, 255, 0.4); --colorBorder: rgba(255, 255, 255, 0.14);
+}
+#browser#browser #webpage-stack > .vos-pin-badge[data-vos-look="light"], #browser#browser > .vos-wctl[data-vos-look="light"] .vos-wctl-ic { background: #ffffff !important; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14) !important; }
+#browser#browser #webpage-stack > .vos-pin-badge[data-vos-look="dark"], #browser#browser > .vos-wctl[data-vos-look="dark"] .vos-wctl-ic { background: #000000 !important; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) !important; }
+#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="light"] .vos-pin-ctl::after { background: rgba(255, 255, 255, 0.72) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16), 0 0 0 0.5px rgba(0, 0, 0, 0.16), inset 0 0.5px 0 rgba(255, 255, 255, 0.6) !important; }
+#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="dark"] .vos-pin-ctl::after { background: rgba(30, 30, 32, 0.72) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.14), inset 0 0.5px 0 rgba(255, 255, 255, 0.12) !important; }
