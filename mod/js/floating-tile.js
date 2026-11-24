@@ -3833,7 +3833,7 @@ window.vosBeat = window.vosBeat || (() => {
     shield.style.cursor = CURSOR[how];
     document.body.appendChild(shield);
     shield.__end = () => { try { onUp({ pointerId: pid, type: "pointercancel", clientX: 0, clientY: 0, screenX: 0, screenY: 0 }); } catch (e) {} };   // a stale drag can always be ended
-    let frame = 0, last = null;
+    let frame = 0, last = null, roomLook = null;   // (roomLook: dragged out of the room - its size from before, shown by the GPU)
     let scaling = false, holdTimer = 0, tb = 0, label = null;
     let z0 = zoomOf[id] || 1;
     /* holding still switches the mode, as often as you like, without letting
@@ -3964,11 +3964,20 @@ window.vosBeat = window.vosBeat || (() => {
       if (!moved && Math.hypot(px - sx, py - sy) > 4 && roomOn.has(id)) {   // moved or resized by hand: out of the room - a window again
         const ss = stackRect(), cur = pxRect(id, ss), prev = roomPrev.get(id);
         roomOn.delete(id); roomPrev.delete(id);
-        if (how === "move" && prev) {                                 // 1.0.260: dragged out: its size from before, under the pointer at the
-          const w = prev.w * ss.width, h = prev.h * ss.height, gx = (sx - ss.left - cur.x) / Math.max(1, cur.w);   // same place across it
-          s0 = { x: Math.round(sx - ss.left - gx * w), y: cur.y, w: Math.round(w), h: Math.round(h) };
-          setPx(id, s0, ss);                                          // (at once: the drag goes on from it)
-        } else setPx(id, cur, ss);                                    // (resized: from the size it has)
+        setPx(id, cur, ss);                                           // (it moves on from the room's place and size)
+        if (how === "move" && prev) {                                 // 1.0.264: dragged out: its size from before - as a pinned app changes
+          const w = prev.w * ss.width, h = prev.h * ss.height, k = w / Math.max(1, cur.w);   // size while dragged: scaled by the GPU around
+          const gx = sx - ss.left - cur.x, gy = sy - ss.top - cur.y;   // the point you hold and trimmed to its shape (eased); its real
+          roomLook = { k, w, h, gx, gy, cw: cur.w };                    // size is set once, where it shows, when you let go
+          const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 12, rr = (rad / k).toFixed(1) + "px", cut = Math.max(0, Math.round(cur.h - h / k));
+          for (const [e2, o] of [[el, 0], [frames.get(id), RING]]) {
+            if (!e2) continue;
+            e2.setAttribute("data-vos-pinlook", "");
+            e2.style.setProperty("transform-origin", `${Math.round(gx + o)}px ${Math.round(gy + o)}px`, "important");
+            e2.style.setProperty("scale", String(+k.toFixed(4)), "important");
+            if (e2 === el) { e2.style.setProperty("border-radius", rr, "important"); e2.style.setProperty("clip-path", `inset(0 0 ${cut}px 0 round ${rr})`, "important"); }
+          }
+        }
       }
       if (Math.hypot(px - sx, py - sy) > 4) moved = true;
       if (frame) return;                                            // at most one update per frame
@@ -4027,6 +4036,12 @@ window.vosBeat = window.vosBeat || (() => {
       cancelAnimationFrame(frame);
       ended = true;
       endLiveMove();
+      if (roomLook) {                                                // (dragged out of the room: its real size, where it shows)
+        const L = roomLook, ss = stackRect(), r = pxRect(id, ss), px0 = r.x + L.gx, py0 = r.y + L.gy;   // the point held, now
+        for (const e2 of [el, frames.get(id)]) { if (!e2) continue; for (const k of ["scale", "transform-origin", "clip-path", "border-radius"]) e2.style.removeProperty(k); e2.removeAttribute("data-vos-pinlook"); }
+        const fin = clampRect({ x: px0 - L.gx * L.k, y: py0 - L.gy * L.k, w: L.w, h: L.h }, ss);
+        setPx(id, fin, ss); place(el, fin, ss); placeFrame(id, el, fin, ss); roomLook = null;
+      }
       clearTimeout(holdTimer);
       if (scaling) { breathOut(el); label?.remove(); }
       holdTimer = 0;
