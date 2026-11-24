@@ -1655,7 +1655,9 @@ window.vosBeat = window.vosBeat || (() => {
   const tabOfWv = wv => Number(wv.closest?.(".webpageview[data-id]")?.dataset.id) || null;
   function lookTell(wv, target, now) {                              // the page itself: its answer, and the signal
     const tabId = tabOfWv(wv); if (!lookLive || !tabId) return;
-    try { chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", injectImmediately: !!now, func: (t, q) => window.__vosLookSet ? window.__vosLookSet(t, q) : "none", args: [target || null, !!now] }).catch(() => {}); } catch (e) {}
+    const again = () => { if (!target || (wv.__vosLookTry = (wv.__vosLookTry || 0) + 1) > 20) return; if ((wv.__vosLookAt ?? "") === target) wv.__vosLookAt = null; };   // 1.0.298: not heard (a page still being restored after a start): told again on the next beat
+    try { chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", injectImmediately: !!now, func: (t, q) => window.__vosLookSet ? window.__vosLookSet(t, q) : "none", args: [target || null, !!now] })
+      .then(r => { if (!r || !r[0] || r[0].result === "none" || r[0].result == null) setTimeout(again, 0); else wv.__vosLookTry = 0; }).catch(() => setTimeout(again, 0)); } catch (e) {}
   }
   function lookApply(wv, target) {
     if (!wv.__vosLookHook) {                                         // each new page in it: at its very start
@@ -2727,6 +2729,7 @@ window.vosBeat = window.vosBeat || (() => {
   let wctlOutT = 0;
   addEventListener("click", e => {                                // 1.0.293: a button clicked: gone quickly (its window's own animation is next)
     if (!wctl || !wctl.contains(e.target) || !e.target.closest?.(".vos-pc")) return;
+    if ((btnHeldAt && Date.now() - btnHeldAt < 1500) || e.target.closest('[data-act="res"]')) return;   // 1.0.298: a hold (its look changed) or the scale: they stay
     const b = wctl; b.removeAttribute("data-out"); b.setAttribute("data-gone", ""); b.removeAttribute("data-on");
     wctlFor = null; cornerH = null; clearInterval(wctlTick); clearTimeout(wctlOutT);
     wctlOutT = setTimeout(() => b.removeAttribute("data-gone"), 120);
