@@ -1785,3 +1785,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   opacity: 0; transform: scale(0.85); transition: opacity 0.15s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important;
 }
 #browser#browser [data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown])::before { opacity: 1; transform: none; }
+
+/* 1.0.279: with room above the window, its buttons (on their pill) float just above its top edge, outside it; the hold
+   still reaches down over the strip that brought them, so they stay while the pointer goes up to them */
+#browser#browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights[data-ft-shown][data-up] { top: -34px !important; padding-bottom: 22px !important; }
+/* 1.0.279: a pinned app's buttons (under its icon) on the same frosted pill */
+#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl {
+  border-radius: 12px !important; padding: 2px 0 !important;
+  background: color-mix(in srgb, var(--colorBg) 72%, transparent) !important; backdrop-filter: blur(16px) saturate(1.6) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.18), inset 0 0.5px 0 rgba(255, 255, 255, 0.22) !important;
+}

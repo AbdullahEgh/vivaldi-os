@@ -1653,7 +1653,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!floating.has(win)) return;
     if (lookWins.has(win)) lookWins.delete(win);
     else lookWins.set(win, browserEl()?.classList.contains("theme-dark") ? "light" : "dark");   // the other look than Vivaldi's
-    lookSync(win); persist(win);
+    lookSync(win); persist(win); render();
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w); });   // (a pane added to it, a restart)
   { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
@@ -1663,6 +1663,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (themeWas !== null && now !== themeWas && lookWins.size) {
         const ws = [...lookWins.keys()]; lookWins.clear();
         for (const w of ws) { if (floating.has(w)) lookSync(w); persist(w); }
+        render();
       }
       themeWas = now;
     };
@@ -2144,6 +2145,16 @@ window.vosBeat = window.vosBeat || (() => {
       }
       for (const o of $$(".tab-position[data-vos-min]")) if (!want.has(o)) o.removeAttribute("data-vos-min");
       for (const tp of want) if (!tp.hasAttribute("data-vos-min")) tp.setAttribute("data-vos-min", "");
+    }
+    {                                                                // 1.0.279: a window in its own look: its circle in the tab bar too
+      const want = new Map();
+      for (const [w, look] of lookWins) {
+        if (!floating.has(w)) continue;
+        const ids = groupFloat.has(w) ? membersOf(pageOf(w)) : [];
+        for (const t of ids.length ? ids : [w]) { const tp = document.getElementById("tab-" + t)?.closest(".tab-position"); if (tp) want.set(tp, look); }
+      }
+      for (const o of $$(".tab-position[data-vos-look]")) if (!want.has(o)) o.toggleAttribute("data-vos-look", false);
+      for (const [tp, look] of want) if (tp.getAttribute("data-vos-look") !== look) tp.setAttribute("data-vos-look", look);
     }
     if (selId !== lastSiteTab) { lastSiteTab = selId; updateSiteName(); }
     else if (siteFor != null) for (const f of $$(".UrlBar-AddressField .UrlField")) {   // a re-drawn field
@@ -2692,6 +2703,8 @@ window.vosBeat = window.vosBeat || (() => {
     if (box === cornerBox) return;
     cornerOff();
     if (!box || box.hasAttribute("data-ft-shown")) return;
+    { const w = box.closest("[data-ft-float]")?.getBoundingClientRect(), st = document.getElementById("webpage-stack")?.getBoundingClientRect();   // 1.0.279: room above it?
+      box.toggleAttribute("data-up", !!w && !!st && w.top - st.top >= 36); }                                    // the buttons float above the window
     box.setAttribute("data-ft-shown", ""); box.setAttribute("data-vos-corner", ""); cornerBox = box;
     const tick = setInterval(() => {                                 // (over the page the browser hears no moves: checked here)
       if (cornerBox !== box) return clearInterval(tick);

@@ -271,3 +271,9 @@
 #browser #tabs-container .tab-position[data-vos-min][data-ft-pill="first"] .tab::after { left: 8px !important; right: -6px !important; border-radius: 1px 0 0 1px !important; }
 #browser #tabs-container .tab-position[data-vos-min][data-ft-pill="mid"] .tab::after { left: 0 !important; right: -6px !important; }
 #browser #tabs-container .tab-position[data-vos-min][data-ft-pill="last"] .tab::after { left: 0 !important; right: 8px !important; border-radius: 0 1px 1px 0 !important; }
+
+/* 1.0.279: a window switched to its own look (grey held): its circle in the tab bar is that look too */
+#browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab,
+#browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab:hover { background-color: #ffffff !important; }
+#browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab,
+#browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab:hover { background-color: #1f1f21 !important; }
