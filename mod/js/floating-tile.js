@@ -104,6 +104,7 @@ window.vosBeat = window.vosBeat || (() => {
   const noTitle = new Set();        // floating windows with the title bar hidden
   let cover = null;                 // the window held to full view (over the tab bar and Vivaldi's buttons)
   const pip = [];                   // windows held small in the bottom-left corner, oldest first
+  const PIP_PAGE = 0.75;           // a pinned app's page scale unless you change it (Ctrl + / -: kept for that pin)
   const PIP_K = 0.55, PIP_START_W = 300, PIP_GAP = 8;   // their size and the page's scale in them: 55% of the window (1:1), and the space between them
   const pipZoomWas = new Map();     // page id -> its scale before it was held small (given back after)
   const pipAspect = new Map();      // id -> its height / width (its own shape, kept at any width)
@@ -114,8 +115,7 @@ window.vosBeat = window.vosBeat || (() => {
      choose with its scale button while pinned wins */
   const pinZoomFor = id => {
     if (pipUserZoom.has(id)) return pipUserZoom.get(id);
-    const sw = stack()?.getBoundingClientRect().width || innerWidth, nw = (frac[id]?.w || 0.5) * sw, pw = pipW.get(id) || PIP_START_W;
-    return +Math.max(0.25, Math.min(1, pw / Math.max(1, nw))).toFixed(3);
+    return PIP_PAGE;                                                  // 1.0.255: a set 75% (100% and five Ctrl - steps) - was its size's ratio (often ~50% or less: too small)
   };
   const pipOrder = new Map();                       // (a restart: each pinned window's place in its stack)
   const pinMem = new Map();                         // id -> where it was pinned last { c, w, h, o }: pinned again, it goes back there
@@ -2148,7 +2148,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (action === "res") {                        // more room for the site: the page renders smaller
       if (!floating.has(id)) return;
       if (pip.includes(id)) {                        // held small: its own scale steps (kept while it is small)
-        const steps = [0.4, 0.7, 1], now = pinZoomFor(id);
+        const steps = [0.4, 0.75, 1], now = pinZoomFor(id);
         const i = steps.findIndex(z => Math.abs(z - now) < 0.02), z = steps[(i + 1) % steps.length];
         pipUserZoom.set(id, z);
         webviewsOf(id).forEach(wv => { zoomSet.delete(wv); setWebZoom(wv, z); });
@@ -2371,7 +2371,7 @@ window.vosBeat = window.vosBeat || (() => {
   /* held small: the page gets smaller with its window (55%, 1:1); back to normal, it gets its own scale back
      (100%, or whatever it was). In between you can change it - it is not forced. */
   function pipZoom(id, on) {
-    // pinned: 55% (or the scale you gave it while pinned); out of the pin: 100% - nothing else to remember
+    // pinned: 75% (or the scale you gave it while pinned); out of the pin: 100% - nothing else to remember
     if (!on) { pipUserZoom.delete(id); delete zoomOf[id]; }
     webviewsOf(id).forEach(wv => {
       const pid = wv.closest(".webpageview")?.dataset.id || id;
