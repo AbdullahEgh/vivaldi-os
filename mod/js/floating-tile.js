@@ -1481,6 +1481,8 @@ window.vosBeat = window.vosBeat || (() => {
     const srcs = ids.map(iconOf);
     if (!b || b.parentElement !== host) {
       b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge";
+      { const bb = b; bb.addEventListener("pointerenter", () => { bb.__vosHover = true; setStyle(bb, "z-index", "2147483000"); });
+        bb.addEventListener("pointerleave", () => { bb.__vosHover = false; }); }
       host.appendChild(b); pinBadges.set(id, b);
     }
     if (b.dataset.for !== id) b.dataset.for = id;
@@ -1513,7 +1515,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     b.__vosWasDrag = dragging;
     if (badgeHeld !== id) place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
-    setStyle(b, "z-index", "99");
+    setStyle(b, "z-index", "2147483000");                            // 1.0.309: over everything, always (never under a window)
   }
   addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
     const b = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge"), id = b?.dataset.for;
@@ -7065,6 +7067,7 @@ window.vosBeat = window.vosBeat || (() => {
     const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
   }
   setInterval(() => {                                                 // (the tab's circle changes - a tint read, a look switched: they follow)
+    if (document.hidden) return;                                     // (1.0.309: nothing to keep in step while it is not seen)
     for (const [id, b] of pinBadges) { if (b.hasAttribute("data-multi")) continue; const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id; mirrorTab(b, b.querySelector(":scope > img"), t); }
     if (wctl && wctlFor && wctl.hasAttribute("data-on")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
   }, 500);
