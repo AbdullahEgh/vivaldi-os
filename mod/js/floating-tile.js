@@ -1285,7 +1285,7 @@ window.vosBeat = window.vosBeat || (() => {
     return { easing: `linear(${pts.join(", ")})`, duration: Math.round(T * 1000) };
   }
   const SPR_OPEN = spring(0.27, 0.88);   // open, close and minimize all take ~0.3 s   // a window zooms out of its icon, a hint of bounce
-  const SPR_MOVE = spring(0.40, 1.00);   // move / resize / place changes (1.0.320: full screen's speed - one speed for windows)
+  const SPR_MOVE = spring(0.34, 1.00);   // move / resize / place changes, Bento (1.0.321: a touch quicker than full screen's - still no bounce)
   const SPR_SHUT = spring(0.30, 1.00);   // close / minimize: quick, no bounce
   const SPR_GROW = spring(0.40, 1.00);   // 1.0.278: full screen in / out (a big size change): no bounce
   const fadeTo = (el, from, to, ms, delay = 0) =>
@@ -3456,7 +3456,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
     stopAnims(el);
     el.animate([{ transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
-                { transformOrigin: "0 0", transform: "none" }], SPR_GROW);   // (1.0.320: Bento at full screen's speed)
+                { transformOrigin: "0 0", transform: "none" }], SPR_MOVE);   // (1.0.321: Bento at the windows' speed)
   }
   // a window and its frame (ring + shadow) move together - before, the frame jumped
   const bEls = () => [...floating].flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
@@ -7113,7 +7113,9 @@ window.vosBeat = window.vosBeat || (() => {
     const pg = activePage(), id = pg?.dataset.id;
     const full = !!pg && !!id && !floating.has(id) && !isTiled(pg) && !isStart(pg) && !winOf(id) && !mission && !lpOn();
     const desk = document.querySelector("#browser .vos-chain-vosmission");
-    if (!full || !desk) { if (fsctl?.hasAttribute("data-on")) fsctl.removeAttribute("data-on"); return; }
+    if (!full || !desk) {                                            // 1.0.321: going as the hover ones go - its entrance backwards
+      if (fsctl?.hasAttribute("data-on")) { const f = fsctl; f.removeAttribute("data-on"); f.setAttribute("data-out", ""); clearTimeout(f.__outT); f.__outT = setTimeout(() => f.removeAttribute("data-out"), 380); }
+      return; }
     if (!fsctl || !fsctl.isConnected) {
       fsctl = document.createElement("div"); fsctl.className = "vos-fsctl ft-titlebar";
       fsctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="vos-pin-ctl" data-dir="h">` +
@@ -7122,7 +7124,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
     if (fsctl.dataset.ftPage !== id) { fsctl.dataset.ftPage = id; fsctl.removeAttribute("data-on"); }
     mirrorTab(fsctl.querySelector(".vos-wctl-ic"), fsctl.querySelector(".vos-wctl-ic img"), id);
-    if (!fsctl.hasAttribute("data-on")) { void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
+    if (!fsctl.hasAttribute("data-on")) { clearTimeout(fsctl.__outT); fsctl.removeAttribute("data-out"); void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
   }
   setInterval(() => { if (!document.hidden) fsCtlSync(); }, 400);
   function tabIcon(id) {
