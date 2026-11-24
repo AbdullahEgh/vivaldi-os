@@ -1618,3 +1618,20 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser [data-ft-float][data-ft-notitle] > .ft-titlebar :is(.ft-lights, .ft-right):is(:hover, [data-ft-shown]) .ft-light::before {
   content: "" !important; position: absolute !important; inset: -6px -4px !important; border-radius: 50% !important;   /* a bigger target, nothing seen */
 }
+
+/* 1.0.233: a pinned app shows its tab-bar circle at its inner bottom corner (right pins: lower left, left pins: lower right);
+   it goes while the pointer is in that window */
+#browser #main [data-ft-pip] > .vos-pin-badge {
+  position: absolute !important; bottom: 10px !important; z-index: 6 !important; width: 30px !important; height: 30px !important;
+  border-radius: 50% !important; display: grid !important; place-items: center !important; pointer-events: none !important;
+  background: var(--colorBg) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 0 0 0.5px rgba(0, 0, 0, 0.12) !important;
+  opacity: 1; transform: scale(1); transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+#browser #main [data-ft-pip] > .vos-pin-badge[data-side="r"] { left: 10px !important; right: auto !important; }
+#browser #main [data-ft-pip] > .vos-pin-badge[data-side="l"] { right: 10px !important; left: auto !important; }
+#browser #main [data-ft-pip] > .vos-pin-badge[data-plate="light"] { background: color-mix(in srgb, var(--colorFg) 30%, var(--colorBg)) !important; }
+#browser #main [data-ft-pip] > .vos-pin-badge[data-plate="dark"] { background: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
+#browser #main [data-ft-pip] > .vos-pin-badge > img { width: 18px !important; height: 18px !important; object-fit: contain !important; }
+#browser #main [data-ft-pip]:hover > .vos-pin-badge { opacity: 0 !important; transform: scale(0.6) !important; }
+#browser #main [data-ft-pip] > .vos-pin-badge[data-empty],
+#browser:is([data-vos-mission], [data-launchpad]) #main [data-ft-pip] > .vos-pin-badge { display: none !important; }

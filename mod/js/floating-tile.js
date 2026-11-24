@@ -1416,7 +1416,20 @@ window.vosBeat = window.vosBeat || (() => {
     const title = /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw;     // never an internal address
     if (tEl.textContent !== title) tEl.textContent = title;
   }
-  const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize", el).forEach(e => e.remove());
+  /* a pinned app: its tab-bar circle at the inner bottom corner (right pins: lower left, left pins: lower right) -
+     it hides while the pointer is in that window (CSS) */
+  function pinBadge(el, id) {
+    let b = $(":scope > .vos-pin-badge", el);
+    if (!pip.includes(id) || awayWs(id)) { b?.remove(); return; }
+    const tid = groupFloat.has(id) ? (splitFocus.get(id) || id) : id, src = tabIcon(tid);
+    if (!b) { b = document.createElement("div"); b.className = "vos-pin-badge"; b.appendChild(document.createElement("img")).alt = ""; el.appendChild(b); }
+    const side = (pipCorner.get(id) || "bl")[1], plate = document.getElementById("tab-" + tid)?.getAttribute("data-vos-plate") || "";
+    if (b.dataset.side !== side) b.dataset.side = side;
+    if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
+    const im = b.firstChild; if (src && im.getAttribute("src") !== src) im.src = src;
+    b.toggleAttribute("data-empty", !src);
+  }
+  const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
   /* resize only from outside: an invisible frame around the window, a few px
      wide, so the edges never fight with the title bar or the tile strips */
@@ -1788,7 +1801,7 @@ window.vosBeat = window.vosBeat || (() => {
     missionMax(s, slots);
     const seenNow = new Map(); deskSeen = { key: deskKey(), w: s.width, h: s.height, map: seenNow };
     for (const { id, el } of windows) {
-      addChrome(el, id);
+      addChrome(el, id); pinBadge(el, id);
       const held = missionDrag?.id === id;
       const r = held ? missionDrag.r : liveMove?.id === id ? liveMove.base
         : (awayWs(id) && !mission && otherTiles(wsOfTab.get(String(id)), s).get(id)) || pxRect(id, s), o = origins.get(el.parentElement);   // another desktop with Bento on: its place in that Bento (as it shows when you get there)
