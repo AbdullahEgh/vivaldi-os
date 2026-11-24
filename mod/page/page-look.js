@@ -268,14 +268,46 @@
     if (gen) gen.disabled = false;
     return L === null ? 255 : L;
   }
+  /* 1.0.312: THE SITE'S OWN DARK MODE FIRST. Many sites have a dark design they switch on themselves (a class or an attribute
+     on the page: Bootstrap's data-bs-theme, Tailwind's .dark, data-theme, .dark-mode...), not from the "which look?" question.
+     Its style rules say so: that switch is turned on, and if the page is then dark, it is the site's own dark design that
+     shows - only a site with none gets one written for it */
+  var SWITCHES = [[/\[data-bs-theme=["']?dark/i, "attr", "data-bs-theme"], [/\[data-theme=["']?dark/i, "attr", "data-theme"], [/\[data-color-mode=["']?dark/i, "attr", "data-color-mode"],
+    [/\[data-mode=["']?dark/i, "attr", "data-mode"], [/\[data-color-scheme=["']?dark/i, "attr", "data-color-scheme"], [/(^|[\s,(])(html|:root)?\.dark(?![\w-])/i, "class", "dark"],
+    [/\.dark-mode(?![\w-])/i, "class", "dark-mode"], [/\.theme-dark(?![\w-])/i, "class", "theme-dark"], [/\.dark-theme(?![\w-])/i, "class", "dark-theme"]];
+  var siteSw = null, swTried = false;
+  function findSwitch() {
+    var found = null, n = 0;
+    var look = function (list) { for (var i = 0; i < list.length && !found && n < 30000; i++) { var r = list[i]; n++;
+      var sel = r.selectorText; if (sel) for (var k = 0; k < SWITCHES.length; k++) if (SWITCHES[k][0].test(sel)) { found = SWITCHES[k]; break; }
+      if (!found && r.cssRules) look(r.cssRules); } };
+    for (var i = 0; i < document.styleSheets.length && !found; i++) { var sh = document.styleSheets[i], l = null; try { l = sh.cssRules; } catch (e) { l = far[sh.href] && far[sh.href].cssRules; } if (l) look(l); }
+    return found;
+  }
+  function swOn(sw) {
+    var els = [document.documentElement, document.body].filter(Boolean), was = [];
+    els.forEach(function (e) { if (sw[1] === "attr") { was.push([e, e.getAttribute(sw[2])]); e.setAttribute(sw[2], "dark"); } else { was.push([e, e.classList.contains(sw[2])]); e.classList.add(sw[2]); } });
+    siteSw = { sw: sw, was: was };
+  }
+  function swOff() {
+    if (!siteSw) return; var sw = siteSw.sw;
+    siteSw.was.forEach(function (x) { if (sw[1] === "attr") { if (x[1] == null) x[0].removeAttribute(sw[2]); else x[0].setAttribute(sw[2], x[1]); } else if (!x[1]) x[0].classList.remove(sw[2]); });
+    siteSw = null;
+  }
   function judge() {
     clearTimeout(genT); genT = 0;
     if (!/html/i.test(document.contentType || "")) return;
-    if (!want()) return genOff();
+    if (!want()) { swOff(); swTried = false; return genOff(); }
+    if (siteSw) return;                                            // (the site's own dark design is on)
     if (swept.length || inl.length) { if (gen) return; }
     var L = pageLum(); if (L === null) return;
     if (gen) { if (L < 110) genOff(); return; }                  // (it turned dark by itself)
-    if (L > 160) genOn();
+    if (L <= 160) return;
+    if (!swTried) {                                                // its own dark switch, if it has one
+      swTried = true; var sw = findSwitch();
+      if (sw) { swOn(sw); setTimeout(function () { var L2 = pageLum(); if (L2 !== null && L2 < 110) return; swOff(); if (want()) genOn(); }, 350); return; }
+    }
+    genOn();
   }
   function soon(ms) { clearTimeout(genT); genT = setTimeout(judge, ms || 600); }
   real.call(W, "(prefers-color-scheme: dark)").addEventListener("change", function () { soon(500); });

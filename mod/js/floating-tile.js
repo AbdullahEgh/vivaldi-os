@@ -1481,7 +1481,7 @@ window.vosBeat = window.vosBeat || (() => {
     const srcs = ids.map(iconOf);
     if (!b || b.parentElement !== host) {
       b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge";
-      { const bb = b; bb.addEventListener("pointerenter", () => { bb.__vosHover = true; setStyle(bb, "z-index", "2147483000"); });
+      { const bb = b; bb.addEventListener("pointerenter", () => { bb.__vosHover = true; setStyle(bb, "z-index", "2147483000"); if (!bb.hasAttribute("data-bare")) pinShow(bb.dataset.for, null); });   // (1.0.312: a circle on show: its own hover brings its buttons, as before)
         bb.addEventListener("pointerleave", () => { bb.__vosHover = false; }); }
       host.appendChild(b); pinBadges.set(id, b);
     }
@@ -2854,7 +2854,7 @@ window.vosBeat = window.vosBeat || (() => {
     pinShown = b; if (!b.hasAttribute("data-show")) b.setAttribute("data-show", "");
     clearInterval(pinShowT);
     pinShowT = setInterval(() => {                                   // (kept while the pointer is on its corner, its circle or its buttons)
-      if (b.matches(":hover") || bar.matches(":hover") || b.__vosHover || badgeHeld === id) return;
+      if (b.matches(":hover") || bar?.matches(":hover") || b.__vosHover || badgeHeld === id) return;
       b.removeAttribute("data-show"); if (pinShown === b) pinShown = null; clearInterval(pinShowT);
     }, 200);
   }
