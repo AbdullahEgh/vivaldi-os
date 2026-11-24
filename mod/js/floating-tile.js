@@ -1632,7 +1632,7 @@ window.vosBeat = window.vosBeat || (() => {
   const tabOfWv = wv => Number(wv.closest?.(".webpageview[data-id]")?.dataset.id) || null;
   function lookTell(wv, target, now) {                              // the page itself: its answer, and the signal
     const tabId = tabOfWv(wv); if (!lookLive || !tabId) return;
-    try { chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", injectImmediately: !!now, func: t => window.__vosLookSet ? window.__vosLookSet(t) : "none", args: [target || null] }).catch(() => {}); } catch (e) {}
+    try { chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", injectImmediately: !!now, func: (t, q) => window.__vosLookSet ? window.__vosLookSet(t, q) : "none", args: [target || null, !!now] }).catch(() => {}); } catch (e) {}
   }
   function lookApply(wv, target) {
     if (!wv.__vosLookHook) {                                         // each new page in it: at its very start

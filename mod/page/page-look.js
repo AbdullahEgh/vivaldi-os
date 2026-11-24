@@ -36,10 +36,23 @@
     return mq;
   }
   window.matchMedia = function matchMedia(q) { q = String(q); return /prefers-color-scheme/i.test(q) ? wrap(q) : real.call(W, q); };
-  window.__vosLookSet = function (t) {                        // (called by Bento OS for this tab only)
+  window.__vosLookSet = function (t, quiet) {                 // (called by Bento OS for this tab only)
     look = t === "light" || t === "dark" ? t : null;
     try { look ? sessionStorage.setItem(KEY, look) : sessionStorage.removeItem(KEY); } catch (e) {}
-    lists.forEach(function (f) { f(); });
+    var go = function () { lists.forEach(function (f) { f(); }); };
+    var D = document;                                         // the old look dissolves into the new one (the browser's own cross-fade)
+    if (!quiet && D.startViewTransition && D.visibilityState === "visible" && D.body) {
+      try {
+        var css = new CSSStyleSheet();
+        css.replaceSync("::view-transition-old(root),::view-transition-new(root){animation-duration:.45s !important;animation-timing-function:ease !important}");
+        D.adoptedStyleSheets = D.adoptedStyleSheets.concat([css]);
+        var vt = D.startViewTransition(function () { go(); return new Promise(function (r) { setTimeout(r, 260); }); });   // (the site redraws, its rules switch)
+        var done = function () { D.adoptedStyleSheets = D.adoptedStyleSheets.filter(function (x) { return x !== css; }); };
+        vt.finished.then(done, done);
+        return look || "off";
+      } catch (e) {}
+    }
+    go();
     return look || "off";
   };
 })();
