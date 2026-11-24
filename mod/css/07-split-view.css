@@ -2034,3 +2034,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) .vos-pc > i, #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) .vos-pc::after { content: "" !important; position: absolute !important; }
 #browser#browser#browser #webpage-stack > .vos-pin-badge .vos-pc::after { inset: -2px -10px !important; }
 #browser#browser#browser #browser > .vos-wctl .vos-pc::after { inset: -10px -2px !important; }
+
+/* 1.0.315: a pinned app held by its circle: only the circle goes with it - its buttons away */
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-held] > .vos-pin-ctl { display: none !important; }

@@ -1521,7 +1521,7 @@ window.vosBeat = window.vosBeat || (() => {
     const b = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge"), id = b?.dataset.for;
     if (!id || mission || lpOn() || !pip.includes(id) || e.target.closest(".vos-pin-ctl")) return;   // (its buttons: a click)
     const el = targetOf(pageOf(id)); if (!el) return;
-    badgeHeld = id; b.removeAttribute("data-drag");                 // 1.0.292: held: it stays in sight and goes with its app
+    badgeHeld = id; b.removeAttribute("data-drag"); b.setAttribute("data-held", ""); b.removeAttribute("data-show");   // 1.0.292: held: it stays in sight and goes with its app (1.0.315: only the circle - its buttons away)
     { const r0 = el.getBoundingClientRect(), side = (pipCorner.get(id) || "bl")[1];
       const follow = () => {
         if (badgeHeld !== id || !b.isConnected) { if (!b.__gone) b.style.translate = ""; return; }   // (going into its window: from where it is)
@@ -1530,7 +1530,7 @@ window.vosBeat = window.vosBeat || (() => {
         requestAnimationFrame(follow);
       };
       requestAnimationFrame(follow); }
-    const up = ev => { if (ev.pointerId !== e.pointerId) return; badgeHeld = null; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); setTimeout(render, 0); };
+    const up = ev => { if (ev.pointerId !== e.pointerId) return; badgeHeld = null; b.removeAttribute("data-held"); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); setTimeout(render, 0); };
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     pipGesture(e, el, id, "move");
   }, true);
@@ -1734,13 +1734,16 @@ window.vosBeat = window.vosBeat || (() => {
     if (b.__gone) return; b.__gone = true; b.style.pointerEvents = "none";
     const el = targetOf(pageOf(id)), r = b.getBoundingClientRect();   // 1.0.312: it travels into its window - wherever the window is as it goes (still growing back)
     if (!el || !r.width || awayWs(id)) { b.remove(); return; }
-    const t0 = performance.now(), D = 320, cx0 = r.left + r.width / 2, cy0 = r.top + r.height / 2, ease = k => k * k * (3 - 2 * k);
+    // 1.0.315: as it came, backwards - it slides to its window and in behind it (under the window, which covers it as it goes)
+    const zw = parseInt(getComputedStyle(el).zIndex, 10); b.style.setProperty("z-index", String(Number.isFinite(zw) ? Math.max(0, zw - 1) : 1), "important");
+    b.querySelector(":scope > .vos-pin-ctl")?.style.setProperty("display", "none", "important");
+    const t0 = performance.now(), D = 340, cx0 = r.left + r.width / 2, cy0 = r.top + r.height / 2, ease = k => k * k * k;   // (it speeds up as it goes in)
     const step = now => {
       if (!b.isConnected) return;
       const k = Math.min(1, (now - t0) / D), e = ease(k), w = el.getBoundingClientRect();
-      const tx = w.left + Math.min(w.width, 120) / 2, ty = w.top + Math.min(w.height, 120) / 2;   // (just inside its top left corner)
-      b.style.setProperty("transform", `translate(${Math.round((tx - cx0) * e)}px, ${Math.round((ty - cy0) * e)}px) scale(${(1 - 0.5 * e).toFixed(3)})`, "important");
-      b.style.setProperty("opacity", String(1 - k * k), "important");
+      const tx = Math.min(Math.max(cx0, w.left + 16), w.right - 16), ty = Math.min(Math.max(cy0, w.top + 16), w.bottom - 16);   // (just inside its nearest edge)
+      b.style.setProperty("transform", `translate(${Math.round((tx - cx0) * e)}px, ${Math.round((ty - cy0) * e)}px) scale(${(1 - 0.15 * e).toFixed(3)})`, "important");
+      b.style.setProperty("opacity", String(k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3), "important");
       b.style.setProperty("animation", "none", "important");
       if (k < 1) requestAnimationFrame(step); else b.remove();
     };
