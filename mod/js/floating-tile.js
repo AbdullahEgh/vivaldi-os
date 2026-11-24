@@ -1707,8 +1707,8 @@ window.vosBeat = window.vosBeat || (() => {
   function lookSync(id) { const t = lookWins.get(id) || ""; for (const wv of webviewsOf(id)) if ((wv.__vosLookAt ?? "") !== t) lookApply(wv, t); }
   function toggleDark(win) {                                          // (the grey button held)
     if (!floating.has(win)) return;
-    if (lookWins.has(win)) lookWins.delete(win);
-    else lookWins.set(win, browserEl()?.classList.contains("theme-dark") ? "light" : "dark");   // the other look than Vivaldi's
+    const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(win) || viv, next = now === "dark" ? "light" : "dark";
+    if (next === viv) lookWins.delete(win); else lookWins.set(win, next);   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
     lookSync(win); persist(win); render();
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w); });   // (a pane added to it, a restart)
@@ -2846,7 +2846,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!bar || !el || !id) return;
     const w = el.getBoundingClientRect();
     if (el.hasAttribute("data-ft-pip")) {
-      const side = (pipCorner.get(id) || "bl")[1], near = side === "r" ? ev.clientX - w.left < 120 : w.right - ev.clientX < 120;   // (its circle's end)
+      const side = (pipCorner.get(id) || "bl")[1], near = side === "r" ? ev.clientX - w.left < 56 : w.right - ev.clientX < 56;   // (its circle's end - 1.0.317: a smaller stretch of it)
       if (near) pinShow(id, bar);
       return;
     }

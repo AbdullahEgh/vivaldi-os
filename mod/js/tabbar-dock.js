@@ -248,7 +248,7 @@
     // colour in both looks (the icon whole - a dark square on a pale circle never), a pale tile its own in light
     const dk = `hsl(${h.toFixed(0)} ${(S * 0.8).toFixed(0)}% ${grey ? 9 : 12}%)`, lt = `hsl(${h.toFixed(0)} ${S.toFixed(0)}% ${grey ? 95 : 93}%)`;
     const deeper = `hsl(${h.toFixed(0)} ${(Math.min(s, 0.8) * 90).toFixed(0)}% ${Math.max(4, Math.round(l * 100 * 0.4))}%)`;   // 1.0.316: a dark tile in dark: its circle far deeper than it, so the icon stands out
-    return [tileCol && l < 0.3 ? deeper : dk, tileCol && (l > 0.82 || l < 0.3) ? exact : lt];
+    return [tileCol && l < 0.3 ? deeper : dk, tileCol && l > 0.82 ? exact : lt];   // (1.0.317: a dark tile in light: a pale circle - the tile clear on it)
   }
   let t = 0;
   function check() {
