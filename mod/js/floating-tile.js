@@ -6690,6 +6690,9 @@ window.vosBeat = window.vosBeat || (() => {
       }
       return null;
     };
+    // a folder's own name: unread counts and screen-reader words taken off ("Inbox 9 9 Unread" -> "Inbox")
+    const clean = t => String(t || "").replace(/\\b\\d+\\s+(unread|items?)\\b.*$/i, "").replace(/\\b(unread|selected|expanded|collapsed|has subfolders)\\b.*$/i, "").replace(/(\\s+\\d+)+\\s*$/, "").replace(/\\s+/g, " ").trim();
+    const FOLDER = /^(favou?rites|inbox|drafts|sent items|sent|deleted items|deleted|junk e-?mail|junk|archive|notes|outbox|conversation history|rss (feeds|subscriptions)|search folders|clutter|scheduled|snoozed)$/i;
     const mailbox = () => {                          // the main mailbox: the top folder that HAS folders (not Favorites - whose
       const items = [...document.querySelectorAll("[role=treeitem]")];   // Inbox, Sent Items... are only shortcuts)
       const own = e => {                             // its own name (not its subfolders'), without an unread count
@@ -6706,15 +6709,20 @@ window.vosBeat = window.vosBeat || (() => {
       const roots = items.map((e, i) => ({ e, i, l: lvl(e) })).filter(x => hasKids(x.e, x.i));
       const top = Math.min(...roots.map(x => x.l));
       for (const x of roots.filter(x => x.l === top)) {
-        const t = own(x.e).split("\\n")[0].trim().replace(/\\s+\\d+$/, "");
-        if (t && !/^(favou?rites|inbox|drafts|sent items|sent|deleted items|junk e-?mail|archive|notes|outbox|conversation history|rss (feeds|subscriptions)|search folders)$/i.test(t) && t.length < 60) return t;
+        const t = clean(own(x.e).split("\\n")[0]);
+        if (t && !FOLDER.test(t) && t.length < 60) return t;
       }
-      const m = /^(?:mail|outlook|inbox)\\s*[-–]\\s*(.+?)\\s*[-–]\\s*outlook/i.exec(document.title || "");   // "Mail - Name - Outlook"
-      return m ? m[1] : "";
+      const m = /^(?:mail|outlook|inbox)(?:\\s*\\(\\d+\\))?\\s*[-–]\\s*(.+?)\\s*[-–]\\s*outlook/i.exec(document.title || "");   // "Mail - Name - Outlook"
+      const t = m ? clean(m[1]) : "";
+      return t && !FOLDER.test(t) ? t : "";
     };
+    const KEEP = "vosOwaMailbox:" + location.host;   // (the last right name: kept while the folder list is not drawn yet)
     const apply = () => {
-      const l = label(), n = mailbox();
-      if (!l || !n) return false;
+      const l = label(); let n = mailbox();
+      if (n) { try { localStorage.setItem(KEEP, n); } catch (e) {} }
+      else { try { n = localStorage.getItem(KEEP) || ""; } catch (e) {} }
+      if (!l) return false;
+      if (!n) { if (l.hasAttribute("data-vos-owa") && l.textContent !== "Mail") l.textContent = "Mail"; return false; }   // (never a folder's name - plain Mail until it is known)
       if (!l.hasAttribute("data-vos-owa")) l.setAttribute("data-vos-owa", "Mail");
       const want = n + " Mail";
       if (l.textContent !== want) l.textContent = want;
