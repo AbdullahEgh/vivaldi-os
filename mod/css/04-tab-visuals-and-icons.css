@@ -264,3 +264,10 @@
 }
 /* (the tab strip may paint 8px past its edges - the line under the circles - it still trims; nothing moves) */
 #browser #tabs-container .tab-strip { overflow: clip !important; overflow-clip-margin: 8px !important; }
+
+/* 1.0.269: a minimized split - its tabs share one pill, so they share one line: joined across the gaps like the pill
+   (rounded only at its two ends), in the pill's colour (the circles in a pill are see-through) */
+#browser #tabs-container .tab-position[data-vos-min][data-ft-pill] .tab::after { background: var(--colorBg) !important; width: auto !important; margin-left: 0 !important; border-radius: 0 !important; }
+#browser #tabs-container .tab-position[data-vos-min][data-ft-pill="first"] .tab::after { left: 8px !important; right: -6px !important; border-radius: 1px 0 0 1px !important; }
+#browser #tabs-container .tab-position[data-vos-min][data-ft-pill="mid"] .tab::after { left: 0 !important; right: -6px !important; }
+#browser #tabs-container .tab-position[data-vos-min][data-ft-pill="last"] .tab::after { left: 0 !important; right: 8px !important; border-radius: 0 1px 1px 0 !important; }

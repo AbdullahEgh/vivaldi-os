@@ -1535,14 +1535,8 @@ window.vosBeat = window.vosBeat || (() => {
      scale button on a small frosted corner (top right). The window's three
      buttons (top edge) stay as they were, for the whole split. */
   const INNER_HTML = `<button class="ft-light ft-gray ft-res" data-act="page-res" title="This page's scale"></button>`;
-  function ensureInner(pages) {
-    for (const page of pages) {
-      if (!isTiled(page) || $(":scope > .ft-inner", page)) continue;
-      const box = document.createElement("div");
-      box.className = "ft-inner";
-      box.innerHTML = INNER_HTML;
-      page.appendChild(box);
-    }
+  function ensureInner(pages) {                     // 1.0.269: none any more - the scale button is with the traffic lights
+    for (const page of pages) for (const box of $$(":scope > .ft-inner", page)) box.remove();
   }
   function ensureLights(pages) {                    // hover lights on every page
     ensureInner(pages);
@@ -4341,9 +4335,11 @@ window.vosBeat = window.vosBeat || (() => {
 
   /* SHAKE: a window shaken left-right while you drag it (4 quick turns) */
   /* SHAKE a window: every other window of this desktop is pinned, shared out over the four corners (front ones first) */
-  function shakeWindows(id) {                       // shaken: the others pinned - shaken again (pins there): every pin back to a window
+  function shakeWindows(id) {                       // shaken: the others pinned - shaken again (only pins left): every pin back to a window
+    const normal = [...floating].some(w => w !== id && !pip.includes(w) && !minimized.has(w) && !awayWs(w) && w !== cover && !groupFloat.has(w));
+    if (normal) return pinOthers(id);                               // (1.0.269: normal windows beside pinned ones: those are pinned too)
     const live = pip.filter(p => p !== id && !awayWs(p) && !minimized.has(p));
-    if (!live.length) return pinOthers(id);
+    if (!live.length) return;
     flip(live.map(p => targetOf(pageOf(p))), () => { for (const p of live) { pipOff(p); persist(p); } raise(id); render(); });   // (they glide back; the one held stays on top)
   }
   function pinOthers(id) {
