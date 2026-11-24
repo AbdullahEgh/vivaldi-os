@@ -2735,7 +2735,7 @@ window.vosBeat = window.vosBeat || (() => {
     clearInterval(wctlTick);
     wctlTick = setInterval(() => {                                   // (over the page the browser hears no moves: checked here)
       if (wctlFor !== id) return clearInterval(wctlTick);
-      if (wctl.matches(":hover") || cornerH?.matches(":hover")) return;
+      if (wctlHeld || wctl.matches(":hover") || cornerH?.matches(":hover")) return;
       if (wctlZone && wctlZone(id)) return;                          // (still in the corner's area)
       wctlOff();
     }, 200);
@@ -2758,11 +2758,13 @@ window.vosBeat = window.vosBeat || (() => {
       if (wctlZone(id)) { cornerH = null; return wctlShow(id); }
     }
   }, { capture: true, passive: true });
-  let wctlXY = null;
+  let wctlXY = null, wctlHeld = false;
   addEventListener("pointerdown", e => {                          // 1.0.284: the circle is a handle, as a pinned app's - pressed, its window moves
     if (e.button !== 0 || !wctl || !wctlFor || !e.target?.closest?.(".vos-wctl-ic") || !wctl.contains(e.target)) return;
     const id = wctlFor, el = targetOf(pageOf(id)); if (!el || mission || lpOn()) return;
-    wctlOff();                                                       // (gone while it moves, back at the corner)
+    wctlHeld = true;                                                 // 1.0.287: held: the circle and its buttons stay, moving with the window
+    const up = ev => { if (ev.pointerId !== e.pointerId) return; wctlHeld = false; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); };
+    addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     startGesture(e, el, "move");
   }, true);
   const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip") && !minimized.has(id) && !awayWs(id);
