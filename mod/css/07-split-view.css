@@ -1726,6 +1726,3 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: space-between !important;
   padding: 5px 0 !important; border-radius: 12px !important;
 }
-
-/* 1.0.261: a window flying into (or out of) its tab icon: the page area does not cut it off at its edge */
-#browser[data-vos-flying] #webpage-stack { contain: size style !important; }

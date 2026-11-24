@@ -1297,20 +1297,11 @@ window.vosBeat = window.vosBeat || (() => {
       a.finished.catch(() => {}).then(() => { if (!e.getAnimations().length) e.style.removeProperty("will-change"); });
     });
   }
-  /* 1.0.261: the tab bar at the top or at the bottom: the window flies into its icon there (over the bar - not cut off at the
-     page's edge), the icon gives way in that direction */
-  const barTop = () => !browserEl()?.classList.contains("tabs-bottom");
-  let flying = 0;
-  function flyOver(el, ms) {                         // for one flight: the page area does not clip, the window rides over the bar
-    const b = browserEl(); if (!b || !el) return;
-    flying++; b.setAttribute("data-vos-flying", ""); el.style.setProperty("z-index", "90000", "important");
-    setTimeout(() => { if (--flying <= 0) { flying = 0; b.removeAttribute("data-vos-flying"); } queueRender(); }, ms + 60);
-  }
+  const barTop = () => !browserEl()?.classList.contains("tabs-bottom");   // 1.0.261: the tab bar at the top: the icon's bounce goes up
   function toTabFrame(el, id) {                     // the window shrunk into its tab icon
     const r = el.getBoundingClientRect();
     const t = document.getElementById("tab-" + id)?.getBoundingClientRect();
-    if (!t || !t.width || !r.width) return barTop() ? { transformOrigin: "50% 0%", transform: "translateY(-25%) scale(0.12)", filter: "opacity(0)" }
-                                                    : { transformOrigin: "50% 100%", transform: "translateY(25%) scale(0.12)", filter: "opacity(0)" };
+    if (!t || !t.width || !r.width) return { transformOrigin: "50% 100%", transform: "translateY(25%) scale(0.12)", filter: "opacity(0)" };
     const dx = t.left + t.width / 2 - (r.left + r.width / 2);
     const dy = t.top + t.height / 2 - (r.top + r.height / 2);
     const k = Math.max(0.02, Math.min(t.width / r.width, t.height / r.height));
@@ -1323,7 +1314,6 @@ window.vosBeat = window.vosBeat || (() => {
     stopAnims(el);
     const end = kind === "minimize" ? toTabFrame(el, id)
       : { transformOrigin: "50% 60%", transform: "translateY(3%) scale(0.82)" };
-    if (kind === "minimize") flyOver(el, SPR_SHUT.duration);
     const move = el.animate([{ transformOrigin: end.transformOrigin, transform: "none" },
                              { transformOrigin: end.transformOrigin, transform: end.transform }],
                             { ...SPR_SHUT, fill: "forwards" });
@@ -1353,7 +1343,6 @@ window.vosBeat = window.vosBeat || (() => {
     stopAnims(el);
     const from = id != null && document.getElementById("tab-" + id) ? toTabFrame(el, id)
       : { transformOrigin: "50% 50%", transform: "scale(0.86)" };
-    if (id != null && document.getElementById("tab-" + id)) flyOver(el, SPR_OPEN.duration || 500);   // (out of the icon, over the bar)
     el.animate([{ transformOrigin: from.transformOrigin, transform: from.transform },
                 { transformOrigin: from.transformOrigin, transform: "none" }], SPR_OPEN);
     fadeTo(el, 0, 1, 120).finished.then(a => a.cancel()).catch(() => {});
