@@ -2406,6 +2406,36 @@ window.vosBeat = window.vosBeat || (() => {
       });
     }
   }
+  /* 1.0.242: the window buttons (title bar hidden, normal and pinned): the pointer just OUTSIDE a top corner - or on the top
+     edge near it - shows that corner's buttons (left: the coloured ones, right: the scale one). A press there still resizes;
+     they go again once the pointer is neither there nor on them */
+  let cornerBox = null, cornerH = null;
+  const cornerOff = () => { if (cornerBox?.hasAttribute("data-vos-corner")) { cornerBox.removeAttribute("data-vos-corner"); cornerBox.removeAttribute("data-ft-shown"); } cornerBox = null; };
+  addEventListener("pointermove", ev => {
+    if (ev.buttons || ev.pointerType === "touch") return;
+    const t = ev.target;
+    if (cornerBox && cornerBox.contains(t)) return;
+    let box = null;
+    const h = t?.closest?.(".ft-frame > .ft-resize");
+    if (h && /\bft-(tl|tr|t)\b/.test(h.className)) {
+      const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
+      if (el && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !minimized.has(id)) {
+        const r = h.parentElement.getBoundingClientRect(), edge = h.classList.contains("ft-t");
+        const left = h.classList.contains("ft-tl") || (edge && ev.clientX - r.left < 90);
+        const right = h.classList.contains("ft-tr") || (edge && r.right - ev.clientX < 90);
+        if (left || right) { box = el.querySelector(`:scope > .ft-titlebar > ${left ? ".ft-lights" : ".ft-right"}`); cornerH = h; }
+      }
+    }
+    if (box === cornerBox) return;
+    cornerOff();
+    if (!box || box.hasAttribute("data-ft-shown")) return;
+    box.setAttribute("data-ft-shown", ""); box.setAttribute("data-vos-corner", ""); cornerBox = box;
+    const tick = setInterval(() => {                                 // (over the page the browser hears no moves: checked here)
+      if (cornerBox !== box) return clearInterval(tick);
+      if (box.matches(":hover") || cornerH?.matches(":hover")) return;
+      cornerOff(); clearInterval(tick);
+    }, 200);
+  }, { capture: true, passive: true });
   addEventListener("pointerdown", ev => {
     btnHeldAt = 0;                                                   // a new press: the last hold's click is long gone
     if (btnHold) { clearTimeout(btnHold.t); btnHold.btn.removeAttribute("data-ft-holding"); btnHold = null; }

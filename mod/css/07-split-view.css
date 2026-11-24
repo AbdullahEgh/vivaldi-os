@@ -1681,3 +1681,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.241: the pinned app's circle at the OUTER bottom corner (right pins: lower right, left pins: lower left) */
 #browser#browser #main [data-ft-pip] > .vos-pin-badge[data-side="r"] { right: 10px !important; left: auto !important; }
 #browser#browser #main [data-ft-pip] > .vos-pin-badge[data-side="l"] { left: 10px !important; right: auto !important; }
+
+/* 1.0.242: a pinned app's buttons - only the yellow one, with the green's arrows (it takes the app back to its normal size) */
+#browser#browser #main [data-ft-pip] > .ft-titlebar .ft-lights :is(.ft-red, .ft-green) { display: none !important; }
+#browser#browser #main [data-ft-pip] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-yellow {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 3h4.4L3 7.4z M9 9H4.6L9 4.6z' fill='%23985700'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important;
+}
