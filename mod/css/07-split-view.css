@@ -1720,3 +1720,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.249: the pinned app's circle smaller (24px, its picture 14px) */
 #browser#browser #webpage-stack > .vos-pin-badge > img { width: 14px !important; height: 14px !important; }
+
+/* 1.0.251: a pinned split: its apps' icons one above the other in one pill (the tab bar's split pill, upright) */
+#browser#browser #webpage-stack > .vos-pin-badge[data-multi] {
+  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: space-between !important;
+  padding: 5px 0 !important; border-radius: 12px !important;
+}

@@ -1425,24 +1425,32 @@ window.vosBeat = window.vosBeat || (() => {
     let b = pinBadges.get(id);
     if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r || bento.on) { if (b) { b.remove(); pinBadges.delete(id); } return; }   // (1.0.250: none with Bento on)
     const host = stack(); if (!host) return;
-    const tid = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
-    let src = tabIcon(tid);
-    if (!src) {                                                       // (1.0.245: the tab bar's picture not there yet: the site's own icon)
-      const u = pageOf(tid)?.querySelector("webview")?.getAttribute("src") || "";
-      if (/^https?:/.test(u)) try { src = favicon(u); } catch (e) {}
-    }
+    // 1.0.251: a split: every pane's icon, one above the other in one pill (the tab bar's split pill, upright)
+    const ids = (groupFloat.has(id) && membersOf(pageOf(id)).length > 1) ? membersOf(pageOf(id)) : [groupFloat.has(id) ? (splitFocus.get(id) || id) : id];
+    const iconOf = t => {
+      let src = tabIcon(t);
+      if (!src) {                                                     // (1.0.245: the tab bar's picture not there yet: the site's own icon)
+        const u = pageOf(t)?.querySelector("webview")?.getAttribute("src") || "";
+        if (/^https?:/.test(u)) try { src = favicon(u); } catch (e) {}
+      }
+      return src;
+    };
+    const srcs = ids.map(iconOf);
     if (!b || b.parentElement !== host) {
-      b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge"; b.appendChild(document.createElement("img")).alt = "";
+      b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge";
       host.appendChild(b); pinBadges.set(id, b);
     }
     if (b.dataset.for !== id) b.dataset.for = id;
-    const side = (pipCorner.get(id) || "bl")[1], plate = document.getElementById("tab-" + tid)?.getAttribute("data-vos-plate") || "";
+    while (b.children.length < ids.length) b.appendChild(document.createElement("img")).alt = "";
+    while (b.children.length > ids.length) b.lastChild.remove();
+    srcs.forEach((src, i) => { const im = b.children[i]; if (src && im.getAttribute("src") !== src) im.src = src; im.style.visibility = src ? "" : "hidden"; });
+    const side = (pipCorner.get(id) || "bl")[1], plate = ids.length === 1 ? (document.getElementById("tab-" + ids[0])?.getAttribute("data-vos-plate") || "") : "";
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
-    const im = b.firstChild; if (src && im.getAttribute("src") !== src) im.src = src;
-    b.toggleAttribute("data-empty", !src);
+    b.toggleAttribute("data-multi", ids.length > 1);
+    b.toggleAttribute("data-empty", !srcs.some(Boolean));
     b.toggleAttribute("data-drag", pipDrag?.id === id);                // 1.0.247: held and moved: gone at once (back where it lands)
-    const S = 24, G = 6, x = side === "r" ? r.x - S - G : r.x + r.w + G;
-    place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: S }, s, o);
+    const S = 24, G = 6, H = S + (ids.length - 1) * 20, x = side === "r" ? r.x - S - G : r.x + r.w + G;
+    place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
     setStyle(b, "z-index", "99");
   }
   addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
