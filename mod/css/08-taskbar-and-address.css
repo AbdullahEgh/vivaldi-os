@@ -416,3 +416,8 @@
 #browser .UrlBar-AddressField:not(:focus-within) .UrlField[data-ft-site]:not(.UrlField--HasEditText) input::placeholder { color: transparent !important; opacity: 0 !important; }
 /* a tight bar never brings the date back (it went first) */
 #browser[data-vos-tight]:is(.tabs-top, .tabs-bottom) #tabs-tabbar-container .vos-chain-vosdate { display: none !important; }
+
+/* 1.0.327: typing in it: the cursor at the left - the hint ("Search Google or enter an address") stays in the middle until
+   the first letter */
+#browser #tabs-tabbar-container .UrlBar-AddressField input:placeholder-shown:focus { text-align: left !important; }
+#browser #tabs-tabbar-container .UrlBar-AddressField input:placeholder-shown:focus::placeholder { text-align: center !important; }
