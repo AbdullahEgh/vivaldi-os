@@ -1495,7 +1495,7 @@ window.vosBeat = window.vosBeat || (() => {
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     b.toggleAttribute("data-multi", ids.length > 1);
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
-    const dragging = pipDrag?.id === id;
+    const dragging = pipDrag?.id === id || badgeHeld === id;
     b.toggleAttribute("data-drag", dragging);                          // 1.0.247: held and moved: gone at once (back where it lands)
     const S = 24, G = 6, H = S + (ids.length - 1) * 20, x = side === "r" ? r.x - S - G : r.x + r.w + G;
     // 1.0.268: it comes out from behind its app once the app has settled (new, or back after a drag) - toward its own side
@@ -1511,8 +1511,13 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
     const b = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge"), id = b?.dataset.for;
     if (!id || mission || lpOn() || !pip.includes(id) || e.target.closest(".vos-pin-ctl")) return;   // (its buttons: a click)
-    const el = targetOf(pageOf(id)); if (el) pipGesture(e, el, id, "move");
+    const el = targetOf(pageOf(id)); if (!el) return;
+    badgeHeld = id; b.setAttribute("data-drag", "");                // 1.0.289: pressed: gone at once (back where its app lands)
+    const up = ev => { if (ev.pointerId !== e.pointerId) return; badgeHeld = null; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); setTimeout(render, 0); };
+    addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+    pipGesture(e, el, id, "move");
   }, true);
+  var badgeHeld = null;
   let pcHold = null;
   addEventListener("pointerdown", e => {                          // 1.0.270: its grey one held: light <-> dark
     const g = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge .vos-pc-gray"); if (!g) return;
@@ -2703,7 +2708,11 @@ window.vosBeat = window.vosBeat || (() => {
     host.appendChild(wctl);
     return wctl;
   };
-  const wctlOff = () => { if (wctl) { wctl.removeAttribute("data-on"); } wctlFor = null; cornerH = null; clearInterval(wctlTick); };
+  let wctlOutT = 0;
+  const wctlOff = () => {                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
+    if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => b.removeAttribute("data-out"), 320); }
+    wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
+  };
   const wctlPlace = () => {
     if (!wctl || !wctlFor) return false;
     const el = targetOf(pageOf(wctlFor));
@@ -2729,6 +2738,7 @@ window.vosBeat = window.vosBeat || (() => {
     const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
     if (g.title !== tip) g.title = tip;
     if (!wctlPlace()) return wctlOff();
+    clearTimeout(wctlOutT); b.removeAttribute("data-out");
     b.removeAttribute("data-on"); void b.offsetWidth; b.setAttribute("data-on", "");
     const follow = () => { if (wctlFor !== id) return; if (!wctlPlace()) return wctlOff(); requestAnimationFrame(follow); };
     requestAnimationFrame(follow);

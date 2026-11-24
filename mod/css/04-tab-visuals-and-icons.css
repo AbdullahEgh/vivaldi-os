@@ -285,3 +285,14 @@
 #browser#browser #tabs-container .tab[data-vos-plate="dark"]:hover { background-color: #000000 !important; }
 #browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab,
 #browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab:hover { background-color: #000000 !important; }
+
+/* 1.0.289: the circle follows the look - black in dark, white in light - even for an icon that blends into it (a window
+   switched to its own look: that look) */
+#browser#browser.theme-dark #tabs-container .tab[data-vos-plate],
+#browser#browser.theme-dark #tabs-container .tab[data-vos-plate]:hover { background-color: #000000 !important; }
+#browser#browser.theme-light #tabs-container .tab[data-vos-plate],
+#browser#browser.theme-light #tabs-container .tab[data-vos-plate]:hover { background-color: #ffffff !important; }
+#browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab,
+#browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab:hover { background-color: #ffffff !important; }
+#browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab,
+#browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab:hover { background-color: #000000 !important; }

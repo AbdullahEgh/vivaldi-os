@@ -1820,7 +1820,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   visibility: hidden; pointer-events: none !important; cursor: default !important; transition: visibility 0s linear 0.2s !important;
 }
 #browser > .vos-wctl[data-on] { visibility: visible; pointer-events: auto !important; transition: none !important; }
-#browser > .vos-wctl::after { content: "" !important; position: absolute !important; left: -8px !important; right: -8px !important; top: -8px !important; bottom: -16px !important; z-index: -1 !important; }   /* (a hold all round, down to the corner) */
+#browser > .vos-wctl::after { content: "" !important; position: absolute !important; left: -8px !important; right: -8px !important; top: -8px !important; bottom: 0 !important; z-index: -1 !important; }   /* (a hold round it - 1.0.289: not over the corner, which still resizes) */
 /* the circle: a pinned app's */
 #browser > .vos-wctl .vos-wctl-ic {
   position: relative !important; z-index: 1 !important; width: 24px !important; height: 24px !important; border-radius: 50% !important; flex: 0 0 24px !important;
@@ -1858,3 +1858,20 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser > .vos-wctl .vos-wctl-ic[data-plate="light"] { background: #ffffff !important; }
 #browser#browser :is(#main [data-ft-pip] > .vos-pin-badge, #webpage-stack > .vos-pin-badge)[data-plate="dark"],
 #browser#browser > .vos-wctl .vos-wctl-ic[data-plate="dark"] { background: #000000 !important; }
+
+/* 1.0.289: going: as they came, backwards - the buttons out, the pill back into the circle, the circle down behind the window */
+@keyframes vos-wctl-pill-out { from { clip-path: inset(-12px -12px -12px 0); transform: none; } to { clip-path: inset(0 100% 0 0); transform: translateX(-24px); } }
+@keyframes vos-wctl-ic-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(14px) scale(0.85); } }
+@keyframes vos-wctl-ic-out-up { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-14px) scale(0.85); } }
+@keyframes vos-btn-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.5); } }
+#browser#browser > .vos-wctl[data-out] { visibility: visible; pointer-events: none !important; transition: none !important; }
+#browser#browser > .vos-wctl[data-out] .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
+#browser#browser > .vos-wctl[data-out] > .vos-pin-ctl { animation: vos-wctl-pill-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
+#browser#browser > .vos-wctl[data-out] .vos-wctl-ic { animation: vos-wctl-ic-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.12s both !important; }
+#browser#browser > .vos-wctl[data-out][data-in] .vos-wctl-ic { animation-name: vos-wctl-ic-out-up !important; }
+
+/* 1.0.289: an app's circle follows the look: black in dark, white in light - even for an icon that blends into it */
+#browser#browser.theme-dark :is(#main [data-ft-pip] > .vos-pin-badge, #webpage-stack > .vos-pin-badge)[data-plate],
+#browser#browser.theme-dark > .vos-wctl .vos-wctl-ic[data-plate] { background: #000000 !important; }
+#browser#browser.theme-light :is(#main [data-ft-pip] > .vos-pin-badge, #webpage-stack > .vos-pin-badge)[data-plate],
+#browser#browser.theme-light > .vos-wctl .vos-wctl-ic[data-plate] { background: #ffffff !important; }
