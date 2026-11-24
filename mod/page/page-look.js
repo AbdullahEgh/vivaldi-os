@@ -124,7 +124,7 @@
     for (var i = 0; i < list.length; i++) {
       var r = list[i];
       try {
-        if (r.selectorText !== undefined && r.style) { var d = []; decls(r.style, d); if (d.length) out.push(r.selectorText + "{" + d.join(";") + "}"); if (r.cssRules && r.cssRules.length) { var n = []; rules(r.cssRules, n); if (n.length) out.push(r.selectorText + "{" + n.join("") + "}"); } }
+        if (r.selectorText !== undefined && r.style) { var d = []; decls(r.style, d); if (d.length) out.push(outside(r.selectorText) + "{" + d.join(";") + "}"); if (r.cssRules && r.cssRules.length) { var n = []; rules(r.cssRules, n); if (n.length) out.push(r.selectorText + "{" + n.join("") + "}"); } }
         else if (r.media && r.cssRules) { var mo = []; rules(r.cssRules, mo); if (mo.length) out.push("@media " + r.media.mediaText + "{" + mo.join("") + "}"); }
         else if (r.conditionText !== undefined && r.cssRules) { var so = []; rules(r.cssRules, so); if (so.length) out.push("@supports " + r.conditionText + "{" + so.join("") + "}"); }
         else if (r.styleSheet) sheet(r.styleSheet, out);
@@ -133,6 +133,36 @@
     }
   }
   var unread = 0;
+  /* 1.0.291: A PICTURE FRAME stays as the site made it. A light box mostly filled by a picture (a shop's product card - its
+     photos have white backgrounds -, a photo with its caption) is not made dark, nor anything in it: its labels, prices
+     and badges keep their own colours, so the card reads as one piece on the dark page. */
+  var outside = function (sel) {
+    if (/::|:(before|after|first-line|first-letter|placeholder|selection|marker|backdrop|-webkit-)/i.test(sel) || /(^|,)\s*(html|:root|body)\s*(,|$)/i.test(sel)) return sel;
+    return ":is(" + sel + "):not([data-vos-keep],[data-vos-keep] *)";
+  };
+  var kept = [];
+  function frames() {                                            // find the frames: measured as the site draws them (the written dark off)
+    if (!gen) return;
+    var imgs = document.querySelectorAll("img,picture,video");
+    gen.disabled = true;
+    var found = [];
+    for (var i = 0; i < imgs.length && i < 400; i++) {
+      var im = imgs[i], ir = im.getBoundingClientRect(); if (ir.width < 60 || ir.height < 60) continue;
+      if (im.closest("[data-vos-keep]")) continue;
+      for (var e = im.parentElement, up = 0; e && up < 5 && e !== document.body; e = e.parentElement, up++) {
+        var r = e.getBoundingClientRect(), A = r.width * r.height; if (!A) continue;
+        if (A > innerWidth * innerHeight * 0.6) break;             // (not a whole section of the page)
+        var cs = getComputedStyle(e), c = rgbOf(cs.backgroundColor);
+        if (!c || c[3] < 0.5) continue;
+        if (hsl(c[0], c[1], c[2])[2] > 0.85 && (ir.width * ir.height) / A > 0.3) { found.push([e, cs.color]); break; }
+        break;                                                     // (a coloured box first: not a frame)
+      }
+    }
+    gen.disabled = false;
+    found.forEach(function (f) { var e = f[0]; if (e.hasAttribute("data-vos-keep")) return;
+      e.setAttribute("data-vos-keep", ""); kept.push([e, e.style.getPropertyValue("color"), e.style.getPropertyPriority("color")]);
+      e.style.setProperty("color", f[1], "important"); });        // (its text in the site's own colour, not the dark page's)
+  }
   function sheet(sh, out) {
     if (!sh || sh === gen || sh.disabled) return;
     var list = null; try { list = sh.cssRules; } catch (e) {}
@@ -157,6 +187,7 @@
     all(out);
     var base = ":root{color-scheme:dark}html{background-color:#141517;color:#e4e4e6}";
     try { gen.replaceSync(base + out.join("\n")); } catch (e) { try { gen.replaceSync(base); } catch (e2) {} }
+    frames();
     inline();
     sweep("input,textarea,select,button");                      // (form fields: the browser's own white, or a rule it could not see)
     if (unread) sweep();
@@ -164,7 +195,7 @@
   function inline() {                                            // colours written on the elements themselves
     var els = document.querySelectorAll("[style]");
     for (var i = 0; i < els.length && i < 4000; i++) {
-      var el = els[i], st = el.style; if (el.__vosInl === st.cssText) continue;
+      var el = els[i], st = el.style; if (el.__vosInl === st.cssText || el.closest("[data-vos-keep]")) continue;
       var done = [];
       for (var j = 0; j < st.length; j++) {
         var p = st[j], k = KIND(p); if (!k || k === "img" && !/gradient/i.test(st.getPropertyValue(p))) continue;
@@ -178,7 +209,7 @@
   function sweep(sel) {                                          // (a style sheet that could not be read: what it drew, element by element)
     var all = document.querySelectorAll(sel || "body *");
     for (var i = 0; i < all.length && i < 5000; i++) {
-      var el = all[i]; if (el.__vosSw) continue; el.__vosSw = 1;
+      var el = all[i]; if (el.__vosSw || el.closest("[data-vos-keep]")) continue; el.__vosSw = 1;
       if (/^(IMG|VIDEO|CANVAS|PICTURE|SVG|IFRAME|EMBED|OBJECT)$/i.test(el.tagName)) continue;
       var cs = getComputedStyle(el), b = mapC(cs.backgroundColor, "bg"), f = mapC(cs.color, "fg");
       if (b) { swept.push([el, "background-color", el.style.getPropertyValue("background-color"), el.style.getPropertyPriority("background-color")]); el.style.setProperty("background-color", b, "important"); }
@@ -199,7 +230,11 @@
       if (re && !t) t = setTimeout(function () { t = 0; if (gen) build(); }, 300);
     });
     genObs.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["style"] });
-    document.addEventListener("load", function (e) { if (gen && e.target && e.target.tagName === "LINK") build(); }, true);
+    var ft = 0;
+    document.addEventListener("load", function (e) {
+      if (gen && e.target && e.target.tagName === "LINK") build();
+      else if (gen && e.target && e.target.tagName === "IMG" && !ft) ft = setTimeout(function () { ft = 0; frames(); }, 300);   // (a picture arrived: a frame?)
+    }, true);
     [700, 1800, 4000, 8000].forEach(function (ms) { setTimeout(function () { if (gen) build(); }, ms); });   // (its style sheets still arriving)
     addEventListener("load", function () { if (gen) build(); });
   }
@@ -207,6 +242,7 @@
     if (!gen) return; var g = gen; gen = null;
     if (genObs) { genObs.disconnect(); genObs = null; }
     document.adoptedStyleSheets = document.adoptedStyleSheets.filter(function (x) { return x !== g; });
+    kept.forEach(function (x) { x[0].removeAttribute("data-vos-keep"); x[0].style.setProperty("color", x[1], x[2]); }); kept = [];
     inl.concat(swept).forEach(function (x) { try { x[0].style.setProperty(x[1], x[2], x[3]); x[0].__vosInl = null; x[0].__vosSw = 0; } catch (e) {} });
     inl = []; swept = [];
   }
