@@ -2759,7 +2759,7 @@ window.vosBeat = window.vosBeat || (() => {
   const wctlPlace = () => {
     if (!wctl || !wctlFor) return false;
     const el = targetOf(pageOf(wctlFor));
-    if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || el.hasAttribute("data-ft-pip") || el.hasAttribute("data-ft-cover")) return false;
+    if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || el.hasAttribute("data-ft-cover")) return false;
     const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
     wctl.style.left = Math.round(w.left + (up ? 0 : 6)) + "px";
     wctl.style.top = Math.round(up ? w.top - H - 6 : w.top + 6) + "px";
@@ -2832,7 +2832,8 @@ window.vosBeat = window.vosBeat || (() => {
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     startGesture(e, el, "move");
   }, true);
-  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip") && !minimized.has(id) && !awayWs(id);
+  const pinBare = () => bento.on || roomActive();                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
+  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id);   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
     if (wctlXY[2]?.closest?.("webview") || document.querySelector("webview:hover")) return false;   // (in a page: gone)
