@@ -242,8 +242,11 @@
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
     let h = 0, s = 0;
     if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
-    const S = Math.min(s, 0.6) * 100, exact = `rgb(${col})`;
-    return [tileCol && l < 0.3 ? exact : `hsl(${h.toFixed(0)} ${(S * 0.8).toFixed(0)}% 17%)`, tileCol && l > 0.82 ? exact : `hsl(${h.toFixed(0)} ${S.toFixed(0)}% 91%)`];   // (1.0.306: its own tile, when it is already that deep / that pale)
+    const S = Math.min(s, 0.6) * 100, exact = `rgb(${col})`, grey = s < 0.12;
+    // 1.0.314: dimmer - a coloured circle 12% deep (dark) / 93% pale (light), a grey one 9% / 95%; a dark tile is its own
+    // colour in both looks (the icon whole - a dark square on a pale circle never), a pale tile its own in light
+    const dk = `hsl(${h.toFixed(0)} ${(S * 0.8).toFixed(0)}% ${grey ? 9 : 12}%)`, lt = `hsl(${h.toFixed(0)} ${S.toFixed(0)}% ${grey ? 95 : 93}%)`;
+    return [tileCol && l < 0.3 ? exact : dk, tileCol && (l > 0.82 || l < 0.3) ? exact : lt];
   }
   let t = 0;
   function check() {
