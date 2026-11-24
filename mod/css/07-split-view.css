@@ -1767,3 +1767,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important;
   background-size: 100% 100% !important;
 }
+
+/* 1.0.268: a pinned app's icon comes out from behind it - after the app has settled (new, moved, back from a drag) */
+@keyframes vos-pinbadge-in { from { opacity: 0; transform: translateX(var(--vos-from, 0)) scale(0.85); } to { opacity: 1; transform: none; } }
+#browser #webpage-stack > .vos-pin-badge[data-in] { animation: vos-pinbadge-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) 0.4s both !important; }

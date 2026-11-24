@@ -1465,8 +1465,16 @@ window.vosBeat = window.vosBeat || (() => {
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     b.toggleAttribute("data-multi", ids.length > 1);
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
-    b.toggleAttribute("data-drag", pipDrag?.id === id);                // 1.0.247: held and moved: gone at once (back where it lands)
+    const dragging = pipDrag?.id === id;
+    b.toggleAttribute("data-drag", dragging);                          // 1.0.247: held and moved: gone at once (back where it lands)
     const S = 24, G = 6, H = S + (ids.length - 1) * 20, x = side === "r" ? r.x - S - G : r.x + r.w + G;
+    // 1.0.268: it comes out from behind its app once the app has settled (new, or back after a drag) - toward its own side
+    if (!dragging && (b.__vosIn !== side || b.__vosWasDrag)) {
+      b.style.setProperty("--vos-from", (side === "r" ? S + G : -(S + G)) + "px");
+      b.removeAttribute("data-in"); void b.offsetWidth; b.setAttribute("data-in", "");
+      b.__vosIn = side;
+    }
+    b.__vosWasDrag = dragging;
     place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
     setStyle(b, "z-index", "99");
   }
