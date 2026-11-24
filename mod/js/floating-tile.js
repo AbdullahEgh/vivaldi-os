@@ -866,9 +866,12 @@ window.vosBeat = window.vosBeat || (() => {
     const y = Math.min(Math.max(r.y, 0), s.height - 48);
     return { x, y, w, h };
   }
+  // 1.0.256: pinned apps on this desktop (other than the full-screen one): full screen then fills only the room beside them
+  let pinRoomEl = null;                                              // the full-screen page kept beside the pinned apps
+  const coverBeside = () => pip.some(p => p !== cover && floating.has(p) && !minimized.has(p) && !awayWs(p));
   function pxRect(id, s = stackRect()) {
     if (bentoDrag?.id === id) return bentoDrag.rect;              // Bento: being dragged
-    if (cover === id) return { x: -s.left, y: -s.top, w: innerWidth, h: innerHeight };   // the whole Vivaldi window
+    if (cover === id) return coverBeside() ? bArea(s) : { x: -s.left, y: -s.top, w: innerWidth, h: innerHeight };   // the whole Vivaldi window (1.0.256: pinned apps here - the room beside them, as one app in Bento)
     if (pipDrag?.id === id) return pipDrag.r;                       // a pinned window being dragged: where (and how big) it shows
     if (pip.includes(id)) return pipRect(id, s);                    // the corner stack
     if (bento.rects.has(id)) return bento.rects.get(id);           // Bento: its slot
@@ -1749,7 +1752,7 @@ window.vosBeat = window.vosBeat || (() => {
     for (const p of [...pip]) if (!floating.has(p)) pipOff(p);   // (closed. One not drawn yet - a restart loads it a moment later - or on another desktop keeps its place)
     if (cover) coverWas = cover;
     else if (coverWas) { coverWas = null; coverTill = Date.now() + 450; setTimeout(queueRender, 470); }   // it glides back first
-    b.toggleAttribute("data-ft-cover", !!cover || Date.now() < coverTill);   // (before anything is measured: the page area stops clipping)
+    b.toggleAttribute("data-ft-cover", (!!cover && !coverBeside()) || Date.now() < coverTill);   // (before anything is measured: the page area stops clipping)
     { // the keyboard focus never stays in a window behind the front one: a click in it is
       // then always heard (it focuses the page) and brings that window to the front
       const aw = document.activeElement?.closest?.("[data-ft-float]");
@@ -1786,7 +1789,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (vs) mark(el, "data-vos-vsplit", id);
       if (id === front) mark(el, "data-ft-front");
       if (noTitle.has(id) || cover === id) mark(el, "data-ft-notitle");   // full view: its title bar moves the Vivaldi window
-      if (cover === id) mark(el, "data-ft-cover");
+      if (cover === id && !coverBeside()) mark(el, "data-ft-cover");   // (beside pinned apps: a window, not over the whole Vivaldi window)
       if (pip.includes(id)) mark(el, "data-ft-pip");
       if (awayWs(id)) mark(el, "data-ft-away");                     // another workspace: not on this desktop
       if (focusSet.has(id)) mark(el, "data-ft-focused");
@@ -1856,9 +1859,9 @@ window.vosBeat = window.vosBeat || (() => {
       pinBadge(el, id, held || mission ? null : r, s, origins.get(stack()) || o);   // (Mission Control / held in it: none)
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
-        : cover === id && !mission ? "90000"                         // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts); Mission Control: a window like the others
+        : cover === id && !mission && !coverBeside() ? "90000"                         // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts); Mission Control: a window like the others
         : pip.includes(id) && focusSet.size && !lifted ? String(500 + pip.indexOf(id))   // focus mode: a pinned window not in it is under the veil too (blurred)
-        : pip.includes(id) ? String((cover ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too)
+        : pip.includes(id) ? String((cover && !coverBeside() ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too)
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       if (vs) {
         for (const mp of vs.pages) if (mp !== el) setStyle(mp, "z-index", el.style.getPropertyValue("z-index"));
@@ -1922,6 +1925,15 @@ window.vosBeat = window.vosBeat || (() => {
     b.toggleAttribute("data-ft-maxpage", !!act && !desktop && !isStart(act) && !isTiled(act));   // a full-screen page
     b.toggleAttribute("data-vos-fullsplit", !!act && !desktop && !isStart(act) && isTiled(act) && !winOf(actId));   // a split full screen (its window grabber too)
     ensureMaxGrab();
+    {                                                                // 1.0.256: a full-screen page (the green button, the top snap) beside pinned
+      // apps: only the room beside them - the size one app has in Bento - never under them; back to the whole area without pins
+      const pinsHere = pip.some(p => floating.has(p) && !minimized.has(p) && !awayWs(p));
+      const full = act && !desktop && !isStart(act) && !winOf(actId) && !mission ? (isTiled(act) ? rootOf(act) : act) : null;
+      const tgt = pinsHere && full ? full : null;
+      if (pinRoomEl && pinRoomEl !== tgt) { unplace(pinRoomEl); pinRoomEl.removeAttribute("data-vos-pinroom"); }
+      if (tgt) { place(tgt, bArea(s), s, fixedOrigin(tgt.parentElement)); if (!tgt.hasAttribute("data-vos-pinroom")) tgt.setAttribute("data-vos-pinroom", ""); }
+      pinRoomEl = tgt;
+    }
     if (selected && !pageOf(selected)) selected = null;              // closed
     const selId = selected ?? actId;
     b.toggleAttribute("data-ft-hovering", !!selected && !!actId && selected !== String(actId));
