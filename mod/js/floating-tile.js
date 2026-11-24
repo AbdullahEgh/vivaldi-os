@@ -1604,8 +1604,7 @@ window.vosBeat = window.vosBeat || (() => {
       st.imgObs.observe(D.documentElement, { childList: true, subtree: true });
     }
     function check() { if (!st.target || st.flip || !D.body) return; var L = lum(); if (target === "light" ? L < 110 : L > 150) flipOn(); }
-    setTimeout(check, 500); setTimeout(check, 1800);
-    if (D.readyState !== "complete") W.addEventListener("load", function () { setTimeout(check, 600); });
+    // 1.0.276: no colour flip any more - only the site's own design for that look (check() kept unused)
     if (!st.obs) {                                                   // what the page adds later (and the sheets still loading)
       st.obs = new MutationObserver(function () { if (st.t) return; st.t = setTimeout(function () { st.t = 0; if (st.target) pass(); }, 250); });
       st.obs.observe(D.documentElement, { childList: true, subtree: true });
