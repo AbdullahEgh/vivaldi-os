@@ -217,12 +217,12 @@
     }
   }
   var lT = 0;
-  function later() { if (lT) return; lT = setTimeout(function () { lT = 0; idle(function () { if (gen) { build(); inline(); sweep("input,textarea,select,button"); frames(); } }); }, 400); }
+  function later() { if (lT) return; lT = setTimeout(function () { lT = 0; idle(function () { if (gen) { build(); inline(); sweep("input,textarea,select,button"); frames(); leftLight(); } }); }, 400); }
   function genOn() {
     if (gen) return;
     gen = new CSSStyleSheet(); sig = "";
     document.adoptedStyleSheets = document.adoptedStyleSheets.concat([gen]);
-    build(); inline(); sweep("input,textarea,select,button"); frames();
+    build(); inline(); sweep("input,textarea,select,button"); frames(); leftLight();
     var pend = [], pT = 0;                                       // (while it scrolls: only what changed, once the browser is idle)
     genObs = new MutationObserver(function (ms) {
       var sheets = false;
@@ -305,7 +305,12 @@
     }
     return seen ? light / seen : 0;
   }
-  var swScrollT = 0;
+  var swScrollT = 0, leftT = 0;
+  function leftLight() {                                          // 1.0.318: after writing its dark: what still shows light (colours the page sets
+    if (!gen || leftT) return;                                    // outside its style rules - old bgcolor / font colours, a script's) - made dark there
+    leftT = setTimeout(function () { leftT = 0; if (gen && want() && lightShare() > 0.12) sweep("body, body *"); }, 500);
+  }
+  addEventListener("scroll", function () { if (gen) leftLight(); }, { passive: true, capture: true });
   addEventListener("scroll", function () {                         // (scrolled on to a part its own dark design does not cover: written dark for it too)
     if (!siteSw || gen || swScrollT) return;
     swScrollT = setTimeout(function () { swScrollT = 0; if (siteSw && !gen && want() && lightShare() > 0.2) genOn(); }, 900);
@@ -319,7 +324,7 @@
     if (swept.length || inl.length) { if (gen) return; }
     var L = pageLum(); if (L === null) return;
     if (gen) { if (L < 110) genOff(); return; }                  // (it turned dark by itself)
-    if (L <= 160) return;
+    if (L <= 160 && lightShare() < 0.35) return;                  // 1.0.318: light or not - the whole of what is in sight, not one point in its middle
     if (!swTried) {                                                // its own dark switch, if it has one
       swTried = true; var sw = findSwitch();
       if (sw) { swOn(sw); setTimeout(function () {
