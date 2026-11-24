@@ -277,3 +277,11 @@
 #browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab:hover { background-color: #ffffff !important; }
 #browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab,
 #browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab:hover { background-color: #1f1f21 !important; }
+
+/* 1.0.286: an app's circle is only ever black or white - an icon that would vanish into it gets the other one (no grey) */
+#browser#browser #tabs-container .tab[data-vos-plate="light"],
+#browser#browser #tabs-container .tab[data-vos-plate="light"]:hover { background-color: #ffffff !important; }
+#browser#browser #tabs-container .tab[data-vos-plate="dark"],
+#browser#browser #tabs-container .tab[data-vos-plate="dark"]:hover { background-color: #000000 !important; }
+#browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab,
+#browser#browser #tabs-container .tab-position[data-vos-look="dark"] .tab:hover { background-color: #000000 !important; }
