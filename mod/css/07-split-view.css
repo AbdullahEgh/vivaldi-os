@@ -1726,6 +1726,3 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: space-between !important;
   padding: 5px 0 !important; border-radius: 12px !important;
 }
-
-/* 1.0.256: a full-screen page beside pinned apps: the room beside them, with a window's corners */
-#browser#browser #webpage-stack [data-vos-pinroom] { border-radius: var(--radius, 12px) !important; overflow: hidden !important; z-index: 1 !important; }

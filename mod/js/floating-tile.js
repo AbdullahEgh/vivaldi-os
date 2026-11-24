@@ -867,7 +867,8 @@ window.vosBeat = window.vosBeat || (() => {
     return { x, y, w, h };
   }
   // 1.0.256: pinned apps on this desktop (other than the full-screen one): full screen then fills only the room beside them
-  let pinRoomEl = null;                                              // the full-screen page kept beside the pinned apps
+  const pinsLive = except => pip.some(p => p !== except && floating.has(p) && !minimized.has(p) && !awayWs(p));
+  const roomPrev = new Map();                        // 1.0.258: id -> where it was before it filled the room beside the pinned apps
   const coverBeside = () => pip.some(p => p !== cover && floating.has(p) && !minimized.has(p) && !awayWs(p));
   function pxRect(id, s = stackRect()) {
     if (bentoDrag?.id === id) return bentoDrag.rect;              // Bento: being dragged
@@ -1925,15 +1926,6 @@ window.vosBeat = window.vosBeat || (() => {
     b.toggleAttribute("data-ft-maxpage", !!act && !desktop && !isStart(act) && !isTiled(act));   // a full-screen page
     b.toggleAttribute("data-vos-fullsplit", !!act && !desktop && !isStart(act) && isTiled(act) && !winOf(actId));   // a split full screen (its window grabber too)
     ensureMaxGrab();
-    {                                                                // 1.0.256: a full-screen page (the green button, the top snap) beside pinned
-      // apps: only the room beside them - the size one app has in Bento - never under them; back to the whole area without pins
-      const pinsHere = pip.some(p => floating.has(p) && !minimized.has(p) && !awayWs(p));
-      const full = act && !desktop && !isStart(act) && !winOf(actId) && !mission ? (isTiled(act) ? rootOf(act) : act) : null;
-      const tgt = pinsHere && full ? full : null;
-      if (pinRoomEl && pinRoomEl !== tgt) { unplace(pinRoomEl); pinRoomEl.removeAttribute("data-vos-pinroom"); }
-      if (tgt) { place(tgt, bArea(s), s, fixedOrigin(tgt.parentElement)); if (!tgt.hasAttribute("data-vos-pinroom")) tgt.setAttribute("data-vos-pinroom", ""); }
-      pinRoomEl = tgt;
-    }
     if (selected && !pageOf(selected)) selected = null;              // closed
     const selId = selected ?? actId;
     b.toggleAttribute("data-ft-hovering", !!selected && !!actId && selected !== String(actId));
@@ -2133,6 +2125,18 @@ window.vosBeat = window.vosBeat || (() => {
     if (action === "zoom") {
       const win = winOf(id);
       if (win && pip.includes(win)) return holdAct("minimize", win);   // held small: back as it was
+      if (win && floating.has(win) && !bento.on && pinsLive(win)) {   // 1.0.258: pinned apps here - not a real full screen: the window
+        const ss = stackRect(), a = bArea(ss), cur = pxRect(win, ss);  // just grows to fill the room beside them (the wallpaper stays);
+        const inRoom = Math.abs(cur.x - a.x) < 3 && Math.abs(cur.y - a.y) < 3 && Math.abs(cur.w - a.w) < 3 && Math.abs(cur.h - a.h) < 3;   // again: back
+        const wEl = targetOf(pageOf(win));
+        raise(win); activate(id);
+        flip([wEl], () => {
+          if (inRoom && roomPrev.has(win)) { frac[win] = roomPrev.get(win); roomPrev.delete(win); }
+          else { if (frac[win]) roomPrev.set(win, { ...frac[win] }); setPx(win, a, ss); }
+          persist(win); render();
+        });
+        return;
+      }
       if (win && floating.has(win)) {                               // back to its place
         if (bento.on && bento.root && bWins(bento.root).some(l => l.win === win)) bento.memo.set(win, bento.root);   // Bento: its layout, kept for its return
         quiet();                                                    // only this window animates
@@ -4613,11 +4617,12 @@ window.vosBeat = window.vosBeat || (() => {
     }
     if (!host) return;
     const ss = stackRect(), a = bArea(ss), half = Math.round((a.w - BGAP) / 2);
-    const r = zone === "full" ? (pip.some(p => floating.has(p) && !minimized.has(p) && !awayWs(p)) ? bArea(ss) : { x: 0, y: 0, w: ss.width, h: ss.height })   // (1.0.257: pinned apps here: the room beside them)
+    const room = zone === "full" && !bento.on && pinsLive(fromEl?.dataset?.ftFloat);   // (pinned apps here: the room beside them - a window's corners)
+    const r = zone === "full" ? (room ? bArea(ss) : { x: 0, y: 0, w: ss.width, h: ss.height })
             : zone === "left" ? { x: a.x, y: a.y, w: half, h: a.h } : { x: a.x + a.w - half, y: a.y, w: half, h: a.h };
     const el = document.createElement("div");
     el.className = "ft-snap-preview";
-    el.dataset.zone = zone;
+    el.dataset.zone = room ? "room" : zone;
     const z = Number(fromEl && getComputedStyle(fromEl).zIndex) || 100;
     el.style.zIndex = String(z - 1);                                   // just behind the window you hold
     Object.assign(el.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
