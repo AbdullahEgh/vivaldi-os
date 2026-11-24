@@ -1726,3 +1726,25 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: space-between !important;
   padding: 5px 0 !important; border-radius: 12px !important;
 }
+
+/* 1.0.265: a pinned app's buttons under its icon - red: close, yellow: back to its window (the green's arrows), grey: page size.
+   Hidden; the pointer on the icon shows them (and on them keeps them). Each one's target fills the gaps between them */
+#browser #webpage-stack > .vos-pin-badge { overflow: visible !important; }
+#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl {
+  position: absolute !important; left: 0 !important; top: 100% !important; width: 24px !important; padding-top: 2px !important;
+  display: flex !important; flex-direction: column !important; opacity: 0; pointer-events: none !important;
+  transform: translateY(-4px); transition: opacity 0.15s ease, transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important;
+}
+#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl { opacity: 1; transform: none; pointer-events: auto !important; }
+#browser #webpage-stack > .vos-pin-badge .vos-pc {
+  all: unset !important; display: block !important; position: relative !important; width: 24px !important; height: 20px !important; cursor: default !important;
+}
+#browser #webpage-stack > .vos-pin-badge .vos-pc::before {
+  content: "" !important; position: absolute !important; left: 6px !important; top: 4px !important; width: 12px !important; height: 12px !important; border-radius: 50% !important;
+  background-size: 12px 12px, 100% 100% !important; background-position: center !important; background-repeat: no-repeat !important;
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.55), inset 0 0 0 0.5px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.22) !important;
+}
+#browser #webpage-stack > .vos-pin-badge .vos-pc:hover::before { filter: brightness(0.92) !important; }
+#browser #webpage-stack > .vos-pin-badge .vos-pc-red::before { background-color: #ff5f57 !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3.6 3.6l4.8 4.8M8.4 3.6l-4.8 4.8' stroke='%234d0000' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
+#browser #webpage-stack > .vos-pin-badge .vos-pc-yellow::before { background-color: #febc2e !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 3h4.4L3 7.4z M9 9H4.6L9 4.6z' fill='%23985700'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
+#browser #webpage-stack > .vos-pin-badge .vos-pc-gray::before { background-color: #a1a1a6 !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Crect x='3.3' y='3.3' width='5.4' height='5.4' rx='1' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }

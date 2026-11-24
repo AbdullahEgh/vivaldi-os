@@ -1450,9 +1450,16 @@ window.vosBeat = window.vosBeat || (() => {
       host.appendChild(b); pinBadges.set(id, b);
     }
     if (b.dataset.for !== id) b.dataset.for = id;
-    while (b.children.length < ids.length) b.appendChild(document.createElement("img")).alt = "";
-    while (b.children.length > ids.length) b.lastChild.remove();
-    srcs.forEach((src, i) => { const im = b.children[i]; if (src && im.getAttribute("src") !== src) im.src = src; im.style.visibility = src ? "" : "hidden"; });
+    let ctl = b.querySelector(":scope > .vos-pin-ctl");               // 1.0.265: its window buttons under it - close, back to its window, page
+    if (!ctl) {                                                       // size - shown while the pointer is on the icon (or on them)
+      ctl = document.createElement("div"); ctl.className = "vos-pin-ctl";
+      ctl.innerHTML = `<button class="vos-pc vos-pc-red" data-pc="close" title="Close"></button><button class="vos-pc vos-pc-yellow" data-pc="unpin" title="Back to its window"></button><button class="vos-pc vos-pc-gray" data-pc="res" title="Page size"></button>`;
+      b.appendChild(ctl);
+    }
+    const imgs = () => [...b.children].filter(n => n.tagName === "IMG");
+    while (imgs().length < ids.length) { const im = document.createElement("img"); im.alt = ""; b.insertBefore(im, ctl); }
+    while (imgs().length > ids.length) imgs().pop().remove();
+    srcs.forEach((src, i) => { const im = imgs()[i]; if (src && im.getAttribute("src") !== src) im.src = src; im.style.visibility = src ? "" : "hidden"; });
     const side = (pipCorner.get(id) || "bl")[1], plate = ids.length === 1 ? (document.getElementById("tab-" + ids[0])?.getAttribute("data-vos-plate") || "") : "";
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     b.toggleAttribute("data-multi", ids.length > 1);
@@ -1464,8 +1471,17 @@ window.vosBeat = window.vosBeat || (() => {
   }
   addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
     const b = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge"), id = b?.dataset.for;
-    if (!id || mission || lpOn() || !pip.includes(id)) return;
+    if (!id || mission || lpOn() || !pip.includes(id) || e.target.closest(".vos-pin-ctl")) return;   // (its buttons: a click)
     const el = targetOf(pageOf(id)); if (el) pipGesture(e, el, id, "move");
+  }, true);
+  addEventListener("click", e => {                                // 1.0.265: the pinned app's own buttons
+    const btn = e.target?.closest?.("#webpage-stack > .vos-pin-badge .vos-pc"); if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    const id = btn.closest(".vos-pin-badge").dataset.for, pg = pageOf(id);
+    if (!pg || !pip.includes(id)) return;
+    if (btn.dataset.pc === "close") act("close", pg);
+    else if (btn.dataset.pc === "unpin") holdAct("minimize", id);      // back to its window (as the yellow button did)
+    else act("res", pg);                                             // its page size: 40% / 75% / 100%
   }, true);
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
