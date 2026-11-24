@@ -935,7 +935,7 @@ window.vosBeat = window.vosBeat || (() => {
           if (!el) { el = document.createElement("div"); el.className = "vos-pip-hdiv"; el.dataset.key = key; host.appendChild(el); }
           el.dataset.a = a; el.dataset.b = b; el.dataset.k = String(ra.k || 1);
           const x = Math.min(ra.x, rb.x), w = Math.max(ra.x + ra.w, rb.x + rb.w) - x;
-          place(el, { x, y: ra.y + ra.h - 3, w, h: gap + 6 }, s, o);
+          place(el, { x, y: ra.y + ra.h - 7, w, h: gap + 14 }, s, o);   // (1.0.239: an easier strip to grab)
           setStyle(el, "z-index", "1999");
         }
       }
@@ -4341,10 +4341,21 @@ window.vosBeat = window.vosBeat || (() => {
   }
   window.vosCloseApp = closeAppNow;
   setTimeout(() => {
-    if (/Mac/i.test(navigator.platform || "")) return;
+    const mac = /Mac/i.test(navigator.platform || ""), M = mac ? "meta+" : "ctrl+";
     prefGet("vivaldi.actions").then(acts => {
-      const j = JSON.stringify(acts || null);
-      if (acts && /"meta\+/.test(j)) prefSet("vivaldi.actions", JSON.parse(j.replace(/"meta\+/g, '"ctrl+').replace(/\+meta\+/g, "+ctrl+")));
+      if (!acts) return;
+      let j = JSON.stringify(acts);
+      if (!mac && /"meta\+/.test(j)) j = j.replace(/"meta\+/g, '"ctrl+').replace(/\+meta\+/g, "+ctrl+");
+      const all = JSON.parse(j), o = Array.isArray(all) ? all[0] : all;
+      let changed = j !== JSON.stringify(acts);
+      /* 1.0.239: zoom in with the "=" key too, and with Shift + "=" (the "+" on most keyboards) - Vivaldi names that key "="
+         even with Shift held, so "Ctrl + +" alone never matched it */
+      if (o && typeof o === "object") {
+        const z = o.COMMAND_MAIN_ZOOM_IN || (o.COMMAND_MAIN_ZOOM_IN = { shortcuts: [M + "+", "0", "numpad0", "+"] });
+        if (!Array.isArray(z.shortcuts)) z.shortcuts = [];
+        for (const k of [M + "=", M + "shift+="]) if (!z.shortcuts.includes(k)) { z.shortcuts.push(k); changed = true; }
+      }
+      if (changed) prefSet("vivaldi.actions", all);
     }).catch(() => {});
   }, 5000);
   function patchCloseCmd(tries = 0) {

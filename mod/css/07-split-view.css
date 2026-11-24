@@ -1652,3 +1652,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 }
 #browser#browser .bento-preview[data-split] { border-style: dashed !important; }
 #browser#browser .bento-preview[data-conflict] { background: rgba(255, 59, 48, 0.16) !important; border-color: rgba(255, 59, 48, 0.7) !important; }
+
+/* 1.0.239: the pin divider like the other grabbers (the Bento grips): see-through white, a thin edge, as long as theirs (120px,
+   at most 60% of the pin) - the marker for where a pin goes too */
+#browser#browser #webpage-stack > .vos-pin-slot,
+#browser#browser #webpage-stack > .vos-pip-hdiv::after { background: rgba(255, 255, 255, 0.75) !important; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15) !important; border-radius: 2px !important; }
+#browser#browser #webpage-stack > .vos-pip-hdiv::after { width: min(120px, 60%) !important; margin: -2px 0 0 0 !important; translate: -50% 0 !important; }
