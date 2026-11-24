@@ -1495,7 +1495,7 @@ window.vosBeat = window.vosBeat || (() => {
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     b.toggleAttribute("data-multi", ids.length > 1);
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
-    const dragging = pipDrag?.id === id || badgeHeld === id;
+    const dragging = pipDrag?.id === id && badgeHeld !== id;          // (1.0.292: held by its own circle: it stays, and goes with its app)
     b.toggleAttribute("data-drag", dragging);                          // 1.0.247: held and moved: gone at once (back where it lands)
     const S = 24, G = 6, H = S + (ids.length - 1) * 20, x = side === "r" ? r.x - S - G : r.x + r.w + G;
     // 1.0.268: it comes out from behind its app once the app has settled (new, or back after a drag) - toward its own side
@@ -1505,14 +1505,22 @@ window.vosBeat = window.vosBeat || (() => {
       b.__vosIn = side;
     }
     b.__vosWasDrag = dragging;
-    place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
+    if (badgeHeld !== id) place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
     setStyle(b, "z-index", "99");
   }
   addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
     const b = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge"), id = b?.dataset.for;
     if (!id || mission || lpOn() || !pip.includes(id) || e.target.closest(".vos-pin-ctl")) return;   // (its buttons: a click)
     const el = targetOf(pageOf(id)); if (!el) return;
-    badgeHeld = id; b.setAttribute("data-drag", "");                // 1.0.289: pressed: gone at once (back where its app lands)
+    badgeHeld = id; b.removeAttribute("data-drag");                 // 1.0.292: held: it stays in sight and goes with its app
+    { const r0 = el.getBoundingClientRect(), side = (pipCorner.get(id) || "bl")[1];
+      const follow = () => {
+        if (badgeHeld !== id || !b.isConnected) { b.style.translate = ""; return; }
+        const r = el.getBoundingClientRect();
+        b.style.translate = `${Math.round(side === "r" ? r.left - r0.left : r.right - r0.right)}px ${Math.round(r.top - r0.top)}px`;
+        requestAnimationFrame(follow);
+      };
+      requestAnimationFrame(follow); }
     const up = ev => { if (ev.pointerId !== e.pointerId) return; badgeHeld = null; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); setTimeout(render, 0); };
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     pipGesture(e, el, id, "move");

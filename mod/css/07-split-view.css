@@ -1879,3 +1879,23 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.290: the going is drawn by its own animation and ends hidden at once (no extra fifth of a second shown at full again) */
 #browser#browser > .vos-wctl, #browser#browser > .vos-wctl[data-on], #browser#browser > .vos-wctl[data-out] { transition: none !important; }
 #browser#browser > .vos-wctl:not([data-on]):not([data-out]) { visibility: hidden !important; }
+
+/* 1.0.292: ONE TIMING for the window buttons, pinned or not: the pill comes out of the circle in 0.3s (uncovered from the
+   circle outward: down for a pinned app, sideways for a window), its buttons pop in 0.2s each, 0.05s apart, starting 0.06s
+   into the pill; going: the buttons in 0.12s, the pill back into the circle in 0.2s. (A window's circle rises first, 0.14s
+   ahead of its pill.) */
+@keyframes vos-pin-ctl-in { from { clip-path: inset(0 0 100% 0); transform: translateY(-24px); } to { clip-path: inset(-12px -12px -12px -12px); transform: none; } }
+@keyframes vos-pin-ctl-out { from { clip-path: inset(-12px -12px -12px -12px); transform: none; } to { clip-path: inset(0 0 100% 0); transform: translateY(-24px); } }
+#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl { opacity: 1 !important; transform: none; transition: none !important; animation: vos-pin-ctl-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl { animation: vos-pin-ctl-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.06s both !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.11s !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.16s !important; }
+/* (a window's: the same, 0.14s after its circle) */
+#browser#browser > .vos-wctl[data-on] .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.2s both !important; }
+#browser#browser > .vos-wctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
+#browser#browser > .vos-wctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }
+#browser#browser > .vos-wctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.35s !important; }
+/* 1.0.292: a pinned app's circle stays while it is held and dragged (it goes with its app) */
+#browser#browser #webpage-stack > .vos-pin-badge[data-drag] { display: grid !important; }

@@ -133,35 +133,36 @@
     }
   }
   var unread = 0;
-  /* 1.0.291: A PICTURE FRAME stays as the site made it. A light box mostly filled by a picture (a shop's product card - its
-     photos have white backgrounds -, a photo with its caption) is not made dark, nor anything in it: its labels, prices
-     and badges keep their own colours, so the card reads as one piece on the dark page. */
-  var outside = function (sel) {
-    if (/::|:(before|after|first-line|first-letter|placeholder|selection|marker|backdrop|-webkit-)/i.test(sel) || /(^|,)\s*(html|:root|body)\s*(,|$)/i.test(sel)) return sel;
-    return ":is(" + sel + "):not([data-vos-keep],[data-vos-keep] *)";
-  };
-  var kept = [];
-  function frames() {                                            // find the frames: measured as the site draws them (the written dark off)
-    if (!gen) return;
-    var imgs = document.querySelectorAll("img,picture,video");
-    gen.disabled = true;
-    var found = [];
-    for (var i = 0; i < imgs.length && i < 400; i++) {
-      var im = imgs[i], ir = im.getBoundingClientRect(); if (ir.width < 60 || ir.height < 60) continue;
-      if (im.closest("[data-vos-keep]")) continue;
-      for (var e = im.parentElement, up = 0; e && up < 5 && e !== document.body; e = e.parentElement, up++) {
-        var r = e.getBoundingClientRect(), A = r.width * r.height; if (!A) continue;
-        if (A > innerWidth * innerHeight * 0.6) break;             // (not a whole section of the page)
-        var cs = getComputedStyle(e), c = rgbOf(cs.backgroundColor);
-        if (!c || c[3] < 0.5) continue;
-        if (hsl(c[0], c[1], c[2])[2] > 0.85 && (ir.width * ir.height) / A > 0.3) { found.push([e, cs.color]); break; }
-        break;                                                     // (a coloured box first: not a frame)
-      }
+  /* 1.0.291: A PICTURE FRAME stays as the site made it - a light box mostly filled by a picture (a shop's product card, its
+     photo on white) keeps its own colours inside, so its labels and badges read as one piece with it on the dark page.
+     1.0.292: kept out with one scope boundary (cheap for the browser), and found only as pictures arrive, when it is idle */
+  var outside = function (sel) { return sel.replace(/(^|,)(\s*)(html|:root)(?=$|[\s.#\[:>+~,])/gi, "$1$2:scope"); };   // (inside the boundary the page's root is :scope)
+  var kept = [], idle = window.requestIdleCallback || function (f) { return setTimeout(f, 200); };
+  function frameOf(im) {
+    var ir = im.getBoundingClientRect(); if (ir.width < 60 || ir.height < 60) return null;
+    for (var e = im.parentElement, up = 0; e && up < 5 && e !== document.body; e = e.parentElement, up++) {
+      var cs = getComputedStyle(e), c = rgbOf(cs.backgroundColor);
+      if (!c || c[3] < 0.5) continue;                            // (the first box with a colour of its own)
+      var r = e.getBoundingClientRect(), A = r.width * r.height;
+      if (!A || A > innerWidth * innerHeight * 0.6) return null;
+      return hsl(c[0], c[1], c[2])[2] > 0.85 && (ir.width * ir.height) / A > 0.3 ? e : null;   // (still light with the dark on: a frame)
     }
-    gen.disabled = false;
-    found.forEach(function (f) { var e = f[0]; if (e.hasAttribute("data-vos-keep")) return;
-      e.setAttribute("data-vos-keep", ""); kept.push([e, e.style.getPropertyValue("color"), e.style.getPropertyPriority("color")]);
-      e.style.setProperty("color", f[1], "important"); });        // (its text in the site's own colour, not the dark page's)
+    return null;
+  }
+  var fq = [], fT = 0;
+  function frames(list) {                                        // (the pictures given, or every one not looked at yet)
+    if (!gen) return;
+    (list || document.querySelectorAll("img,picture,video")).forEach(function (im) { if (!im.__vosF) fq.push(im); });
+    if (fT) return;
+    fT = idle(function () {
+      fT = 0; var n = 0;
+      while (fq.length && n++ < 120) {
+        var im = fq.shift(); if (!im.isConnected || im.__vosF) continue; im.__vosF = 1;
+        if (im.closest("[data-vos-keep]")) continue;
+        var e = frameOf(im); if (e && !e.hasAttribute("data-vos-keep")) { e.setAttribute("data-vos-keep", ""); kept.push(e); }
+      }
+      if (fq.length) frames([]);
+    });
   }
   function sheet(sh, out) {
     if (!sh || sh === gen || sh.disabled) return;
@@ -173,39 +174,38 @@
       fetch(href, { credentials: "omit" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
         if (!t) { far[href] = false; unread++; return; }
         var s2 = new CSSStyleSheet(); try { s2.replaceSync(t); far[href] = s2; } catch (e) { far[href] = false; unread++; }
-        if (gen) build();
-      }).catch(function () { far[href] = false; unread++; if (gen) sweep(); });
+        later();
+      }).catch(function () { far[href] = false; unread++; later(); });
       return;
     }
     if (far[href]) rules(far[href].cssRules, out);
   }
-  function build() {                                             // the dark twin of everything the page has now
+  var sig = "";
+  function build() {                                             // the dark twin of the page's style sheets (only when they change)
     if (!gen) return;
-    vuse = {}; vuseBg = {}; var out = [], D = document;
-    var all = function (o) { for (var i = 0; i < D.styleSheets.length; i++) sheet(D.styleSheets[i], o); (D.adoptedStyleSheets || []).forEach(function (s3) { if (s3 !== gen) sheet(s3, o); }); };
-    scan = true; all([]); scan = false;                          // (first: what each colour variable is used for)
+    var D = document, list = [].slice.call(D.styleSheets).concat((D.adoptedStyleSheets || []).filter(function (x) { return x !== gen; }));
+    var now = list.map(function (x) { var n = 0; try { n = x.cssRules.length; } catch (e) { n = far[x.href] ? -far[x.href].cssRules.length : 0; } return (x.href || "") + n; }).join("|");
+    if (now === sig) return; sig = now;                          // (nothing new: nothing to do)
+    vuse = {}; vuseBg = {}; var out = [];
+    var all = function (o) { list.forEach(function (x) { sheet(x, o); }); };
+    scan = true; all([]); scan = false;
     all(out);
-    var base = ":root{color-scheme:dark}html{background-color:#141517;color:#e4e4e6}";
-    try { gen.replaceSync(base + out.join("\n")); } catch (e) { try { gen.replaceSync(base); } catch (e2) {} }
-    frames();
-    inline();
-    sweep("input,textarea,select,button");                      // (form fields: the browser's own white, or a rule it could not see)
+    var base = ":root{color-scheme:dark}html{background-color:#141517;color:#e4e4e6}[data-vos-keep]{color:#16191d}";
+    try { gen.replaceSync(base + "@scope (:root) to ([data-vos-keep]){" + out.join("\n") + "}"); } catch (e) { try { gen.replaceSync(base); } catch (e2) {} }
     if (unread) sweep();
   }
-  function inline() {                                            // colours written on the elements themselves
-    var els = document.querySelectorAll("[style]");
-    for (var i = 0; i < els.length && i < 4000; i++) {
-      var el = els[i], st = el.style; if (el.__vosInl === st.cssText || el.closest("[data-vos-keep]")) continue;
-      var done = [];
-      for (var j = 0; j < st.length; j++) {
-        var p = st[j], k = KIND(p); if (!k || k === "img" && !/gradient/i.test(st.getPropertyValue(p))) continue;
-        var v = st.getPropertyValue(p), m = k === "img" ? mapG(v) : mapC(v, k);
-        if (m) done.push([p, v, st.getPropertyPriority(p), m]);
-      }
-      done.forEach(function (x) { st.setProperty(x[0], x[3], x[2]); inl.push([el, x[0], x[1], x[2]]); });
-      el.__vosInl = st.cssText;
+  function inlineOne(el) {                                       // colours written on one element itself
+    var st = el.style; if (!st || el.__vosInl === st.cssText || el.closest("[data-vos-keep]")) return;
+    var done = [];
+    for (var j = 0; j < st.length; j++) {
+      var p = st[j], k = KIND(p); if (!k || k === "img" && !/gradient/i.test(st.getPropertyValue(p))) continue;
+      var v = st.getPropertyValue(p), m = k === "img" ? mapG(v) : mapC(v, k);
+      if (m) done.push([p, v, st.getPropertyPriority(p), m]);
     }
+    done.forEach(function (x) { st.setProperty(x[0], x[3], x[2]); inl.push([el, x[0], x[1], x[2]]); });
+    el.__vosInl = st.cssText;
   }
+  function inline(root) { var els = (root || document).querySelectorAll("[style]"); for (var i = 0; i < els.length && i < 3000; i++) inlineOne(els[i]); if (root && root.hasAttribute && root.hasAttribute("style")) inlineOne(root); }
   function sweep(sel) {                                          // (a style sheet that could not be read: what it drew, element by element)
     var all = document.querySelectorAll(sel || "body *");
     for (var i = 0; i < all.length && i < 5000; i++) {
@@ -216,33 +216,44 @@
       if (f) { swept.push([el, "color", el.style.getPropertyValue("color"), el.style.getPropertyPriority("color")]); el.style.setProperty("color", f, "important"); }
     }
   }
+  var lT = 0;
+  function later() { if (lT) return; lT = setTimeout(function () { lT = 0; idle(function () { if (gen) { build(); inline(); sweep("input,textarea,select,button"); frames(); } }); }, 400); }
   function genOn() {
     if (gen) return;
-    gen = new CSSStyleSheet();
+    gen = new CSSStyleSheet(); sig = "";
     document.adoptedStyleSheets = document.adoptedStyleSheets.concat([gen]);
-    build();
-    var t = 0; genObs = new MutationObserver(function (ms) {      // (style sheets and colours the page adds or changes later)
-      var re = false;
-      for (var i = 0; i < ms.length && !re; i++) { var m = ms[i];
-        if (m.type === "attributes") re = re || m.target.__vosInl !== m.target.style.cssText;
-        else for (var j = 0; j < m.addedNodes.length; j++) { var a = m.addedNodes[j]; if (a.nodeType === 1 && (/^(STYLE|LINK)$/.test(a.tagName) || (a.querySelector && a.querySelector("style,link[rel~=stylesheet],[style]")))) { re = true; break; } }
-        if (m.type === "characterData" || (m.target && m.target.tagName === "STYLE")) re = true; }
-      if (re && !t) t = setTimeout(function () { t = 0; if (gen) build(); }, 300);
+    build(); inline(); sweep("input,textarea,select,button"); frames();
+    var pend = [], pT = 0;                                       // (while it scrolls: only what changed, once the browser is idle)
+    genObs = new MutationObserver(function (ms) {
+      var sheets = false;
+      for (var i = 0; i < ms.length; i++) { var m = ms[i];
+        if (m.type === "attributes") { if (m.target.__vosInl !== m.target.style.cssText) pend.push(m.target); continue; }
+        if (m.type === "characterData" || (m.target && m.target.tagName === "STYLE")) { sheets = true; continue; }
+        for (var j = 0; j < m.addedNodes.length; j++) { var a = m.addedNodes[j]; if (a.nodeType !== 1) continue;
+          if (/^(STYLE|LINK)$/.test(a.tagName)) sheets = true; else pend.push(a); }
+        for (var k = 0; k < m.removedNodes.length; k++) if (/^(STYLE|LINK)$/.test(m.removedNodes[k].tagName || "")) sheets = true;
+      }
+      if (sheets) later();
+      if (pend.length && !pT) pT = idle(function () {
+        pT = 0; var list = pend.splice(0, pend.length), imgs = [];
+        list.forEach(function (n) { if (!n.isConnected) return; inline(n); if (/^(IMG|PICTURE|VIDEO)$/.test(n.tagName)) imgs.push(n); else if (n.querySelectorAll) [].push.apply(imgs, n.querySelectorAll("img,picture,video")); });
+        if (imgs.length) frames(imgs);
+      });
     });
     genObs.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["style"] });
-    var ft = 0;
     document.addEventListener("load", function (e) {
-      if (gen && e.target && e.target.tagName === "LINK") build();
-      else if (gen && e.target && e.target.tagName === "IMG" && !ft) ft = setTimeout(function () { ft = 0; frames(); }, 300);   // (a picture arrived: a frame?)
+      var t = e.target; if (!gen || !t) return;
+      if (t.tagName === "LINK") later(); else if (t.tagName === "IMG") { t.__vosF = 0; frames([t]); }   // (a picture arrived: a frame?)
     }, true);
-    [700, 1800, 4000, 8000].forEach(function (ms) { setTimeout(function () { if (gen) build(); }, ms); });   // (its style sheets still arriving)
-    addEventListener("load", function () { if (gen) build(); });
+    [800, 2500, 6000].forEach(function (ms) { setTimeout(later, ms); });   // (its style sheets still arriving)
+    addEventListener("load", later);
   }
   function genOff() {
-    if (!gen) return; var g = gen; gen = null;
+    if (!gen) return; var g = gen; gen = null; sig = "";
     if (genObs) { genObs.disconnect(); genObs = null; }
     document.adoptedStyleSheets = document.adoptedStyleSheets.filter(function (x) { return x !== g; });
-    kept.forEach(function (x) { x[0].removeAttribute("data-vos-keep"); x[0].style.setProperty("color", x[1], x[2]); }); kept = [];
+    kept.forEach(function (e) { e.removeAttribute("data-vos-keep"); }); kept = [];
+    [].slice.call(document.querySelectorAll("img,picture,video")).forEach(function (im) { im.__vosF = 0; });
     inl.concat(swept).forEach(function (x) { try { x[0].style.setProperty(x[1], x[2], x[3]); x[0].__vosInl = null; x[0].__vosSw = 0; } catch (e) {} });
     inl = []; swept = [];
   }
@@ -270,7 +281,10 @@
   real.call(W, "(prefers-color-scheme: dark)").addEventListener("change", function () { soon(500); });
   document.addEventListener("DOMContentLoaded", function () {
     soon(500);
-    var t = 0; genWatch = new MutationObserver(function () { if (t) return; t = setTimeout(function () { t = 0; judge(); }, 400); });   // (a site that changes its own look later)
+    var t = 0; genWatch = new MutationObserver(function () {   // (a site that changes its own look later - while dark is written, only a theme-like change is measured)
+      if (t) return;
+      if (gen && !/dark|night|theme|mode/i.test((document.documentElement.className || "") + " " + ((document.body && document.body.className) || "") + " " + (document.documentElement.getAttribute("data-theme") || ""))) return;
+      t = setTimeout(function () { t = 0; judge(); }, 800); });
     genWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "data-color-mode"] });
     if (document.body) genWatch.observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme"] });
   });
