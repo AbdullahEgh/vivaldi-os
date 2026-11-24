@@ -1719,13 +1719,14 @@ window.vosBeat = window.vosBeat || (() => {
     wv.__vosLookAt = target || "";
   }
   function lookSync(id) { const t = lookWins.get(id) || ""; for (const wv of webviewsOf(id)) if ((wv.__vosLookAt ?? "") !== t) lookApply(wv, t); }
+  function fullPage(id) { const pg = pageOf(id); return !!pg && !floating.has(id) && !isTiled(pg) && !isStart(pg); }   // (1.0.324: a page full screen)
   function toggleDark(win) {                                          // (the grey button held)
-    if (!floating.has(win)) return;
+    if (!floating.has(win) && !fullPage(win)) return;
     const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(win) || viv, next = now === "dark" ? "light" : "dark";
     if (next === viv) lookWins.delete(win); else lookWins.set(win, next);   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
-    lookSync(win); persist(win); render();
+    lookSync(win); if (floating.has(win)) persist(win); render();
   }
-  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w); });   // (a pane added to it, a restart)
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w) || fullPage(w)) lookSync(w); });   // (a pane added to it, a restart)
   { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
     let themeT = 0;
     const themeCheck = () => { clearTimeout(themeT); themeT = setTimeout(themeSettled, 1200); };   // 1.0.299: only a change that stays (not Vivaldi loading its theme)
@@ -2237,7 +2238,7 @@ window.vosBeat = window.vosBeat || (() => {
     {                                                                // 1.0.279: a window in its own look: its circle in the tab bar too
       const want = new Map();
       for (const [w, look] of lookWins) {
-        if (!floating.has(w)) continue;
+        if (!floating.has(w) && !fullPage(w)) continue;
         const ids = groupFloat.has(w) ? membersOf(pageOf(w)) : [];
         for (const t of ids.length ? ids : [w]) { const tp = document.getElementById("tab-" + t)?.closest(".tab-position"); if (tp) want.set(tp, look); }
       }
@@ -2470,7 +2471,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
 
     if (action === "res") {                        // more room for the site: the page renders smaller
-      if (!floating.has(id)) return;
+      if (!floating.has(id) && (tiled || isStart(page))) return;      // (1.0.324: a page full screen too)
       if (pip.includes(id)) {                        // held small: its own scale steps (kept while it is small)
         const steps = [0.4, 0.75, 1], now = pinZoomFor(id);
         const i = steps.findIndex(z => Math.abs(z - now) < 0.02), z = steps[(i + 1) % steps.length];
@@ -2911,7 +2912,8 @@ window.vosBeat = window.vosBeat || (() => {
     if (ev.button !== 0) return;
     const btn = ev.target?.closest?.('.ft-titlebar .ft-light[data-act="zoom"], .ft-titlebar .ft-light[data-act="minimize"], .ft-lights .ft-light[data-act="minimize"], .ft-titlebar .ft-light[data-act="res"]');
     let win = btn && winOf(btn.closest(".ft-titlebar")?.dataset.ftPage);
-    const maxPg = !win && btn?.closest(".ft-lights") ? btn.closest(".webpageview[data-id]") : null;   // a full-screen page's own buttons
+    const fsb = !win && btn?.closest(".vos-fsctl");                // 1.0.324: the full-screen buttons in the toolbar
+    const maxPg = fsb ? pageOf(fsb.dataset.ftPage) : !win && btn?.closest(".ft-lights") ? btn.closest(".webpageview[data-id]") : null;   // a full-screen page's own buttons
     if (maxPg) { if (winOf(maxPg.dataset.id) || isTiled(maxPg) || isStart(maxPg)) return; win = maxPg.dataset.id; }
     else if (!win || !floating.has(win) || minimized.has(win)) return;
     const hold = { btn, x: ev.clientX, y: ev.clientY, pid: ev.pointerId };
@@ -2920,7 +2922,7 @@ window.vosBeat = window.vosBeat || (() => {
       btn.removeAttribute("data-ft-holding");
       if (btnHold === hold) btnHold = null;
       btnHeldAt = Date.now();                                        // the click on letting go is not a click
-      if (maxPg) return holdSmallFromFull(win);
+      if (maxPg && btn.dataset.act !== "res") return holdSmallFromFull(win);
       holdAct(btn.dataset.act, win);
     }, BTN_HOLD);
     btnHold = hold;
@@ -7119,7 +7121,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!fsctl || !fsctl.isConnected) {
       fsctl = document.createElement("div"); fsctl.className = "vos-fsctl ft-titlebar";
       fsctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="vos-pin-ctl" data-dir="h">` +
-        [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
+        [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Page size - hold: light / dark"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
     }
     if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
     if (fsctl.dataset.ftPage !== id) { fsctl.dataset.ftPage = id; fsctl.removeAttribute("data-on"); }
