@@ -1285,7 +1285,7 @@ window.vosBeat = window.vosBeat || (() => {
     return { easing: `linear(${pts.join(", ")})`, duration: Math.round(T * 1000) };
   }
   const SPR_OPEN = spring(0.27, 0.88);   // open, close and minimize all take ~0.3 s   // a window zooms out of its icon, a hint of bounce
-  const SPR_MOVE = spring(0.42, 0.90);   // move / resize / place changes
+  const SPR_MOVE = spring(0.40, 1.00);   // move / resize / place changes (1.0.320: full screen's speed - one speed for windows)
   const SPR_SHUT = spring(0.30, 1.00);   // close / minimize: quick, no bounce
   const SPR_GROW = spring(0.40, 1.00);   // 1.0.278: full screen in / out (a big size change): no bounce
   const fadeTo = (el, from, to, ms, delay = 0) =>
@@ -2809,7 +2809,9 @@ window.vosBeat = window.vosBeat || (() => {
     const el = targetOf(pageOf(wctlFor));
     if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || el.hasAttribute("data-ft-cover")) return false;
     const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
-    wctl.style.left = Math.round(w.left + (up ? 0 : 6)) + "px";
+    let lx = w.left + (up ? 0 : 6); const ty0 = up ? w.top - H - 6 : w.top + 6;
+    if (macLights() && ty0 < 44 && lx < 84) lx = 84;                  // 1.0.320: not under Vivaldi's own buttons - just past them
+    wctl.style.left = Math.round(lx) + "px";
     wctl.style.top = Math.round(up ? w.top - H - 6 : w.top + 6) + "px";
     wctl.toggleAttribute("data-in", !up);
     return true;
@@ -2864,7 +2866,8 @@ window.vosBeat = window.vosBeat || (() => {
       if (near) pinShow(id, bar);
       return;
     }
-    if (wctlOk(id, el) && ev.clientX - w.left < 120) { cornerH = bar; wctlShow(id); }
+    const reach = macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + 120 : 120;   // 1.0.320: part of its corner under Vivaldi's own buttons: the strip reaches past them
+    if (wctlOk(id, el) && ev.clientX - w.left < reach) { cornerH = bar; wctlShow(id); }
   }, { capture: true, passive: true });
   let pinShown = null, pinShowT = 0;
   function pinShow(id, bar) {                                        // a pinned app's circle and buttons, brought from inside its corner
@@ -2893,7 +2896,8 @@ window.vosBeat = window.vosBeat || (() => {
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     startGesture(e, el, "move");
   }, true);
-  const pinBare = () => false;                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
+  const pinBare = () => false;
+  const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
   const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id);   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
@@ -3452,7 +3456,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
     stopAnims(el);
     el.animate([{ transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
-                { transformOrigin: "0 0", transform: "none" }], MJ);
+                { transformOrigin: "0 0", transform: "none" }], SPR_GROW);   // (1.0.320: Bento at full screen's speed)
   }
   // a window and its frame (ring + shadow) move together - before, the frame jumped
   const bEls = () => [...floating].flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
@@ -7102,6 +7106,25 @@ window.vosBeat = window.vosBeat || (() => {
     for (const [id, b] of pinBadges) { if (b.hasAttribute("data-multi")) continue; const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id; mirrorTab(b, b.querySelector(":scope > img"), t); }
     if (wctl && wctlFor && wctl.hasAttribute("data-on")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
   }, 500);
+  /* 1.0.320: A PAGE FULL SCREEN (no Bento, no pinned apps over it - the page alone): its window buttons, with its app's
+     circle, sit in the toolbar right after the Desktops button - the same component as a window's, side by side */
+  let fsctl = null;
+  function fsCtlSync() {
+    const pg = activePage(), id = pg?.dataset.id;
+    const full = !!pg && !!id && !floating.has(id) && !isTiled(pg) && !isStart(pg) && !winOf(id) && !mission && !lpOn();
+    const desk = document.querySelector("#browser .vos-chain-vosmission");
+    if (!full || !desk) { if (fsctl?.hasAttribute("data-on")) fsctl.removeAttribute("data-on"); return; }
+    if (!fsctl || !fsctl.isConnected) {
+      fsctl = document.createElement("div"); fsctl.className = "vos-fsctl ft-titlebar";
+      fsctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="vos-pin-ctl" data-dir="h">` +
+        [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
+    }
+    if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
+    if (fsctl.dataset.ftPage !== id) { fsctl.dataset.ftPage = id; fsctl.removeAttribute("data-on"); }
+    mirrorTab(fsctl.querySelector(".vos-wctl-ic"), fsctl.querySelector(".vos-wctl-ic img"), id);
+    if (!fsctl.hasAttribute("data-on")) { void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
+  }
+  setInterval(() => { if (!document.hidden) fsCtlSync(); }, 400);
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
     const im = document.getElementById("tab-" + id)?.querySelector("img");
