@@ -4613,7 +4613,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     if (!host) return;
     const ss = stackRect(), a = bArea(ss), half = Math.round((a.w - BGAP) / 2);
-    const r = zone === "full" ? { x: 0, y: 0, w: ss.width, h: ss.height }
+    const r = zone === "full" ? (pip.some(p => floating.has(p) && !minimized.has(p) && !awayWs(p)) ? bArea(ss) : { x: 0, y: 0, w: ss.width, h: ss.height })   // (1.0.257: pinned apps here: the room beside them)
             : zone === "left" ? { x: a.x, y: a.y, w: half, h: a.h } : { x: a.x + a.w - half, y: a.y, w: half, h: a.h };
     const el = document.createElement("div");
     el.className = "ft-snap-preview";
