@@ -1412,11 +1412,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (!bar) {
       bar = document.createElement("div");
       bar.className = "ft-titlebar";
-      bar.innerHTML = `<div class="ft-lights">${LIGHTS_HTML}</div><div class="ft-title"></div>` +
-        `<div class="ft-right"><button class="ft-light ft-gray ft-res" data-act="res"></button></div>`;
+      bar.innerHTML = `<div class="ft-lights">${LIGHTS_HTML}<button class="ft-light ft-gray ft-res" data-act="res"></button></div><div class="ft-title"></div>` +
+        `<div class="ft-right"></div>`;                                // 1.0.267: the scale button joins the traffic lights
       el.appendChild(bar);
     }
     if (bar.dataset.ftPage !== id) bar.dataset.ftPage = id;
+    { const g = $(":scope > .ft-right > .ft-res", bar), L = $(":scope > .ft-lights", bar); if (g && L) L.appendChild(g); }   // (a title bar made before 1.0.267)
     const pct = Math.round((zoomOf[id] || 1) * 100);
     const gray = $(".ft-res", bar), tip = `Resolution ${pct}% - click for more room`;
     if (gray.title !== tip) gray.title = tip;
@@ -1453,7 +1454,7 @@ window.vosBeat = window.vosBeat || (() => {
     let ctl = b.querySelector(":scope > .vos-pin-ctl");               // 1.0.265: its window buttons under it - close, back to its window, page
     if (!ctl) {                                                       // size - shown while the pointer is on the icon (or on them)
       ctl = document.createElement("div"); ctl.className = "vos-pin-ctl";
-      ctl.innerHTML = `<button class="vos-pc vos-pc-red" data-pc="close" title="Close"></button><button class="vos-pc vos-pc-yellow" data-pc="unpin" title="Back to its window"></button><button class="vos-pc vos-pc-gray" data-pc="res" title="Page size"></button>`;
+      ctl.innerHTML = `<button class="vos-pc vos-pc-gray" data-pc="res" title="Page size"></button><button class="vos-pc vos-pc-yellow" data-pc="unpin" title="Back to its window"></button><button class="vos-pc vos-pc-red" data-pc="close" title="Close"></button>`;   // (1.0.267: grey, yellow, red)
       b.appendChild(ctl);
     }
     const imgs = () => [...b.children].filter(n => n.tagName === "IMG");
@@ -2502,7 +2503,7 @@ window.vosBeat = window.vosBeat || (() => {
         const r = h.parentElement.getBoundingClientRect(), edge = h.classList.contains("ft-t");
         const left = h.classList.contains("ft-tl") || (edge && ev.clientX - r.left < 90);
         const right = h.classList.contains("ft-tr") || (edge && r.right - ev.clientX < 90);
-        if (left || right) { box = el.querySelector(`:scope > .ft-titlebar > ${left ? ".ft-lights" : ".ft-right"}`); cornerH = h; }
+        if (left || right) { box = el.querySelector(":scope > .ft-titlebar > .ft-lights"); cornerH = h; }   // (either corner: all four - the scale one is with them now)
       }
     }
     if (box === cornerBox) return;
