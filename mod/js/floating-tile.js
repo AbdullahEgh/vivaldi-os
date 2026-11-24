@@ -1302,12 +1302,15 @@ window.vosBeat = window.vosBeat || (() => {
       if (!l.width || !l.height || !f.width || !f.height) return;
       const dx = f.left - l.left, dy = f.top - l.top, sx = f.width / l.width, sy = f.height / l.height;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
-      let kx = sx, ky = sy, tx = dx, ty = dy;
-      if (Math.abs(sx - sy) > 0.03) {                                // another shape (full view, a Bento slot): one scale, centred - the page is never stretched
-        const k = Math.sqrt(sx * sy);
-        kx = ky = k;
-        tx = f.left + f.width / 2 - (l.left + l.width * k / 2);
-        ty = f.top + f.height / 2 - (l.top + l.height * k / 2);
+      let kx = sx, ky = sy, tx = dx, ty = dy, clip = null;
+      if (Math.abs(sx - sy) > 0.03) {                                // another shape (full screen, a Bento slot): never stretched -
+        // 1.0.325: one scale, just enough to fill the shape it starts from, and trimmed to it exactly - so it starts exactly
+        // where it was and ends exactly where it lands, growing and shrinking alike (each the other's mirror)
+        const k = Math.max(sx, sy), lw = l.width, lh = l.height;
+        const ix = Math.max(0, (lw - f.width / k) / 2), iy = Math.max(0, (lh - f.height / k) / 2);
+        kx = ky = k; tx = f.left - l.left - ix * k; ty = f.top - l.top - iy * k;
+        const R = parseFloat(getComputedStyle(e).borderTopLeftRadius) || 0;
+        clip = { ix, iy, r0: R / k, R };
       }
       e.style.setProperty("will-change", "transform");               // its own layer for the move (smooth), only while it moves
       const a = e.animate(
@@ -1315,7 +1318,20 @@ window.vosBeat = window.vosBeat || (() => {
          { transformOrigin: "0 0", transform: "none" }],
         Math.abs(kx - 1) > 0.12 || Math.abs(ky - 1) > 0.12 ? SPR_GROW : SPR_MOVE
       );
-      a.finished.catch(() => {}).then(() => { if (!e.getAnimations().length) e.style.removeProperty("will-change"); });
+      if (clip) {                                                    // (the trim drawn by hand each frame, with the move's own easing - the
+        const put = q => {                                           //  window rules say "no trim" firmly, so it is set on the window itself)
+          const x = clip.ix * (1 - q), y = clip.iy * (1 - q), rr = clip.r0 + (clip.R - clip.r0) * q, sh = 60 * q * q;   // (its shadow let back in as it lands)
+          e.style.setProperty("clip-path", `inset(${(y - sh).toFixed(1)}px ${(x - sh).toFixed(1)}px ${(y - sh).toFixed(1)}px ${(x - sh).toFixed(1)}px round ${(rr + sh).toFixed(1)}px)`, "important");
+        };
+        put(0);
+        const tick = () => {
+          const m = getComputedStyle(e).transform.match(/^matrix\(([^,]+)/), cur = m ? parseFloat(m[1]) : 1;   // (where the move is: its scale now)
+          const q = Math.abs(1 - kx) < 1e-4 ? 1 : Math.min(1, Math.max(0, (cur - kx) / (1 - kx)));
+          if (a.playState !== "finished" && a.playState !== "idle" && q < 1) { put(q); requestAnimationFrame(tick); } else e.style.removeProperty("clip-path");
+        };
+        requestAnimationFrame(tick);
+      }
+      a.finished.catch(() => {}).then(() => { e.style.removeProperty("clip-path"); if (!e.getAnimations().length) e.style.removeProperty("will-change"); });
     });
   }
   const barTop = () => !browserEl()?.classList.contains("tabs-bottom");   // 1.0.261: the tab bar at the top: the icon's bounce goes up
