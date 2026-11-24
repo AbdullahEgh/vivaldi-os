@@ -1855,3 +1855,18 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser.theme-dark .bento-preview:not([data-conflict]) { background: rgba(40, 40, 46, 0.35) !important; border-color: rgba(255, 255, 255, 0.22) !important; }
 #browser#browser.theme-light #webpage-stack > .ft-snap-preview:not([data-conflict]),
 #browser#browser.theme-light .bento-preview:not([data-conflict]) { background: rgba(255, 255, 255, 0.22) !important; border-color: rgba(255, 255, 255, 0.55) !important; }
+
+/* 1.0.283: they come out as a pinned app's do, sideways: the circle rises from behind the window's top edge, then its
+   pill slides out from behind the circle to the right, its buttons popping in one by one as they are uncovered */
+@keyframes vos-wctl-ic-in { from { opacity: 0; transform: translateY(14px) scale(0.85); } to { opacity: 1; transform: none; } }
+@keyframes vos-wctl-ic-in-down { from { opacity: 0; transform: translateY(-14px) scale(0.85); } to { opacity: 1; transform: none; } }
+@keyframes vos-wctl-pill-in { from { clip-path: inset(0 100% 0 0 round 9px); transform: translateX(-24px); } to { clip-path: inset(0 0 0 0 round 9px); transform: none; } }
+#browser#browser > .vos-wctl .vos-wctl-ic { position: relative !important; z-index: 1 !important; }
+#browser#browser > .vos-wctl .ft-lights { z-index: 0 !important; }
+#browser#browser > .vos-wctl[data-on] .vos-wctl-ic { animation: vos-wctl-ic-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) both !important; }
+#browser#browser > .vos-wctl[data-on][data-in] .vos-wctl-ic { animation-name: vos-wctl-ic-in-down !important; }
+#browser#browser > .vos-wctl[data-on] .ft-lights { animation: vos-wctl-pill-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) 0.14s both !important; transition: none !important; opacity: 1; }
+#browser#browser > .vos-wctl[data-on] .ft-light { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.2s both !important; }
+#browser#browser > .vos-wctl[data-on] .ft-light:nth-child(2) { animation-delay: 0.25s !important; }
+#browser#browser > .vos-wctl[data-on] .ft-light:nth-child(3) { animation-delay: 0.3s !important; }
+#browser#browser > .vos-wctl[data-on] .ft-light:nth-child(4) { animation-delay: 0.35s !important; }
