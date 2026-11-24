@@ -1524,7 +1524,7 @@ window.vosBeat = window.vosBeat || (() => {
      light), never a recolouring. In that window's page only: the site's style rules made for the other look are switched
      off and the ones for this look on, its <meta name="color-scheme"> and the page's own "which do you prefer?" question
      (matchMedia) answer this look. It runs as each of its pages starts, so the site is drawn that way from the first moment. */
-  function vosLookPage(target, on) {
+  function vosLookPage(target, on, live) {
     var W = window, D = document, st = W.__vosLook || (W.__vosLook = { saved: [], added: [], disabled: [], attrs: [], done: new WeakSet(), obs: null, t: 0, target: null });
     function undo() {
       st.saved.forEach(function (x) { try { x[0].mediaText = x[1]; } catch (e) {} }); st.saved = [];
@@ -1545,7 +1545,7 @@ window.vosBeat = window.vosBeat || (() => {
     var fix = function (t) { return t.replace(reO, "(max-width: 0px)").replace(reT, "(min-width: 0px)"); };   // never / always
     var has = function (t) { return /prefers-color-scheme/i.test(t || ""); };
     if (!D.getElementById("vos-look")) { var cs = D.createElement("style"); cs.id = "vos-look"; cs.textContent = ":root{color-scheme:" + target + " !important}"; (D.head || D.documentElement).appendChild(cs); }
-    if (!W.__vosMM) {                                                 // the page's own scripts ask too (their answer: this look)
+    if (!live && !W.__vosMM) {                                        // the page's own scripts ask too (their answer: this look; 1.0.276: only without the page-start file)
       W.__vosMM = 1;
       var sc = D.createElement("script");
       sc.textContent = "(function(){if(window.__vosMMp)return;window.__vosMMp=1;var o=window.matchMedia;window.matchMedia=function(q){q=String(q).replace(/\\(\\s*prefers-color-scheme\\s*:\\s*" + other + "\\s*\\)/gi,'(max-width: 0px)').replace(/\\(\\s*prefers-color-scheme\\s*:\\s*" + target + "\\s*\\)/gi,'(min-width: 0px)');return o.call(window,q);};})();";
@@ -1614,15 +1614,37 @@ window.vosBeat = window.vosBeat || (() => {
     return "on " + target;
   }
   const lookWins = new Map();                                         // window id -> "light" | "dark"
-  const lookCode = (target, on) => "(" + vosLookPage.toString() + ")(" + JSON.stringify(target) + "," + !!on + ")";
+  const lookCode = (target, on) => "(" + vosLookPage.toString() + ")(" + JSON.stringify(target) + "," + !!on + "," + !!lookLive + ")";
+  /* 1.0.276: the page-start file (installed beside the mod) runs first in every page, in the page's own world. A tab's look
+     is told to it here: the site's own "the look changed" signal goes to the page, so script-themed apps (GitHub, Outlook,
+     Teams, ChatGPT) redraw in their own design at once - no reload, nothing lost. Without the file: as before. */
+  let lookLive = false;
+  (async () => {
+    const S = chrome.scripting; if (!S?.registerContentScripts) return;
+    const file = "custom-vivaldi-os-page-look.js";
+    try {
+      const has = await S.getRegisteredContentScripts({ ids: ["vos-look"] }).catch(() => []);
+      if (!has.length) await S.registerContentScripts([{ id: "vos-look", matches: ["<all_urls>"], js: [file], runAt: "document_start", world: "MAIN", allFrames: true, persistAcrossSessions: true }]);
+      lookLive = true;
+      for (const w of lookWins.keys()) for (const wv of webviewsOf(w)) wv.__vosLookAt = null;   // (told again, now live)
+      for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w);
+    } catch (e) { lookLive = false; }
+  })();
+  const tabOfWv = wv => Number(wv.closest?.(".webpageview[data-id]")?.dataset.id) || null;
+  function lookTell(wv, target, now) {                              // the page itself: its answer, and the signal
+    const tabId = tabOfWv(wv); if (!lookLive || !tabId) return;
+    try { chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", injectImmediately: !!now, func: t => window.__vosLookSet ? window.__vosLookSet(t) : "none", args: [target || null] }).catch(() => {}); } catch (e) {}
+  }
   function lookApply(wv, target) {
     if (!wv.__vosLookHook) {                                         // each new page in it: at its very start
       wv.__vosLookHook = true;
       wv.addEventListener("loadcommit", e => {
         if (!e.isTopLevel || !wv.__vosLookAt) return;
+        lookTell(wv, wv.__vosLookAt, true);                          // (a new site in it: told as it starts)
         try { wv.executeScript({ code: lookCode(wv.__vosLookAt, true), runAt: "document_start" }, () => void chrome.runtime.lastError); } catch (err) {}
       });
     }
+    lookTell(wv, target);
     try { wv.executeScript({ code: lookCode(target || "light", !!target) }, () => void chrome.runtime.lastError); } catch (e) {}   // the page open now: at once
     wv.__vosLookAt = target || "";
   }
@@ -2653,7 +2675,10 @@ window.vosBeat = window.vosBeat || (() => {
     const t = ev.target;
     if (cornerBox && cornerBox.contains(t)) return;
     let box = null;
-    const h = t?.closest?.(".ft-frame > .ft-resize");
+    const L = t?.closest?.(".ft-titlebar > .ft-lights");            // 1.0.276: reached from inside the window - held as from the corner,
+    if (L) { const el = L.parentElement?.parentElement;              // so the resize edge over the top strip doesn't hide and re-show them
+      if (el?.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip")) { box = L; if (box !== cornerBox) cornerH = null; } }
+    const h = !box && t?.closest?.(".ft-frame > .ft-resize");
     if (h && /\bft-(tl|tr|t)\b/.test(h.className)) {
       const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
       if (el && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip") && !minimized.has(id)) {   // (1.0.247: a pinned app has no buttons)

@@ -40,6 +40,9 @@ foreach ($js in Get-ChildItem (Join-Path $pkg 'js') -Filter *.js) {
   else { Ok $n }
 }
 
+$pl = Join-Path $pkg 'page\page-look.js'; $pd = Join-Path $res 'custom-vivaldi-os-page-look.js'
+if (Test-Path $pl) { if ((Test-Path $pd) -and (Get-FileHash $pl).Hash -eq (Get-FileHash $pd).Hash) { Ok 'custom-vivaldi-os-page-look.js' } else { Bad 'custom-vivaldi-os-page-look.js missing or older' } }
+
 # 2. the CSS mods and settings
 $userData = Join-Path (Split-Path $app -Parent) 'User Data'
 if (-not (Test-Path $userData)) { $userData = Join-Path $env:LOCALAPPDATA 'Vivaldi\User Data' }

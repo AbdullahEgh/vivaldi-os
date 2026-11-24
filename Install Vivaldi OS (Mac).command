@@ -42,6 +42,8 @@ for js in "$PKG"/js/*.js; do
   fi
   echo "installed: $name"
 done
+# the page-start file (one tab's own look): loaded by pages, not by window.html
+if [[ -f "$PKG/page/page-look.js" ]]; then cp "$PKG/page/page-look.js" "$RES/custom-vivaldi-os-page-look.js"; echo "installed: custom-vivaldi-os-page-look.js"; fi
 # your own Launchpad apps instead of the starter set, when personal/ is here
 if [[ -f "$PERS/launchpad-seed.js" ]]; then cp "$PERS/launchpad-seed.js" "$RES/custom-launchpad-seed.js"; echo "installed: your Launchpad apps (personal)"; fi
 # scripts no longer in the package (e.g. a mod that was removed): out of Vivaldi too
@@ -49,6 +51,7 @@ for old in "$RES"/custom-*.js; do
   [[ -f "$old" ]] || continue
   base="$(basename "$old")"
   [[ -f "$PKG/js/${base#custom-}" ]] && continue
+  [[ "$base" == custom-vivaldi-os-page-look.js && -f "$PKG/page/page-look.js" ]] && continue
   /bin/mv -f "$old" "$WIN.removed-$base"
   NAME="$base" /usr/bin/perl -0pi -e 's#[ \t]*<script src="\Q$ENV{NAME}\E"></script>\n?##g' "$WIN"
   echo "removed: $base"

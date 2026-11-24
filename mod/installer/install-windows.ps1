@@ -126,6 +126,9 @@ foreach ($js in Get-ChildItem (Join-Path $pkg 'js') -Filter *.js) {
   }
   Write-Host "installed: $name"
 }
+# the page-start file (one tab's own look): loaded by pages, not by window.html
+$pageLook = Join-Path $pkg 'page\page-look.js'
+if (Test-Path $pageLook) { Copy-Item $pageLook (Join-Path $res 'custom-vivaldi-os-page-look.js') -Force; Write-Host 'installed: custom-vivaldi-os-page-look.js' }
 # your own data (never in a release): a "personal" folder next to the mod folder
 $personal = Join-Path (Split-Path $pkg -Parent) 'personal'
 if (Test-Path (Join-Path $personal 'launchpad-seed.js')) {
@@ -135,6 +138,7 @@ if (Test-Path (Join-Path $personal 'launchpad-seed.js')) {
 # scripts no longer in the package (e.g. a mod that was removed): out of Vivaldi too
 foreach ($old in Get-ChildItem $res -Filter 'custom-*.js') {
   if (Test-Path (Join-Path (Join-Path $pkg 'js') ($old.Name -replace '^custom-', ''))) { continue }
+  if ($old.Name -eq 'custom-vivaldi-os-page-look.js' -and (Test-Path $pageLook)) { continue }
   Move-Item $old.FullName "$win.removed-$($old.Name)" -Force
   $html = $html -replace ('[ \t]*<script src="' + [regex]::Escape($old.Name) + '"></script>\r?\n?'), ''
   Write-Host "removed: $($old.Name)"

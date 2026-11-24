@@ -27,6 +27,10 @@ for js in "$PKG"/js/*.js; do
   else ok "$n"; fi
 done
 
+if [[ -f "$PKG/page/page-look.js" ]]; then
+  if cmp -s "$PKG/page/page-look.js" "$RES/custom-vivaldi-os-page-look.js"; then ok "custom-vivaldi-os-page-look.js"; else bad "custom-vivaldi-os-page-look.js missing or older"; fi
+fi
+
 # 2. the CSS mods and settings (skipped by the agent: only a Vivaldi update is its job)
 if [[ "$MODE" != "--auto" ]]; then
   CSS="$UD/VivaldiOS/css"
