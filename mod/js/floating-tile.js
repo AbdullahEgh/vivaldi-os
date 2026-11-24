@@ -3338,7 +3338,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (atTop) {
           topTimer = setTimeout(() => { topShown = true; show(null); snapPreview("full", el); }, SNAP_HOLD);
           deskT = setTimeout(() => {                                 // still holding: the desktops (like without Bento)
-            desk = true; show(null);
+            desk = true; show(null); missionSkip = id;                 // (1.0.262: held: out of Mission Control's layout - under the pointer, no icon)
             if (topShown) { snapPreview(null); topShown = false; }
             if (!wsStrip) openWsStrip().then(() => { if (bEnded && wsStrip) closeWsStrip(); });
           }, SNAP_HOLD + 700);
@@ -3382,6 +3382,7 @@ window.vosBeat = window.vosBeat || (() => {
       cancelAnimationFrame(frame);
       if (ev.type === "pointerup" && last && !leavingB && !desk) { frame = 0; update(); }   // where it was let go (even when no frame was drawn meanwhile)
       clearTimeout(holdTimer); clearTimeout(topTimer); clearTimeout(deskT); bEnded = true;
+      if (missionSkip === id) missionSkip = null;
       let toCard = null, deskList = [];
       if (desk) {                                                    // let go over the desktops
         toCard = ev.type === "pointerup" ? deskOn : null; deskOn?.removeAttribute("data-drop");
