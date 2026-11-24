@@ -1991,3 +1991,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
 #browser#browser#browser > .vos-wctl .vos-wctl-ic { transition: background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
 #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after { transition: background-color 0.45s ease, background 0.45s ease !important; }
+
+/* 1.0.307: a pinned app's buttons come out with the pointer near its circle too (a small ring round it), not only on it */
+#browser#browser #webpage-stack > .vos-pin-badge::before { content: "" !important; position: absolute !important; inset: -14px !important; border-radius: 50% !important; }

@@ -1491,6 +1491,7 @@ window.vosBeat = window.vosBeat || (() => {
     while (imgs().length < ids.length) { const im = document.createElement("img"); im.alt = ""; b.insertBefore(im, ctl); }
     while (imgs().length > ids.length) imgs().pop().remove();
     srcs.forEach((src, i) => { const im = imgs()[i]; if (src && im.getAttribute("src") !== src) im.src = src; im.style.visibility = src ? "" : "hidden"; });
+    if (ids.length === 1) mirrorTab(b, imgs()[0], ids[0]);           // 1.0.307: its tab's circle
     const side = (pipCorner.get(id) || "bl")[1], plate = ids.length === 1 ? (document.getElementById("tab-" + ids[0])?.getAttribute("data-vos-plate") || "") : "";
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     { const tb = ids.length === 1 ? document.getElementById("tab-" + ids[0]) : null, k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
@@ -2802,6 +2803,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (src && im.getAttribute("src") !== src) im.src = src;
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
     { const lk = lookWins.get(id) || ""; if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look)
+    mirrorTab(b.querySelector(".vos-wctl-ic"), b.querySelector(".vos-wctl-ic img"), t);   // 1.0.307: its tab's circle
     { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; }
       const tb = document.getElementById("tab-" + t), k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
@@ -7052,6 +7054,18 @@ window.vosBeat = window.vosBeat || (() => {
        on another window: the half it would take shows; let go - it joins that window on that side
        on its own window, or nothing moved: nothing happens */
   /* the app's icon as the tab bar shows it (already loaded there); else the tab's own icon */
+  /* 1.0.307: ONE ICON: a pinned app's circle and a window's circle are its tab's circle - the very picture the tab shows, on
+     the very colour it has (its tile, its tint, its plate, its look) - copied from the tab, and kept so */
+  function mirrorTab(el, im, tid) {
+    const w = document.getElementById("tab-" + tid), tab = w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); if (!tab || !el) return;   // (the circle itself, not its wrapper)
+    const bg = getComputedStyle(tab).backgroundColor, clear = /rgba\(0, 0, 0, 0\)|transparent/.test(bg);
+    if (el.__vosBg !== bg) { el.__vosBg = bg; if (clear) el.style.removeProperty("background"); else el.style.setProperty("background", bg, "important"); }
+    const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
+  }
+  setInterval(() => {                                                 // (the tab's circle changes - a tint read, a look switched: they follow)
+    for (const [id, b] of pinBadges) { if (b.hasAttribute("data-multi")) continue; const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id; mirrorTab(b, b.querySelector(":scope > img"), t); }
+    if (wctl && wctlFor && wctl.hasAttribute("data-on")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
+  }, 500);
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
     const im = document.getElementById("tab-" + id)?.querySelector("img");
