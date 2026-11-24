@@ -3958,7 +3958,15 @@ window.vosBeat = window.vosBeat || (() => {
         shook = ev.timeStamp;                                        // Bento on: Bento off; else the others pinned to the corners / back
         if (bento.on) bentoToggle(false); else shakeWindows(id);
       }
-      if (!moved && Math.hypot(px - sx, py - sy) > 4 && roomOn.has(id)) { const ss = stackRect(); setPx(id, pxRect(id, ss), ss); roomOn.delete(id); }   // 1.0.259: moved or resized by hand: out of the room (a window again, where it is)
+      if (!moved && Math.hypot(px - sx, py - sy) > 4 && roomOn.has(id)) {   // moved or resized by hand: out of the room - a window again
+        const ss = stackRect(), cur = pxRect(id, ss), prev = roomPrev.get(id);
+        roomOn.delete(id); roomPrev.delete(id);
+        if (how === "move" && prev) {                                 // 1.0.260: dragged out: its size from before, under the pointer at the
+          const w = prev.w * ss.width, h = prev.h * ss.height, gx = (sx - ss.left - cur.x) / Math.max(1, cur.w);   // same place across it
+          s0 = { x: Math.round(sx - ss.left - gx * w), y: cur.y, w: Math.round(w), h: Math.round(h) };
+          setPx(id, s0, ss);                                          // (at once: the drag goes on from it)
+        } else setPx(id, cur, ss);                                    // (resized: from the size it has)
+      }
       if (Math.hypot(px - sx, py - sy) > 4) moved = true;
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
