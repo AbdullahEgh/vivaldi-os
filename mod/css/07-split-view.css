@@ -2003,3 +2003,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc::before { animation-delay: 0.2s !important; }
 #browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
 #browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }
+
+/* 1.0.309: a pinned app's circle (and its buttons) over everything: always while the circles are hidden (so the pointer
+   finds it there), and whenever it is hovered */
+#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare],
+#browser#browser#browser #webpage-stack > .vos-pin-badge:hover { z-index: 2147483000 !important; }
