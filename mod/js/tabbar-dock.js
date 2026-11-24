@@ -195,7 +195,8 @@
       const d = g.getImageData(0, 0, N, N).data; let n = 0, hi = 0, lo = 0;
       for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 120) {
         const L = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++;
-        if (L > 0.35) hi++; if (L < 0.65) lo++;
+        const C = (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2])) / 255;   // 1.0.282: a strong colour shows on black and on white
+        if (L > 0.35 || C > 0.4) hi++; if (L < 0.65 || C > 0.4) lo++;
       }
       // 1.0.244: not its average - how much of it shows against the circle: a dark tile with bright marks (its own
       // background) shows on black and needs no plate; only an icon with hardly any bright (or, in light mode, dark) part does

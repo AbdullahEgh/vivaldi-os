@@ -2690,7 +2690,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (wctl && wctl.parentElement === host) return wctl;
     wctl?.remove();
     wctl = document.createElement("div"); wctl.className = "vos-wctl ft-titlebar";
-    wctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="ft-lights" data-ft-shown>${LIGHTS_HTML}<button class="ft-light ft-gray ft-res" data-act="res"></button></div>`;
+    wctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="ft-lights" data-ft-shown>${LIGHTS_HTML}<button class="ft-light ft-gray ft-res" data-act="res"></button></div>`;   // (1.0.282: the pinned style, side by side)
     host.appendChild(wctl);
     return wctl;
   };
@@ -2699,7 +2699,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!wctl || !wctlFor) return false;
     const el = targetOf(pageOf(wctlFor));
     if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || el.hasAttribute("data-ft-pip") || el.hasAttribute("data-ft-cover")) return false;
-    const w = el.getBoundingClientRect(), H = 28, up = w.top >= H + 8;
+    const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
     wctl.style.left = Math.round(w.left + (up ? 0 : 6)) + "px";
     wctl.style.top = Math.round(up ? w.top - H - 6 : w.top + 6) + "px";
     wctl.toggleAttribute("data-in", !up);
@@ -2715,6 +2715,8 @@ window.vosBeat = window.vosBeat || (() => {
     const im = b.querySelector(".vos-wctl-ic img");
     if (src && im.getAttribute("src") !== src) im.src = src;
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
+    { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
+      if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; } }
     const g = b.querySelector(".ft-res"), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
     if (g.title !== tip) g.title = tip;
     if (!wctlPlace()) return wctlOff();
@@ -2725,6 +2727,7 @@ window.vosBeat = window.vosBeat || (() => {
     wctlTick = setInterval(() => {                                   // (over the page the browser hears no moves: checked here)
       if (wctlFor !== id) return clearInterval(wctlTick);
       if (wctl.matches(":hover") || cornerH?.matches(":hover")) return;
+      if (wctlZone && wctlZone(id)) return;                          // (still in the corner's area)
       wctlOff();
     }, 200);
   }
@@ -2732,14 +2735,28 @@ window.vosBeat = window.vosBeat || (() => {
     if (ev.buttons || ev.pointerType === "touch") return;
     const t = ev.target;
     if (wctl && wctl.contains(t)) return;
+    wctlXY = [ev.clientX, ev.clientY, t];
+    if (mission || lpOn()) return;
     const h = t?.closest?.(".ft-frame > .ft-resize");
-    if (!h || !/\bft-(tl|t)\b/.test(h.className)) return;
-    const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
-    if (!el || !el.hasAttribute("data-ft-notitle") || el.hasAttribute("data-ft-cover") || el.hasAttribute("data-ft-pip") || minimized.has(id)) return;   // (a pinned app has no buttons)
-    const r = h.parentElement.getBoundingClientRect();
-    if (!h.classList.contains("ft-tl") && ev.clientX - r.left >= 90) return;   // the top left corner only
-    cornerH = h; wctlShow(id);
+    if (h && /\bft-(tl|t)\b/.test(h.className)) {
+      const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
+      const r = h.parentElement.getBoundingClientRect();
+      if (el && wctlOk(id, el) && (h.classList.contains("ft-tl") || ev.clientX - r.left < 90)) { cornerH = h; return wctlShow(id); }
+    }
+    for (const id of [...zOrder].reverse()) {                        // 1.0.282: or just near that corner - the topmost window there
+      const el = targetOf(pageOf(id)); if (!el || !wctlOk(id, el)) continue;
+      const other = t?.closest?.("[data-ft-float]"); if (other && other !== el) continue;   // (another window's own area)
+      if (wctlZone(id)) { cornerH = null; return wctlShow(id); }
+    }
   }, { capture: true, passive: true });
+  let wctlXY = null;
+  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip") && !minimized.has(id) && !awayWs(id);
+  function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
+    const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
+    if (wctlXY[2]?.closest?.("webview") || document.querySelector("webview:hover")) return false;   // (in a page: gone)
+    const w = el.getBoundingClientRect(), [x, y] = wctlXY;
+    return x >= w.left - 30 && x <= w.left + 100 && y >= w.top - 30 && y <= w.top + 4;
+  }
   addEventListener("pointerdown", ev => {
     btnHeldAt = 0;                                                   // a new press: the last hold's click is long gone
     if (btnHold) { clearTimeout(btnHold.t); btnHold.btn.removeAttribute("data-ft-holding"); btnHold = null; }
