@@ -1422,6 +1422,17 @@ window.vosBeat = window.vosBeat || (() => {
     <button class="ft-light ft-yellow" data-act="minimize" title="Minimize"></button>
     <button class="ft-light ft-green"  data-act="zoom"     title="Float / Back to its place"></button>`;
   const HANDLES = ["t", "b", "l", "r", "tl", "tr", "bl", "br"];
+  /* 1.0.285: ONE component for a window's buttons: its app's circle and, beside it, its buttons on a small pill. Per type:
+     the direction (a pinned app: upright under its circle - a normal window: side by side, above the window), its buttons
+     (and their order), and when it shows (a pinned app: always, the buttons on the circle's hover - a normal window: its
+     top left corner) */
+  const CTL = {
+    pin: { dir: "v", buttons: [["gray", "res", "Page size"], ["yellow", "unpin", "Back to its window"], ["red", "close", "Close"]] },
+    win: { dir: "h", buttons: [["red", "close", "Close"], ["yellow", "minimize", "Minimize"], ["green", "zoom", "Full screen"], ["gray", "res", ""]] },
+  };
+  const ctlHtml = type => `<div class="vos-pin-ctl" data-dir="${CTL[type].dir}">` + CTL[type].buttons.map(([c, a, t]) => type === "pin"
+    ? `<button class="vos-pc vos-pc-${c}" data-pc="${a}" title="${t}"></button>`
+    : `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
   function fetchTitle(id) {
     const t = tabIdOf(id);
     if (!t || titles.has(id)) return;
@@ -1474,9 +1485,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (b.dataset.for !== id) b.dataset.for = id;
     let ctl = b.querySelector(":scope > .vos-pin-ctl");               // 1.0.265: its window buttons under it - close, back to its window, page
     if (!ctl) {                                                       // size - shown while the pointer is on the icon (or on them)
-      ctl = document.createElement("div"); ctl.className = "vos-pin-ctl";
-      ctl.innerHTML = `<button class="vos-pc vos-pc-gray" data-pc="res" title="Page size"></button><button class="vos-pc vos-pc-yellow" data-pc="unpin" title="Back to its window"></button><button class="vos-pc vos-pc-red" data-pc="close" title="Close"></button>`;   // (1.0.267: grey, yellow, red)
-      b.appendChild(ctl);
+      b.insertAdjacentHTML("beforeend", ctlHtml("pin")); ctl = b.lastElementChild;   // (1.0.285: the shared component, upright)
     }
     const imgs = () => [...b.children].filter(n => n.tagName === "IMG");
     while (imgs().length < ids.length) { const im = document.createElement("img"); im.alt = ""; b.insertBefore(im, ctl); }
@@ -2690,7 +2699,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (wctl && wctl.parentElement === host) return wctl;
     wctl?.remove();
     wctl = document.createElement("div"); wctl.className = "vos-wctl ft-titlebar";
-    wctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="ft-lights" data-ft-shown>${LIGHTS_HTML}<button class="ft-light ft-gray ft-res" data-act="res"></button></div>`;   // (1.0.282: the pinned style, side by side)
+    wctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span>` + ctlHtml("win");   // (1.0.285: the shared component, side by side)
     host.appendChild(wctl);
     return wctl;
   };
@@ -2717,7 +2726,7 @@ window.vosBeat = window.vosBeat || (() => {
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
     { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; } }
-    const g = b.querySelector(".ft-res"), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
+    const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
     if (g.title !== tip) g.title = tip;
     if (!wctlPlace()) return wctlOff();
     b.removeAttribute("data-on"); void b.offsetWidth; b.setAttribute("data-on", "");
