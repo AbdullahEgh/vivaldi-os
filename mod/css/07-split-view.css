@@ -2081,3 +2081,23 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    hold round them, are never part of that */
 #browser > .vos-wctl, #browser > .vos-wctl *, #browser > .vos-wctl::after, #browser > .vos-wctl *::before, #browser > .vos-wctl *::after,
 #browser #webpage-stack > .vos-pin-badge, #browser #webpage-stack > .vos-pin-badge *, #browser .vos-fsctl, #browser .vos-fsctl * { -webkit-app-region: no-drag !important; app-region: no-drag !important; }
+
+/* 1.0.323: THE HOLD ROUND THE BUTTONS, FILLED. A window's pill: a bridge from it down to its window's top edge (and up, when
+   it sits inside the corner) - under the pill only, so the resize corner under the circle still resizes. A pinned app's
+   pill: a bridge each side, over the gap to its app */
+#browser#browser > .vos-wctl > .vos-pin-ctl::before { content: "" !important; position: absolute !important; left: -4px !important; right: -18px !important; top: 100% !important; height: 14px !important; }
+#browser#browser > .vos-wctl[data-in] > .vos-pin-ctl::before { top: -10px !important; bottom: -10px !important; height: auto !important; }
+#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl::before { content: "" !important; position: absolute !important; left: -12px !important; right: -12px !important; top: -4px !important; bottom: -8px !important; }
+#browser#browser > .vos-wctl > .vos-pin-ctl::before, #browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl::before { -webkit-app-region: no-drag !important; app-region: no-drag !important; }
+
+/* 1.0.323: smoother - the moving parts on their own layer only while they animate */
+#browser > .vos-wctl:is([data-on], [data-out], [data-gone]) :is(.vos-wctl-ic, .vos-pin-ctl::after),
+#browser #webpage-stack > .vos-pin-badge:is([data-show], [data-in], [data-held]),
+#browser .vos-fsctl:is([data-on], [data-out]) .vos-wctl-ic { will-change: transform, opacity; }
+
+/* 1.0.323: the Mac's "Reduce motion": the buttons and circles fade in and out instead of moving */
+@media (prefers-reduced-motion: reduce) {
+  #browser > .vos-wctl *, #browser > .vos-wctl *::before, #browser > .vos-wctl *::after,
+  #browser #webpage-stack > .vos-pin-badge, #browser #webpage-stack > .vos-pin-badge *, #browser #webpage-stack > .vos-pin-badge *::before, #browser #webpage-stack > .vos-pin-badge *::after,
+  #browser .vos-fsctl *, #browser .vos-fsctl *::before, #browser .vos-fsctl *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; transition-duration: 0.12s !important; }
+}
