@@ -7053,6 +7053,7 @@ window.vosBeat = window.vosBeat || (() => {
        on its own window, or nothing moved: nothing happens */
   /* the app's icon as the tab bar shows it (already loaded there); else the tab's own icon */
   function tabIcon(id) {
+    const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
     const im = document.getElementById("tab-" + id)?.querySelector("img");
     return im?.currentSrc || im?.src || "";
   }

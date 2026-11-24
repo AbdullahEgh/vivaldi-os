@@ -181,13 +181,21 @@
   const seen = new Map();                            // icon address -> its brightness (0..1, null: no answer)
   const favOf = new Map(), favAsked = new Set();     // tab -> its site icon's address
   const busy = new Set();
-  async function brightness(src) {
+  const hasMedia = new Set(), variant = new Map();   // 1.0.305: an SVG icon with a light and a dark version of its own
+  const flipSvg = (t, look) => t.replace(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi, (m, x) => x.toLowerCase() === look ? "(min-width: 0px)" : "(max-width: 0px)");
+  async function brightness(src0, look) {          // (measured as it is drawn in that look)
+    const src = src0 + "|" + look, url = src0;
     if (seen.has(src)) return seen.get(src);
     if (busy.has(src)) return undefined;
     busy.add(src);
     let v = null;
     try {                                            // (fetched: an <img> from chrome:// would lock the canvas)
-      const blob = await (await fetch(src)).blob();
+      let blob = await (await fetch(url)).blob();
+      if (/svg/i.test(blob.type) || /^data:image\/svg/i.test(url)) {
+        let txt = await blob.text();
+        if (/prefers-color-scheme/i.test(txt)) { hasMedia.add(url); txt = flipSvg(txt, look); variant.set(src, "data:image/svg+xml," + encodeURIComponent(txt)); }
+        blob = new Blob([txt], { type: "image/svg+xml" });
+      }
       if (/^text\//.test(blob.type)) { busy.delete(src); seen.set(src, "broken"); return "broken"; }   // a page, not a picture: no icon really
       let bmp;
       if (/svg/i.test(blob.type)) {                    // 1.0.303: an SVG icon (claude.ai's): drawn through a picture first
@@ -247,8 +255,13 @@
       const src = favOf.get(id) || "";
       if (id && !favAsked.has(id)) { favAsked.add(id); try { chrome.tabs.get(id, x => { void chrome.runtime.lastError; favAsked.delete(id); const f = x?.favIconUrl || ""; if (/^(https?:|data:image)/.test(f) && favOf.get(id) !== f) { favOf.set(id, f); soon(); } }); } catch (e) { favAsked.delete(id); } }
       if (!src) { tab.removeAttribute("data-vos-plate"); continue; }
-      const v = seen.get(src);
-      if (v === undefined) { brightness(src).then(x => { if (x !== undefined) soon(); }); continue; }
+      const tp = tab.closest(".tab-position"), look = tp?.getAttribute("data-vos-look") || (dark ? "dark" : "light");
+      const v = seen.get(src + "|" + look);
+      if (v === undefined) { brightness(src, look).then(x => { if (x !== undefined) soon(); }); continue; }
+      if (tp) {                                      // 1.0.305: its window in the other look: the icon's own version for it
+        const alt = hasMedia.has(src) && look !== (dark ? "dark" : "light") ? variant.get(src + "|" + look) : "";
+        if ((tp.dataset.vosFavUrl || "") !== alt) { if (alt) { tp.dataset.vosFavUrl = alt; tp.style.setProperty("--vos-fav", `url("${alt}")`); } else { delete tp.dataset.vosFavUrl; tp.style.removeProperty("--vos-fav"); } }
+      }
       const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
@@ -262,7 +275,7 @@
   (function watch() {
     const tc = document.getElementById("tabs-container"), b = document.getElementById("browser");
     if (!tc || !b) return setTimeout(watch, 800);
-    new MutationObserver(soon).observe(tc, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+    new MutationObserver(soon).observe(tc, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "data-vos-look"] });   // (1.0.305: a window's own look too)
     new MutationObserver(soon).observe(b, { attributes: true, attributeFilter: ["class"] });
     soon();
   })();

@@ -327,3 +327,9 @@
 #browser#browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint],
 #browser#browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint]:hover,
 #browser#browser#browser#browser#browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab[data-vos-tint] { background-color: var(--vos-tint-l) !important; }
+
+/* 1.0.305: a window in the other look: its tab shows its icon's own version for that look (an icon that has one) */
+#browser #tabs-container .tab-position[data-vos-fav-url] .tab :is(.favicon, .site-icon) img { content: var(--vos-fav) !important; }
+
+/* 1.0.305: its tab circle changes with it, the same 0.45s */
+#browser#browser #tabs-container .tab { transition: background-color 0.45s ease !important; }
