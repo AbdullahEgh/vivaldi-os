@@ -1703,3 +1703,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.247: a pinned app has no window buttons (moved, resized, flicked or shaken out instead); its circle goes while it is dragged */
 #browser#browser #main [data-ft-pip] > .ft-titlebar :is(.ft-lights, .ft-right) { display: none !important; }
 #browser #webpage-stack > .vos-pin-badge[data-drag] { display: none !important; }
+
+/* 1.0.248: a pinned app that is a split: the line between its panes has the same pill as the one between pinned apps
+   (120px, at most 60%; the same tone, no edge, no shadow) - upright between panes side by side, flat between stacked ones */
+#browser#browser .tiled[data-ft-float][data-ft-pip]:not(.webpageview) .tile > .SlideBar::after {
+  border-radius: 2px !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  transform: translate(-50%, -50%) !important; background: rgba(255, 255, 255, 0.46) !important;
+}
+#browser#browser[data-ft-clock-tone="dark"] .tiled[data-ft-float][data-ft-pip]:not(.webpageview) .tile > .SlideBar::after { background: rgba(0, 0, 0, 0.34) !important; }
+#browser#browser .tiled[data-ft-float][data-ft-pip]:not(.webpageview) .tile > .SlideBar--FullHeight::after { width: 4px !important; height: min(120px, 60%) !important; }
+#browser#browser .tiled[data-ft-float][data-ft-pip]:not(.webpageview) .tile > .SlideBar--FullWidth::after { width: min(120px, 60%) !important; height: 4px !important; }
