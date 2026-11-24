@@ -1681,9 +1681,12 @@ window.vosBeat = window.vosBeat || (() => {
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w); });   // (a pane added to it, a restart)
   { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
-    const themeCheck = () => {
+    let themeT = 0;
+    const themeCheck = () => { clearTimeout(themeT); themeT = setTimeout(themeSettled, 1200); };   // 1.0.299: only a change that stays (not Vivaldi loading its theme)
+    const themeSettled = () => {
       const b = browserEl(); if (!b) return;
       const now = b.classList.contains("theme-dark");
+      if (performance.now() < 15000) { themeWas = now; return; }    // (starting: its look as it was saved, kept)
       if (themeWas !== null && now !== themeWas && lookWins.size) {
         const ws = [...lookWins.keys()]; lookWins.clear();
         for (const w of ws) { if (floating.has(w)) lookSync(w); persist(w); }
@@ -1691,7 +1694,7 @@ window.vosBeat = window.vosBeat || (() => {
       }
       themeWas = now;
     };
-    const watchTheme = () => { const b = browserEl(); if (!b) return setTimeout(watchTheme, 800); themeCheck(); new MutationObserver(themeCheck).observe(b, { attributes: true, attributeFilter: ["class"] }); };
+    const watchTheme = () => { const b = browserEl(); if (!b) return setTimeout(watchTheme, 800); themeSettled(); new MutationObserver(themeCheck).observe(b, { attributes: true, attributeFilter: ["class"] }); };
     watchTheme(); }
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
