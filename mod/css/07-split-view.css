@@ -1947,3 +1947,24 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after {
   backdrop-filter: blur(30px) saturate(1.8) !important; -webkit-backdrop-filter: blur(30px) saturate(1.8) !important;
 }
+
+/* 1.0.297: blurred all the way, coming and going: the pill is no longer uncovered by a clip (a clip stops its glass blurring)
+   - it grows out of the circle and shrinks back into it, its glass blurring all the while */
+@keyframes vos-pill-h-in { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes vos-pill-h-out { from { transform: none; } to { transform: scaleX(0); } }
+@keyframes vos-pill-v-in { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes vos-pill-v-out { from { transform: none; } to { transform: scaleY(0); } }
+@keyframes vos-wctl-ic-gone { from { opacity: 1; } to { opacity: 0; } }
+#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #webpage-stack > .vos-pin-badge:hover, #browser > .vos-wctl, #browser > .vos-wctl[data-on], #browser > .vos-wctl[data-out], #browser > .vos-wctl[data-gone]) > .vos-pin-ctl { clip-path: none !important; animation: none !important; transform: none !important; }
+/* a window's: sideways, out of its circle */
+#browser#browser#browser#browser#browser > .vos-wctl > .vos-pin-ctl::after { transform-origin: 0 50% !important; }
+#browser#browser#browser#browser#browser > .vos-wctl[data-on] > .vos-pin-ctl::after { animation: vos-pill-h-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) 0.14s backwards !important; }
+#browser#browser#browser#browser#browser > .vos-wctl[data-out] > .vos-pin-ctl::after { animation: vos-pill-h-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
+#browser#browser#browser#browser#browser > .vos-wctl[data-gone] > .vos-pin-ctl::after { animation: vos-pill-h-out 0.1s ease-in both !important; }
+/* (clicked: quick - no fade of the whole, which would stop the blur too) */
+#browser#browser#browser > .vos-wctl[data-gone] { animation: none !important; opacity: 1 !important; }
+#browser#browser#browser > .vos-wctl[data-gone] .vos-wctl-ic { animation: vos-wctl-ic-gone 0.1s ease-out both !important; }
+#browser#browser#browser > .vos-wctl[data-gone] .vos-pc::before { animation: vos-btn-out 0.08s ease-in both !important; }
+/* a pinned app's: down, out of its circle */
+#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl::after { transform-origin: 50% 0 !important; animation: vos-pill-v-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
+#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl::after { animation: vos-pill-v-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) backwards !important; }

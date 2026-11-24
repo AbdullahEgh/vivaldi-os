@@ -2795,6 +2795,13 @@ window.vosBeat = window.vosBeat || (() => {
     }
   }, { capture: true, passive: true });
   let wctlXY = null, wctlHeld = false;
+  addEventListener("pointerdown", e => {                          // 1.0.297: its window resized (an edge or corner pressed): they stay, following it
+    const h = e.button === 0 && wctlFor && e.target?.closest?.(".ft-frame > .ft-resize");
+    if (!h || h.parentElement?.dataset.ftFor !== wctlFor) return;
+    wctlHeld = true;
+    const up = ev => { if (ev.pointerId !== e.pointerId) return; wctlHeld = false; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); };
+    addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
+  }, true);
   addEventListener("pointerdown", e => {                          // 1.0.284: the circle is a handle, as a pinned app's - pressed, its window moves
     if (e.button !== 0 || !wctl || !wctlFor || !e.target?.closest?.(".vos-wctl-ic") || !wctl.contains(e.target)) return;
     const id = wctlFor, el = targetOf(pageOf(id)); if (!el || mission || lpOn()) return;
