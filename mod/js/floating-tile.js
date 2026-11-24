@@ -7145,6 +7145,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (!fsctl.hasAttribute("data-on")) { clearTimeout(fsctl.__outT); fsctl.removeAttribute("data-out"); void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
   }
   setInterval(() => { if (!document.hidden) fsCtlSync(); }, 400);
+  setInterval(() => {                                                 // 1.0.328: the address field's hint without the search engine's name
+    for (const i of document.querySelectorAll("#browser .UrlBar-AddressField input[placeholder]")) {
+      const ph = i.getAttribute("placeholder"), clean = ph.replace(/^(\S+)\s+.+?\s+(or\s+.+)$/i, "$1 $2");
+      if (/google|bing|duckduckgo|ecosia|startpage|yahoo|qwant|brave|kagi|yandex|baidu/i.test(ph) && clean !== ph) i.setAttribute("placeholder", clean);
+    }
+  }, 700);
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
     const im = document.getElementById("tab-" + id)?.querySelector("img");
