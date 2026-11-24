@@ -2680,46 +2680,65 @@ window.vosBeat = window.vosBeat || (() => {
   /* 1.0.242: the window buttons (title bar hidden, normal and pinned): the pointer just OUTSIDE a top corner - or on the top
      edge near it - shows that corner's buttons (left: the coloured ones, right: the scale one). A press there still resizes;
      they go again once the pointer is neither there nor on them */
-  let cornerBox = null, cornerH = null;
-  const cornerOff = () => { if (cornerBox?.hasAttribute("data-vos-corner")) { cornerBox.removeAttribute("data-vos-corner"); cornerBox.removeAttribute("data-ft-shown"); cornerBox.toggleAttribute("data-up", false); } cornerBox = null; };
+  /* 1.0.281: a normal window's buttons (title bar hidden) live on their own floating pill - the app's icon, then the
+     traffic lights and the scale button - drawn above everything, the tab bar too. Only the pointer at the window's top
+     left corner (just outside it, or on the top edge near it) brings it: no blink from the page's top strip. It sits just
+     above the window (inside its corner when there is no room), follows it, and goes once the pointer leaves both. */
+  let wctl = null, wctlFor = null, cornerH = null, wctlTick = 0;
+  const wctlEl = () => {
+    const host = browserEl(); if (!host) return null;
+    if (wctl && wctl.parentElement === host) return wctl;
+    wctl?.remove();
+    wctl = document.createElement("div"); wctl.className = "vos-wctl ft-titlebar";
+    wctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="ft-lights" data-ft-shown>${LIGHTS_HTML}<button class="ft-light ft-gray ft-res" data-act="res"></button></div>`;
+    host.appendChild(wctl);
+    return wctl;
+  };
+  const wctlOff = () => { if (wctl) { wctl.removeAttribute("data-on"); } wctlFor = null; cornerH = null; clearInterval(wctlTick); };
+  const wctlPlace = () => {
+    if (!wctl || !wctlFor) return false;
+    const el = targetOf(pageOf(wctlFor));
+    if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || el.hasAttribute("data-ft-pip") || el.hasAttribute("data-ft-cover")) return false;
+    const w = el.getBoundingClientRect(), H = 28, up = w.top >= H + 8;
+    wctl.style.left = Math.round(w.left + (up ? 0 : 6)) + "px";
+    wctl.style.top = Math.round(up ? w.top - H - 6 : w.top + 6) + "px";
+    wctl.toggleAttribute("data-in", !up);
+    return true;
+  };
+  function wctlShow(id) {
+    const b = wctlEl(); if (!b) return;
+    if (wctlFor === id && b.hasAttribute("data-on")) return;
+    wctlFor = id; b.dataset.ftPage = id;
+    const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
+    let src = tabIcon(t);
+    if (!src) { const u = pageOf(t)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { src = favicon(u); } catch (e) {} }
+    const im = b.querySelector(".vos-wctl-ic img");
+    if (src && im.getAttribute("src") !== src) im.src = src;
+    b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
+    const g = b.querySelector(".ft-res"), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
+    if (g.title !== tip) g.title = tip;
+    if (!wctlPlace()) return wctlOff();
+    b.removeAttribute("data-on"); void b.offsetWidth; b.setAttribute("data-on", "");
+    const follow = () => { if (wctlFor !== id) return; if (!wctlPlace()) return wctlOff(); requestAnimationFrame(follow); };
+    requestAnimationFrame(follow);
+    clearInterval(wctlTick);
+    wctlTick = setInterval(() => {                                   // (over the page the browser hears no moves: checked here)
+      if (wctlFor !== id) return clearInterval(wctlTick);
+      if (wctl.matches(":hover") || cornerH?.matches(":hover")) return;
+      wctlOff();
+    }, 200);
+  }
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
     const t = ev.target;
-    if (cornerBox && cornerBox.contains(t)) return;
-    let box = null;
-    const L = t?.closest?.(".ft-titlebar > .ft-lights");            // 1.0.276: reached from inside the window - held as from the corner,
-    if (L) { const el = L.parentElement?.parentElement;              // so the resize edge over the top strip doesn't hide and re-show them
-      if (el?.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip")) { box = L; if (box !== cornerBox) cornerH = null; } }
-    const h = !box && t?.closest?.(".ft-frame > .ft-resize");
-    if (h && /\bft-(tl|tr|t)\b/.test(h.className)) {
-      const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
-      if (el && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip") && !minimized.has(id)) {   // (1.0.247: a pinned app has no buttons)
-        const r = h.parentElement.getBoundingClientRect(), edge = h.classList.contains("ft-t");
-        const left = h.classList.contains("ft-tl") || (edge && ev.clientX - r.left < 90);
-        const right = h.classList.contains("ft-tr") || (edge && r.right - ev.clientX < 90);
-        if (left || right) { box = el.querySelector(":scope > .ft-titlebar > .ft-lights"); cornerH = h; }   // (either corner: all four - the scale one is with them now)
-      }
-    }
-    if (box === cornerBox) return;
-    cornerOff();
-    if (!box || box.hasAttribute("data-ft-shown")) return;
-    { const w = box.closest("[data-ft-float]")?.getBoundingClientRect(), st = document.getElementById("webpage-stack")?.getBoundingClientRect();   // 1.0.279: room above it?
-      box.toggleAttribute("data-up", !!w && !!st && w.top - st.top >= 36); }                                    // the buttons float above the window
-    box.setAttribute("data-ft-shown", ""); box.setAttribute("data-vos-corner", ""); cornerBox = box;
-    if (box.hasAttribute("data-up")) {                               // 1.0.280: out of the window's clip, kept just above it (it may move)
-      const follow = () => {
-        if (cornerBox !== box || !box.hasAttribute("data-up")) return;
-        const w = box.closest("[data-ft-float]")?.getBoundingClientRect(), st = document.getElementById("webpage-stack")?.getBoundingClientRect();
-        if (w && st) { box.style.setProperty("--vos-up-l", (w.left - st.left) + "px"); box.style.setProperty("--vos-up-t", (w.top - st.top - 34) + "px"); }
-        requestAnimationFrame(follow);
-      };
-      follow();
-    }
-    const tick = setInterval(() => {                                 // (over the page the browser hears no moves: checked here)
-      if (cornerBox !== box) return clearInterval(tick);
-      if (box.matches(":hover") || cornerH?.matches(":hover")) return;
-      cornerOff(); clearInterval(tick);
-    }, 200);
+    if (wctl && wctl.contains(t)) return;
+    const h = t?.closest?.(".ft-frame > .ft-resize");
+    if (!h || !/\bft-(tl|t)\b/.test(h.className)) return;
+    const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
+    if (!el || !el.hasAttribute("data-ft-notitle") || el.hasAttribute("data-ft-cover") || el.hasAttribute("data-ft-pip") || minimized.has(id)) return;   // (a pinned app has no buttons)
+    const r = h.parentElement.getBoundingClientRect();
+    if (!h.classList.contains("ft-tl") && ev.clientX - r.left >= 90) return;   // the top left corner only
+    cornerH = h; wctlShow(id);
   }, { capture: true, passive: true });
   addEventListener("pointerdown", ev => {
     btnHeldAt = 0;                                                   // a new press: the last hold's click is long gone
