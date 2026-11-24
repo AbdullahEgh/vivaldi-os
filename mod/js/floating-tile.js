@@ -869,12 +869,15 @@ window.vosBeat = window.vosBeat || (() => {
   // 1.0.256: pinned apps on this desktop (other than the full-screen one): full screen then fills only the room beside them
   const pinsLive = except => pip.some(p => p !== except && floating.has(p) && !minimized.has(p) && !awayWs(p));
   const roomPrev = new Map();                        // 1.0.258: id -> where it was before it filled the room beside the pinned apps
+  const roomOn = new Set();                          // 1.0.259: windows filling that room now - a one-app Bento: they follow the pins,
+  const roomActive = () => !bento.on && [...roomOn].some(id => floating.has(id) && !minimized.has(id) && !awayWs(id) && pinsLive(id));   // share an edge with them
   const coverBeside = () => pip.some(p => p !== cover && floating.has(p) && !minimized.has(p) && !awayWs(p));
   function pxRect(id, s = stackRect()) {
     if (bentoDrag?.id === id) return bentoDrag.rect;              // Bento: being dragged
     if (cover === id) return coverBeside() ? bArea(s) : { x: -s.left, y: -s.top, w: innerWidth, h: innerHeight };   // the whole Vivaldi window (1.0.256: pinned apps here - the room beside them, as one app in Bento)
     if (pipDrag?.id === id) return pipDrag.r;                       // a pinned window being dragged: where (and how big) it shows
     if (pip.includes(id)) return pipRect(id, s);                    // the corner stack
+    if (roomOn.has(id) && !bento.on && pinsLive(id)) return bArea(s);   // 1.0.259: filling the room beside the pinned apps
     if (bento.rects.has(id)) return bento.rects.get(id);           // Bento: its slot
     if (!frac[id]) {                                                    // cascade new windows
       const n = floating.size % 6;
@@ -1427,7 +1430,7 @@ window.vosBeat = window.vosBeat || (() => {
   const pinBadges = new Map();                       // window id -> its circle (in the page area, beside the windows)
   function pinBadge(el, id, r, s, o) {
     let b = pinBadges.get(id);
-    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r || bento.on) { if (b) { b.remove(); pinBadges.delete(id); } return; }   // (1.0.250: none with Bento on)
+    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r || bento.on || roomActive()) { if (b) { b.remove(); pinBadges.delete(id); } return; }   // (1.0.250: none with Bento on)
     const host = stack(); if (!host) return;
     // 1.0.251: a split: every pane's icon, one above the other in one pill (the tab bar's split pill, upright)
     const ids = (groupFloat.has(id) && membersOf(pageOf(id)).length > 1) ? membersOf(pageOf(id)) : [groupFloat.has(id) ? (splitFocus.get(id) || id) : id];
@@ -1462,7 +1465,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!id || mission || lpOn() || !pip.includes(id)) return;
     const el = targetOf(pageOf(id)); if (el) pipGesture(e, el, id, "move");
   }, true);
-  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
+  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
   /* resize only from outside: an invisible frame around the window, a few px
@@ -2126,13 +2129,13 @@ window.vosBeat = window.vosBeat || (() => {
       const win = winOf(id);
       if (win && pip.includes(win)) return holdAct("minimize", win);   // held small: back as it was
       if (win && floating.has(win) && !bento.on && pinsLive(win)) {   // 1.0.258: pinned apps here - not a real full screen: the window
-        const ss = stackRect(), a = bArea(ss), cur = pxRect(win, ss);  // just grows to fill the room beside them (the wallpaper stays);
-        const inRoom = Math.abs(cur.x - a.x) < 3 && Math.abs(cur.y - a.y) < 3 && Math.abs(cur.w - a.w) < 3 && Math.abs(cur.h - a.h) < 3;   // again: back
+        const ss = stackRect(), a = bArea(ss), inRoom = roomOn.has(win);   // just grows to fill the room beside them (the wallpaper stays);
+        // again: back
         const wEl = targetOf(pageOf(win));
         raise(win); activate(id);
         flip([wEl], () => {
-          if (inRoom && roomPrev.has(win)) { frac[win] = roomPrev.get(win); roomPrev.delete(win); }
-          else { if (frac[win]) roomPrev.set(win, { ...frac[win] }); setPx(win, a, ss); }
+          if (inRoom) { roomOn.delete(win); if (roomPrev.has(win)) { frac[win] = roomPrev.get(win); roomPrev.delete(win); } }
+          else { if (frac[win]) roomPrev.set(win, { ...frac[win] }); setPx(win, a, ss); roomOn.add(win); }
           persist(win); render();
         });
         return;
@@ -3141,7 +3144,7 @@ window.vosBeat = window.vosBeat || (() => {
         setStyle(el, "z-index", "950");
       }
     }
-    if (host && bento.on && bento.layout) {                          // the edge to the corner stack: it resizes both
+    if (host && ((bento.on && bento.layout) || roomActive())) {     // the edge to the corner stack: it resizes both (1.0.259: a room window too)
       const o = fixedOrigin(host), area = bArea(s);
       for (const side of ["l", "r"]) {
         const ids = [...pipSide(side, s).keys()];
@@ -3955,6 +3958,7 @@ window.vosBeat = window.vosBeat || (() => {
         shook = ev.timeStamp;                                        // Bento on: Bento off; else the others pinned to the corners / back
         if (bento.on) bentoToggle(false); else shakeWindows(id);
       }
+      if (!moved && Math.hypot(px - sx, py - sy) > 4 && roomOn.has(id)) { const ss = stackRect(); setPx(id, pxRect(id, ss), ss); roomOn.delete(id); }   // 1.0.259: moved or resized by hand: out of the room (a window again, where it is)
       if (Math.hypot(px - sx, py - sy) > 4) moved = true;
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
@@ -6606,7 +6610,7 @@ window.vosBeat = window.vosBeat || (() => {
     { const ph = t.closest?.(".vos-pip-hdiv");                      // the line between two held windows: both
       if (ph) { e.preventDefault(); e.stopPropagation(); return pipRowResize(e, ph.dataset.a, ph.dataset.b, Number(ph.dataset.k) || 1); } }
     const bd = t.closest?.(".bento-divider");                       // Bento: a gap between windows
-    if (bd && bento.on && bd.classList.contains("vos-pip-divider")) { e.preventDefault(); e.stopPropagation(); return pipColumnResize(e, bd.dataset.side); }
+    if (bd && (bento.on || roomActive()) && bd.classList.contains("vos-pip-divider")) { e.preventDefault(); e.stopPropagation(); return pipColumnResize(e, bd.dataset.side); }
     if (bd && bento.on) {
       e.preventDefault(); e.stopPropagation();
       const ss = stackRect(), hit = bHit(bento.handles, { x: e.clientX - ss.left, y: e.clientY - ss.top });
