@@ -1423,7 +1423,7 @@ window.vosBeat = window.vosBeat || (() => {
   const pinBadges = new Map();                       // window id -> its circle (in the page area, beside the windows)
   function pinBadge(el, id, r, s, o) {
     let b = pinBadges.get(id);
-    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r) { if (b) { b.remove(); pinBadges.delete(id); } return; }
+    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r || bento.on) { if (b) { b.remove(); pinBadges.delete(id); } return; }   // (1.0.250: none with Bento on)
     const host = stack(); if (!host) return;
     const tid = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
     let src = tabIcon(tid);
@@ -1450,7 +1450,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!id || mission || lpOn() || !pip.includes(id)) return;
     const el = targetOf(pageOf(id)); if (el) pipGesture(e, el, id, "move");
   }, true);
-  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (!pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
+  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
   /* resize only from outside: an invisible frame around the window, a few px
