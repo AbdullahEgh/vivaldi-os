@@ -749,7 +749,7 @@ window.vosBeat = window.vosBeat || (() => {
                                           h: pc ? { c: pc, h: Math.round(pipH.get(id) || 240), w: Math.round(pipW.get(id) || 360), o: pip.indexOf(id),
                                                     z: pipUserZoom.has(id) ? +pipUserZoom.get(id).toFixed(3) : undefined, b: pipZoomWas.has(id) ? +Number(pipZoomWas.get(id)).toFixed(3) : undefined } : undefined,   // pinned: its corner, size, place in the stack, page scale
                                           m: minimized.has(id) && minKind.get(id) === "float" ? 1 : undefined,   // minimized: so again after a restart
-                                          dk: darkWins.has(id) ? 1 : undefined,   // 1.0.270: its look switched (light <-> dark)
+                                          dk: lookWins.get(id) || undefined,   // 1.0.273: its own look ("light" / "dark")
                                           lp: !pc && pinMem.has(id) ? pinMem.get(id) : undefined,   // where it was pinned last (pinned again: there)
  } : undefined;
         if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want)) return;
@@ -801,7 +801,7 @@ window.vosBeat = window.vosBeat || (() => {
           pip.push(id);
         }
         if (f.m && !f.h) { minimized.add(id); minKind.set(id, "float"); }
-        if (f.dk) darkWins.add(id);
+        if (f.dk === "light" || f.dk === "dark") lookWins.set(id, f.dk);
         if (f.lp && /^[tb][lr]$/.test(f.lp.c || "")) pinMem.set(id, f.lp);   // minimized before the restart: so again (its tab brings it back)
         noTitle.add(id);                                          // floating windows never show a title bar
         if (f.g) groupFloat.add(id);
@@ -1520,46 +1520,87 @@ window.vosBeat = window.vosBeat || (() => {
     else if (btn.dataset.pc === "unpin") holdAct("minimize", id);      // back to its window (as the yellow button did)
     else act("res", pg);                                             // its page size: 40% / 75% / 100%
   }, true);
-  /* 1.0.270: one window's look, light <-> dark, on its own (the others as they are). The page's own dark (or light) theme
-     first - "prefer dark" for that page only - and only when the page does not change with it: its colours turned over,
-     pictures and video kept as they are. Kept through new pages in it and a restart. */
-  const darkWins = new Set();
-  const DARK_CODE = on => `(function(){
-    var st = document.getElementById("vos-look"); if (st) st.remove();
-    if (!${on}) return "off";
-    var lum = function(){ var els = [document.body, document.documentElement];
-      for (var i = 0; i < els.length; i++) { if (!els[i]) continue; var c = (getComputedStyle(els[i]).backgroundColor.match(/[\\d.]+/g) || []).map(Number);
-        if (c.length >= 3 && (c.length < 4 || c[3] > 0.1)) return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
-      return 255; };
-    var was = lum(), toDark = was > 128;
-    st = document.createElement("style"); st.id = "vos-look"; (document.head || document.documentElement).appendChild(st);
-    st.textContent = ":root{color-scheme:" + (toDark ? "dark" : "light") + " !important}";
-    var now = lum();
-    if ((now > 128) === (was > 128)) {
-      var M = "img,video,canvas,iframe,embed,object,svg image,[data-vos-img]";
-      st.textContent = "html{filter:invert(1) hue-rotate(180deg) !important} :is(" + M + "):not(:is(" + M + ") *){filter:invert(1) hue-rotate(180deg) !important} :is(" + M + ") :is(" + M + "){filter:none !important}";
-      var mark = function(root){ var all = (root.querySelectorAll ? root.querySelectorAll("*") : []);
-        for (var i = 0; i < all.length && i < 6000; i++) { var e = all[i]; if (e.hasAttribute("data-vos-img")) continue;
-          var bg = getComputedStyle(e).backgroundImage; if (bg && bg.indexOf("url(") >= 0) e.setAttribute("data-vos-img", ""); } };
-      mark(document);
-      if (!window.__vosImgObs) { var t = 0; window.__vosImgObs = new MutationObserver(function(){ if (t) return; t = setTimeout(function(){ t = 0; if (document.getElementById("vos-look")) mark(document); }, 400); });
-        window.__vosImgObs.observe(document.documentElement, { childList: true, subtree: true }); }
+  /* 1.0.273: one window's look on its own - its site's OWN light design (Vivaldi dark) or its own dark design (Vivaldi
+     light), never a recolouring. In that window's page only: the site's style rules made for the other look are switched
+     off and the ones for this look on, its <meta name="color-scheme"> and the page's own "which do you prefer?" question
+     (matchMedia) answer this look. It runs as each of its pages starts, so the site is drawn that way from the first moment. */
+  function vosLookPage(target, on) {
+    var W = window, D = document, st = W.__vosLook || (W.__vosLook = { saved: [], added: [], disabled: [], attrs: [], done: new WeakSet(), obs: null, t: 0, target: null });
+    function undo() {
+      st.saved.forEach(function (x) { try { x[0].mediaText = x[1]; } catch (e) {} }); st.saved = [];
+      st.added.forEach(function (n) { n.remove(); }); st.added = [];
+      st.disabled.forEach(function (sh) { try { sh.disabled = false; } catch (e) {} }); st.disabled = [];
+      st.attrs.forEach(function (x) { x[0].setAttribute(x[1], x[2]); }); st.attrs = [];
+      st.done = new WeakSet(); if (st.obs) { st.obs.disconnect(); st.obs = null; }
+      var s0 = D.getElementById("vos-look"); if (s0) s0.remove();
+      st.target = null;
     }
-    return "on";
-  })()`;
-  function darkApply(wv, on) { try { wv.executeScript({ code: DARK_CODE(!!on) }, () => void chrome.runtime.lastError); } catch (e) {} }
-  function darkHook(id) {                                             // every page of it, now and on each new page
-    for (const wv of webviewsOf(id)) {
-      if (!wv.__vosDarkHook) { wv.__vosDarkHook = true; wv.addEventListener("loadstop", () => { const w = winOf(wv.closest(".webpageview")?.dataset.id) || wv.closest(".webpageview")?.dataset.id; if (w && darkWins.has(w)) darkApply(wv, true); }); }
-      darkApply(wv, darkWins.has(id));
+    if (!on) { undo(); return "off"; }
+    if (st.target && st.target !== target) undo();
+    st.target = target;
+    var other = target === "light" ? "dark" : "light";
+    var reO = new RegExp("\\(\\s*prefers-color-scheme\\s*:\\s*" + other + "\\s*\\)", "gi"), reT = new RegExp("\\(\\s*prefers-color-scheme\\s*:\\s*" + target + "\\s*\\)", "gi");
+    var fix = function (t) { return t.replace(reO, "(max-width: 0px)").replace(reT, "(min-width: 0px)"); };   // never / always
+    var has = function (t) { return /prefers-color-scheme/i.test(t || ""); };
+    if (!D.getElementById("vos-look")) { var cs = D.createElement("style"); cs.id = "vos-look"; cs.textContent = ":root{color-scheme:" + target + " !important}"; (D.head || D.documentElement).appendChild(cs); }
+    if (!W.__vosMM) {                                                 // the page's own scripts ask too (their answer: this look)
+      W.__vosMM = 1;
+      var sc = D.createElement("script");
+      sc.textContent = "(function(){if(window.__vosMMp)return;window.__vosMMp=1;var o=window.matchMedia;window.matchMedia=function(q){q=String(q).replace(/\\(\\s*prefers-color-scheme\\s*:\\s*" + other + "\\s*\\)/gi,'(max-width: 0px)').replace(/\\(\\s*prefers-color-scheme\\s*:\\s*" + target + "\\s*\\)/gi,'(min-width: 0px)');return o.call(window,q);};})();";
+      (D.head || D.documentElement).appendChild(sc); sc.remove();
     }
+    function fixMedia(ml) { try { var t = ml.mediaText; if (has(t)) { st.saved.push([ml, t]); ml.mediaText = fix(t); } } catch (e) {} }
+    function walk(rules) { for (var i = 0; i < rules.length; i++) { var r = rules[i]; if (r.media) fixMedia(r.media); if (r.styleSheet) sheet(r.styleSheet); if (r.cssRules) walk(r.cssRules); } }
+    function far(sh) {                                                // another site's style sheet: read again, the same changes, in its place
+      if (!sh.href || sh.disabled) return;
+      fetch(sh.href, { credentials: "omit" }).then(function (r) { return r.ok ? r.text() : null; }).then(function (txt) {
+        if (!txt || !has(txt) || st.target !== target) return;
+        txt = txt.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, function (m, q, u) { if (/^(data:|https?:|\/\/|#|blob:)/i.test(u)) return m; try { return 'url("' + new URL(u, sh.href).href + '")'; } catch (e) { return m; } });
+        var s = D.createElement("style"); s.textContent = fix(txt); var own = sh.ownerNode;
+        if (own && own.parentNode) own.parentNode.insertBefore(s, own.nextSibling); else (D.head || D.documentElement).appendChild(s);
+        st.added.push(s); if (s.sheet) st.done.add(s.sheet); sh.disabled = true; st.disabled.push(sh);
+      }).catch(function () {});
+    }
+    function sheet(sh) { if (!sh || st.done.has(sh)) return; st.done.add(sh); try { if (sh.media) fixMedia(sh.media); walk(sh.cssRules); } catch (e) { far(sh); } }
+    function pass() {
+      for (var i = 0; i < D.styleSheets.length; i++) sheet(D.styleSheets[i]);
+      var els = D.querySelectorAll("link[media],style[media],source[media],meta[name='color-scheme']");
+      for (var j = 0; j < els.length; j++) {
+        var e = els[j], at = e.tagName === "META" ? "content" : "media", v = e.getAttribute(at) || "";
+        if (e.__vosLook) continue;
+        if (at === "content") { e.__vosLook = 1; st.attrs.push([e, at, v]); e.setAttribute(at, target); }
+        else if (has(v)) { e.__vosLook = 1; st.attrs.push([e, at, v]); e.setAttribute(at, fix(v)); }
+      }
+    }
+    pass();
+    if (!st.obs) {                                                   // what the page adds later (and the sheets still loading)
+      st.obs = new MutationObserver(function () { if (st.t) return; st.t = setTimeout(function () { st.t = 0; if (st.target) pass(); }, 250); });
+      st.obs.observe(D.documentElement, { childList: true, subtree: true });
+      D.addEventListener("DOMContentLoaded", pass); W.addEventListener("load", pass);
+    }
+    return "on " + target;
   }
-  function toggleDark(win) {
+  const lookWins = new Map();                                         // window id -> "light" | "dark"
+  const lookCode = (target, on) => "(" + vosLookPage.toString() + ")(" + JSON.stringify(target) + "," + !!on + ")";
+  function lookApply(wv, target) {
+    if (!wv.__vosLookHook) {                                         // each new page in it: at its very start
+      wv.__vosLookHook = true;
+      wv.addEventListener("loadcommit", e => {
+        if (!e.isTopLevel || !wv.__vosLookAt) return;
+        try { wv.executeScript({ code: lookCode(wv.__vosLookAt, true), runAt: "document_start" }, () => void chrome.runtime.lastError); } catch (err) {}
+      });
+    }
+    try { wv.executeScript({ code: lookCode(target || "light", !!target) }, () => void chrome.runtime.lastError); } catch (e) {}   // the page open now: at once
+    wv.__vosLookAt = target || "";
+  }
+  function lookSync(id) { const t = lookWins.get(id) || ""; for (const wv of webviewsOf(id)) if ((wv.__vosLookAt ?? "") !== t) lookApply(wv, t); }
+  function toggleDark(win) {                                          // (the grey button held)
     if (!floating.has(win)) return;
-    if (darkWins.has(win)) darkWins.delete(win); else darkWins.add(win);
-    darkHook(win); persist(win);
+    if (lookWins.has(win)) lookWins.delete(win);
+    else lookWins.set(win, browserEl()?.classList.contains("theme-dark") ? "light" : "dark");   // the other look than Vivaldi's
+    lookSync(win); persist(win);
   }
-  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of darkWins) if (floating.has(w)) for (const wv of webviewsOf(w)) if (!wv.__vosDarkHook) darkHook(w); });   // (a pane added to it, a restart)
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w); });   // (a pane added to it, a restart)
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
