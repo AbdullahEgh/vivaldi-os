@@ -236,13 +236,14 @@
     busy.delete(src); seen.set(src, v);
     return v;
   }
+  let tileCol = false;
   function levels(col) {                           // 1.0.304: every circle at one level - its icon's colour, as deep (dark) or as pale (light) as the others
     let [r, g, b] = col.split(",").map(Number); r /= 255; g /= 255; b /= 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
     let h = 0, s = 0;
     if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
-    const S = Math.min(s, 0.6) * 100;
-    return [`hsl(${h.toFixed(0)} ${(S * 0.8).toFixed(0)}% 17%)`, `hsl(${h.toFixed(0)} ${S.toFixed(0)}% 91%)`];
+    const S = Math.min(s, 0.6) * 100, exact = `rgb(${col})`;
+    return [tileCol && l < 0.3 ? exact : `hsl(${h.toFixed(0)} ${(S * 0.8).toFixed(0)}% 17%)`, tileCol && l > 0.82 ? exact : `hsl(${h.toFixed(0)} ${S.toFixed(0)}% 91%)`];   // (1.0.306: its own tile, when it is already that deep / that pale)
   }
   let t = 0;
   function check() {
@@ -259,7 +260,7 @@
       const v = seen.get(src + "|" + look);
       if (v === undefined) { brightness(src, look).then(x => { if (x !== undefined) soon(); }); continue; }
       if (tp) {                                      // 1.0.305: its window in the other look: the icon's own version for it
-        const alt = hasMedia.has(src) && look !== (dark ? "dark" : "light") ? variant.get(src + "|" + look) : "";
+        const alt = hasMedia.has(src) ? variant.get(src + "|" + look) || "" : "";   // (1.0.306: whichever look - the tab and its window's circles the same picture)
         if ((tp.dataset.vosFavUrl || "") !== alt) { if (alt) { tp.dataset.vosFavUrl = alt; tp.style.setProperty("--vos-fav", `url("${alt}")`); } else { delete tp.dataset.vosFavUrl; tp.style.removeProperty("--vos-fav"); } }
       }
       const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
@@ -267,7 +268,7 @@
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
       const kind = v && typeof v === "object" ? (v.tile ? "tile" : v.tint ? "soft" : "") : "", col = kind === "tile" ? v.tile : kind === "soft" ? v.tint : "";   // 1.0.301
       if ((tab.getAttribute("data-vos-tint") || "") !== kind) { if (kind) tab.setAttribute("data-vos-tint", kind); else tab.removeAttribute("data-vos-tint"); }
-      if (col) { if (tab.style.getPropertyValue("--vos-tint") !== `rgb(${col})`) { tab.style.setProperty("--vos-tint", `rgb(${col})`); const lv = levels(col); tab.style.setProperty("--vos-tint-d", lv[0]); tab.style.setProperty("--vos-tint-l", lv[1]); } }
+      if (col) { if (tab.style.getPropertyValue("--vos-tint") !== `rgb(${col})`) { tab.style.setProperty("--vos-tint", `rgb(${col})`); tileCol = kind === "tile"; const lv = levels(col); tab.style.setProperty("--vos-tint-d", lv[0]); tab.style.setProperty("--vos-tint-l", lv[1]); } }
       else if (tab.style.getPropertyValue("--vos-tint")) { tab.style.removeProperty("--vos-tint"); tab.style.removeProperty("--vos-tint-d"); tab.style.removeProperty("--vos-tint-l"); }
     }
   }
