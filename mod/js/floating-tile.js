@@ -1424,7 +1424,12 @@ window.vosBeat = window.vosBeat || (() => {
     let b = pinBadges.get(id);
     if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r) { if (b) { b.remove(); pinBadges.delete(id); } return; }
     const host = stack(); if (!host) return;
-    const tid = groupFloat.has(id) ? (splitFocus.get(id) || id) : id, src = tabIcon(tid);
+    const tid = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
+    let src = tabIcon(tid);
+    if (!src) {                                                       // (1.0.245: the tab bar's picture not there yet: the site's own icon)
+      const u = pageOf(tid)?.querySelector("webview")?.getAttribute("src") || "";
+      if (/^https?:/.test(u)) try { src = favicon(u); } catch (e) {}
+    }
     if (!b || b.parentElement !== host) {
       b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge"; b.appendChild(document.createElement("img")).alt = "";
       host.appendChild(b); pinBadges.set(id, b);
@@ -1438,10 +1443,14 @@ window.vosBeat = window.vosBeat || (() => {
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     const im = b.firstChild; if (src && im.getAttribute("src") !== src) im.src = src;
     b.toggleAttribute("data-empty", !src);
+    b.toggleAttribute("data-hide", el.matches(":hover"));               // (1.0.245: as the pointer really is - never left hidden)
     const S = 30, G = 6, x = side === "r" ? r.x - S - G : r.x + r.w + G;
     place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: S }, s, o);
     setStyle(b, "z-index", "99");
   }
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => {            // 1.0.245: each circle shown or hidden as the pointer really is
+    for (const [id, b] of pinBadges) { const el = targetOf(pageOf(id)); if (el) b.toggleAttribute("data-hide", el.matches(":hover")); }
+  });
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (!pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
@@ -7310,6 +7319,7 @@ window.vosBeat = window.vosBeat || (() => {
   const dotsSoon = () => { clearTimeout(dotsQ); dotsQ = setTimeout(() => { if (!document.hidden) deskIndicatorNow(); }, 250); };
   try { for (const ev of ["onCreated", "onRemoved", "onAttached", "onDetached"]) chrome.tabs[ev].addListener(dotsSoon); } catch (e) {}
   try { chrome.tabs.onUpdated.addListener((id, info) => { if (info.vivExtData != null) dotsSoon(); }); } catch (e) {}
+  try { chrome.tabs.onUpdated.addListener((id, info) => { if (info.favIconUrl && pip.some(p => p === String(id) || splitFocus.get(p) === String(id))) queueRender(); }); } catch (e) {}   // 1.0.245: a pinned app's icon arrived: its circle shows it
   try { vivaldi.prefs.onChanged.addListener(p => { const k = String(p?.path ?? p ?? ""); if (/workspaces/.test(k)) dotsSoon(); if (/panels/.test(k)) panelSide(); }); } catch (e) {}
   setTimeout(panelSide, 1200); setInterval(() => { if (!document.hidden) panelSide(); }, 15000);
   setInterval(() => { if (!document.hidden) deskIndicatorNow(); }, 15000);
