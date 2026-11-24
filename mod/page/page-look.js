@@ -46,15 +46,75 @@
         var css = new CSSStyleSheet();
         css.replaceSync("::view-transition-old(root),::view-transition-new(root){animation-duration:.45s !important;animation-timing-function:ease !important}");
         D.adoptedStyleSheets = D.adoptedStyleSheets.concat([css]);
-        var vt = D.startViewTransition(function () { go(); return new Promise(function (r) { setTimeout(r, 260); }); });   // (the site redraws, its rules switch)
+        var vt = D.startViewTransition(function () { go(); return new Promise(function (r) { setTimeout(function () { judge(); r(); }, 260); }); });   // (the site redraws, its rules switch; a made-up dark on or off with it)
         var done = function () { D.adoptedStyleSheets = D.adoptedStyleSheets.filter(function (x) { return x !== css; }); };
         vt.finished.then(done, done);
         return look || "off";
       } catch (e) {}
     }
-    go();
+    go(); soon(400);
     return look || "off";
   };
+
+  /* 1.0.288: A SITE WITH NO DARK DESIGN OF ITS OWN gets one made for it. When this page should be dark (Vivaldi dark, or
+     this window switched to dark) and is still drawn light once it has loaded, it is turned dark - its pictures, videos,
+     maps, canvases and coloured logos turned back, so they keep their real colours. A site that has its own dark design is
+     never touched, and one that turns dark by itself later loses the made-up one again. Light is never made up. */
+  var gen = null, genT = 0, genObs = null, M = "img,video,canvas,picture,iframe,embed,object,svg image,[data-vos-img]";
+  var want = function () { return answer("(prefers-color-scheme: dark)"); };
+  var lumOf = function (c) { var m = (String(c).match(/[\d.]+/g) || []).map(Number); return m.length < 3 || (m.length > 3 && m[3] < 0.5) ? null : 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]; };
+  function pageLum() {
+    var D = document; if (!D.body) return null;
+    for (var e = D.elementFromPoint(innerWidth / 2, innerHeight / 2); e; e = e.parentElement) { var L = lumOf(getComputedStyle(e).backgroundColor); if (L !== null) return L; }
+    var b = lumOf(getComputedStyle(D.body).backgroundColor); if (b !== null) return b;
+    var h = lumOf(getComputedStyle(D.documentElement).backgroundColor); return h === null ? 255 : h;
+  }
+  var tint = function (v) { return v && v !== "none" && v.indexOf("url(") < 0 && !/rgba?\([^)]*,\s*0\)$/.test(v) ? v : null; };
+  function coloured(svg) {                                       // a logo with colours of its own (2+), not a one-colour icon
+    var cols = {}, n = 0, txt = getComputedStyle(svg).color, parts = svg.querySelectorAll("path,circle,rect,polygon,ellipse,g,use,line,polyline");
+    for (var k = 0; k < parts.length && k < 60; k++) { var cs = getComputedStyle(parts[k]); [tint(cs.fill), tint(cs.stroke)].forEach(function (c) { if (c && c !== txt && c !== "rgb(0, 0, 0)" && c !== "rgb(255, 255, 255)" && !cols[c]) { cols[c] = 1; n++; } }); }
+    return n >= 2;
+  }
+  function mark() {                                              // pictures drawn as a background, and coloured logos: turned back too
+    var all = document.querySelectorAll("*");
+    for (var i = 0; i < all.length && i < 6000; i++) { var el = all[i]; if (el.__vosSeen) continue; el.__vosSeen = 1;
+      if (el.tagName === "svg" || el.tagName === "SVG") { if (coloured(el)) el.setAttribute("data-vos-img", ""); continue; }
+      var bg = getComputedStyle(el).backgroundImage; if (bg && bg.indexOf("url(") >= 0) el.setAttribute("data-vos-img", ""); }
+  }
+  function genOn() {
+    if (gen) return;
+    var D = document, root = getComputedStyle(D.documentElement).backgroundColor, body = D.body ? getComputedStyle(D.body).backgroundColor : "";
+    var base = lumOf(root) !== null ? "" : "html{background-color:" + (lumOf(body) !== null ? body : "#fff") + " !important}";   // (the page's own white, darkened with it)
+    gen = new CSSStyleSheet();
+    gen.replaceSync(base + "html{filter:invert(1) hue-rotate(180deg) contrast(0.92) !important}" +
+      ":is(" + M + "):not(:is(" + M + ") *){filter:invert(1) hue-rotate(180deg) !important} :is(" + M + ") :is(" + M + "){filter:none !important}");
+    D.adoptedStyleSheets = D.adoptedStyleSheets.concat([gen]);
+    mark();
+    var t = 0; genObs = new MutationObserver(function () { if (t) return; t = setTimeout(function () { t = 0; if (gen) mark(); }, 500); });
+    genObs.observe(D.documentElement, { childList: true, subtree: true });
+  }
+  function genOff() {
+    if (!gen) return; var g = gen; gen = null;
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter(function (x) { return x !== g; });
+    if (genObs) { genObs.disconnect(); genObs = null; }
+  }
+  function judge() {
+    clearTimeout(genT); genT = 0;
+    if (!/html/i.test(document.contentType || "")) return;
+    if (!want()) return genOff();
+    var L = pageLum(); if (L === null) return;
+    if (gen) { if (L < 110) genOff(); return; }                  // (it turned dark by itself)
+    if (L > 160) genOn();
+  }
+  function soon(ms) { clearTimeout(genT); genT = setTimeout(judge, ms || 600); }
+  real.call(W, "(prefers-color-scheme: dark)").addEventListener("change", function () { soon(500); });
+  document.addEventListener("DOMContentLoaded", function () {
+    soon(700);
+    var t = 0, watch = new MutationObserver(function () { if (t) return; t = setTimeout(function () { t = 0; judge(); }, 400); });   // (a site that changes its own look later)
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme", "data-color-mode"] });
+    if (document.body) watch.observe(document.body, { attributes: true, attributeFilter: ["class", "style", "data-theme"] });
+  });
+  addEventListener("load", function () { soon(700); setTimeout(judge, 2500); });
 })();
 
 /* Bento OS - Windows only: Mac-style scroll bars on websites. The page's own bars are hidden and take no room; a thin
