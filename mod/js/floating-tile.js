@@ -3009,6 +3009,8 @@ window.vosBeat = window.vosBeat || (() => {
     }
     bento.shape = shape;
   }
+  const bDivEls = new Map(), bGripEls = new Map();   // (performance) Bento's dividers and grabbers, by id - never searched for
+  let bBtnOn = null, bBtnAt = 0;
   function bentoAfterPlace(s) {
     if (bento.pendingFlip) {
       bentoSettle();
@@ -3022,8 +3024,8 @@ window.vosBeat = window.vosBeat || (() => {
       const o = fixedOrigin(host);
       for (const d of bento.layout.dividers) {
         want.add(d.id);
-        let el = host.querySelector(`:scope > .bento-divider[data-id="${d.id}"]`);
-        if (!el) { el = document.createElement("div"); el.className = "bento-divider"; el.dataset.id = d.id; host.appendChild(el); }
+        let el = bDivEls.get(d.id);
+        if (!el || el.parentElement !== host) { el?.remove(); el = document.createElement("div"); el.className = "bento-divider"; el.dataset.id = d.id; host.appendChild(el); bDivEls.set(d.id, el); }
         el.dataset.axis = d.axis;
         place(el, d.r, s, o);
         setStyle(el, "z-index", "950");
@@ -3035,26 +3037,28 @@ window.vosBeat = window.vosBeat || (() => {
         const ids = [...pipSide(side, s).keys()];
         if (!ids.length || (side === "l" ? area.x <= MARGIN : s.width - area.x - area.w <= MARGIN)) continue;
         const id = "pip-" + side; want.add(id);
-        let el = host.querySelector(`:scope > .bento-divider[data-id="${id}"]`);
-        if (!el) { el = document.createElement("div"); el.className = "bento-divider vos-pip-divider"; el.dataset.id = id; host.appendChild(el); }
+        let el = bDivEls.get(id);
+        if (!el || el.parentElement !== host) { el?.remove(); el = document.createElement("div"); el.className = "bento-divider vos-pip-divider"; el.dataset.id = id; host.appendChild(el); bDivEls.set(id, el); }
         el.dataset.axis = "h"; el.dataset.side = side;
         const x = side === "l" ? area.x - BGAP : area.x + area.w;
         place(el, { x, y: MARGIN, w: BGAP, h: s.height - 2 * MARGIN }, s, o);
         setStyle(el, "z-index", "950");
       }
     }
-    for (const el of document.querySelectorAll(".bento-divider")) if (!want.has(el.dataset.id)) el.remove();
+    for (const [k, el] of bDivEls) if (!want.has(k)) { el.remove(); bDivEls.delete(k); }
     bentoGrips(s);
     bentoDim(s);
     bentoSave();
-    bentoButton();
+    // the toolbar's Bento button: at once when Bento changes, else at most once a second (the heartbeat catches a rebuilt toolbar)
+    if (bento.on !== bBtnOn || performance.now() - bBtnAt > 1000) { bBtnOn = bento.on; bBtnAt = performance.now(); bentoButton(); }
   }
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => { try { bentoButton(); } catch (e) {} });
 
   function bentoGrips(s) {
     const host = stack();
     if (!host || !bento.layout || !bento.root) {
       bento.handles = []; bento.handlesKey = "";
-      document.querySelectorAll(".bento-grip").forEach(g => g.remove());
+      for (const g of bGripEls.values()) g.remove(); bGripEls.clear();
       return;
     }
     const area = bArea(s);
@@ -3070,13 +3074,13 @@ window.vosBeat = window.vosBeat || (() => {
       const g = long ? (h ? { x: cx - 2, y: r.y + 14, w: 4, h: r.h - 28 } : { x: r.x + 14, y: cy - 2, w: r.w - 28, h: 4 })
                      : (h ? { x: cx - 2, y: cy - 60, w: 4, h: 120 } : { x: cx - 60, y: cy - 2, w: 120, h: 4 });
       want.add(x.key);
-      let el = host.querySelector(`:scope > .bento-grip[data-key="${x.key}"]`);
-      if (!el) { el = document.createElement("div"); el.className = "bento-grip"; el.dataset.key = x.key; host.appendChild(el); }
+      let el = bGripEls.get(x.key);
+      if (!el || el.parentElement !== host) { el?.remove(); el = document.createElement("div"); el.className = "bento-grip"; el.dataset.key = x.key; host.appendChild(el); bGripEls.set(x.key, el); }
       el.toggleAttribute("data-long", long);
       place(el, g, s, o);
       setStyle(el, "z-index", long ? "951" : "952");            // the singles sit on the joined line
     }
-    for (const el of document.querySelectorAll(".bento-grip")) if (!want.has(el.dataset.key)) el.remove();
+    for (const [k, el] of bGripEls) if (!want.has(k)) { el.remove(); bGripEls.delete(k); }
     bentoHot();
   }
   /* while Bento is on, the desktop behind the windows dims (fades in and out) */
@@ -3103,8 +3107,8 @@ window.vosBeat = window.vosBeat || (() => {
     const add = x => { hot.add(x.key); if (x.universal && x.shared) x.parts.forEach(k => hot.add(k)); };
     for (const x of bento.handles)
       if (bento.gesture ? bento.gesture.ids.has(x.d.id) : x.key === bento.hoverKey) add(x);
-    for (const g of document.querySelectorAll(".bento-grip"))
-      if (g.hasAttribute("data-hot") !== hot.has(g.dataset.key)) g.toggleAttribute("data-hot", hot.has(g.dataset.key));
+    for (const [k, g] of bGripEls)
+      if (g.hasAttribute("data-hot") !== hot.has(k)) g.toggleAttribute("data-hot", hot.has(k));
   }
   function bentoHover(e) {                          // light the grabber the pointer would take
     if (lpOn()) return;
