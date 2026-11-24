@@ -1875,3 +1875,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser.theme-dark > .vos-wctl .vos-wctl-ic[data-plate] { background: #000000 !important; }
 #browser#browser.theme-light :is(#main [data-ft-pip] > .vos-pin-badge, #webpage-stack > .vos-pin-badge)[data-plate],
 #browser#browser.theme-light > .vos-wctl .vos-wctl-ic[data-plate] { background: #ffffff !important; }
+
+/* 1.0.290: the going is drawn by its own animation and ends hidden at once (no extra fifth of a second shown at full again) */
+#browser#browser > .vos-wctl, #browser#browser > .vos-wctl[data-on], #browser#browser > .vos-wctl[data-out] { transition: none !important; }
+#browser#browser > .vos-wctl:not([data-on]):not([data-out]) { visibility: hidden !important; }

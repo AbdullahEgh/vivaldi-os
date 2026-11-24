@@ -2710,7 +2710,7 @@ window.vosBeat = window.vosBeat || (() => {
   };
   let wctlOutT = 0;
   const wctlOff = () => {                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
-    if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => b.removeAttribute("data-out"), 320); }
+    if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => b.removeAttribute("data-out"), 380); }
     wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
   };
   const wctlPlace = () => {
