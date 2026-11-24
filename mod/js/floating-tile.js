@@ -1416,19 +1416,33 @@ window.vosBeat = window.vosBeat || (() => {
     const title = /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw;     // never an internal address
     if (tEl.textContent !== title) tEl.textContent = title;
   }
-  /* a pinned app: its tab-bar circle at the inner bottom corner (right pins: lower left, left pins: lower right) -
-     it hides while the pointer is in that window (CSS) */
-  function pinBadge(el, id) {
-    let b = $(":scope > .vos-pin-badge", el);
-    if (!pip.includes(id) || awayWs(id)) { b?.remove(); return; }
+  /* 1.0.243: a pinned app: its tab-bar circle OUTSIDE it, beside its top corner toward the middle of the screen (right pins:
+     top left, left pins: top right), under every window (z 99: windows start at 100). It hides while the pointer is in
+     that app */
+  const pinBadges = new Map();                       // window id -> its circle (in the page area, beside the windows)
+  function pinBadge(el, id, r, s, o) {
+    let b = pinBadges.get(id);
+    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r) { if (b) { b.remove(); pinBadges.delete(id); } return; }
+    const host = stack(); if (!host) return;
     const tid = groupFloat.has(id) ? (splitFocus.get(id) || id) : id, src = tabIcon(tid);
-    if (!b) { b = document.createElement("div"); b.className = "vos-pin-badge"; b.appendChild(document.createElement("img")).alt = ""; el.appendChild(b); }
+    if (!b || b.parentElement !== host) {
+      b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge"; b.appendChild(document.createElement("img")).alt = "";
+      host.appendChild(b); pinBadges.set(id, b);
+    }
+    if (el.__vosBadgeHover !== id) {                                  // the pointer in the app: the circle goes
+      el.__vosBadgeHover = id;
+      el.addEventListener("pointerenter", () => pinBadges.get(el.dataset.ftFloat)?.setAttribute("data-hide", ""));
+      el.addEventListener("pointerleave", () => pinBadges.get(el.dataset.ftFloat)?.removeAttribute("data-hide"));
+    }
     const side = (pipCorner.get(id) || "bl")[1], plate = document.getElementById("tab-" + tid)?.getAttribute("data-vos-plate") || "";
-    if (b.dataset.side !== side) b.dataset.side = side;
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     const im = b.firstChild; if (src && im.getAttribute("src") !== src) im.src = src;
     b.toggleAttribute("data-empty", !src);
+    const S = 30, G = 6, x = side === "r" ? r.x - S - G : r.x + r.w + G;
+    place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: S }, s, o);
+    setStyle(b, "z-index", "99");
   }
+  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (!pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
   /* resize only from outside: an invisible frame around the window, a few px
@@ -1799,9 +1813,10 @@ window.vosBeat = window.vosBeat || (() => {
     if (mission) mission.slots = slots;
     missionIcons(slots, s);
     missionMax(s, slots);
+    pinBadgesSweep();
     const seenNow = new Map(); deskSeen = { key: deskKey(), w: s.width, h: s.height, map: seenNow };
     for (const { id, el } of windows) {
-      addChrome(el, id); pinBadge(el, id);
+      addChrome(el, id);
       const held = missionDrag?.id === id;
       const r = held ? missionDrag.r : liveMove?.id === id ? liveMove.base
         : (awayWs(id) && !mission && otherTiles(wsOfTab.get(String(id)), s).get(id)) || pxRect(id, s), o = origins.get(el.parentElement);   // another desktop with Bento on: its place in that Bento (as it shows when you get there)
@@ -1822,6 +1837,7 @@ window.vosBeat = window.vosBeat || (() => {
         else vs.pages.forEach((mp, i) => place(mp, row ? { x: r.x + I + i * (each + G), y: r.y + I, w: each, h: r.h - 2 * I }
                                                   : { x: r.x + I, y: r.y + I + i * (each + G), w: r.w - 2 * I, h: each }, s, origins.get(mp.parentElement) || fixedOrigin(mp.parentElement)));
       } else place(el, r, s, o);
+      pinBadge(el, id, held || mission ? null : r, s, origins.get(stack()) || o);   // (Mission Control / held in it: none)
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
         : cover === id && !mission ? "90000"                         // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts); Mission Control: a window like the others

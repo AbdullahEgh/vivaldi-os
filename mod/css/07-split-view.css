@@ -1687,3 +1687,16 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser #main [data-ft-pip] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-yellow {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 3h4.4L3 7.4z M9 9H4.6L9 4.6z' fill='%23985700'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important;
 }
+
+/* 1.0.243: the pinned app's circle OUTSIDE it, beside its top corner, under every window (placed by floating-tile.js) */
+#browser #webpage-stack > .vos-pin-badge {
+  box-sizing: border-box !important; border-radius: 50% !important; display: grid !important; place-items: center !important; pointer-events: none !important;
+  background: var(--colorBg) !important; box-shadow: 0 0 0 1px color-mix(in srgb, var(--colorFg, #fff) 14%, transparent) !important;
+  opacity: 1; transform: scale(1); transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+#browser #webpage-stack > .vos-pin-badge[data-plate="light"] { background: color-mix(in srgb, var(--colorFg) 30%, var(--colorBg)) !important; }
+#browser #webpage-stack > .vos-pin-badge[data-plate="dark"] { background: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
+#browser #webpage-stack > .vos-pin-badge > img { width: 18px !important; height: 18px !important; object-fit: contain !important; }
+#browser #webpage-stack > .vos-pin-badge[data-hide] { opacity: 0 !important; transform: scale(0.6) !important; }
+#browser #webpage-stack > .vos-pin-badge[data-empty],
+#browser:is([data-vos-mission], [data-launchpad], :not([data-ft-desktop])) #webpage-stack > .vos-pin-badge { display: none !important; }
