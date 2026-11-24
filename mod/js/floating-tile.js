@@ -960,7 +960,7 @@ window.vosBeat = window.vosBeat || (() => {
     // 1.0.270: held still first, then dragged - they come apart: only the one you drag toward changes, the other keeps its size
     const side = (pipCorner.get(a) || "bl")[1], col = pipSide(side, s0), da = col.get(a)?.h || ha * (k || 1), db = col.get(b)?.h || hb * (k || 1);
     let apart = false;
-    const holdT = setTimeout(() => { apart = true; const l = line(); l?.setAttribute("data-apart", ""); }, BTN_HOLD);
+    const holdT = 0;                                                 // (1.0.272: held-then-dragged pull-apart - off for now)
     let frame = 0, last = null;
     const apply = () => {
       if (!last) return;
@@ -1535,7 +1535,16 @@ window.vosBeat = window.vosBeat || (() => {
     st = document.createElement("style"); st.id = "vos-look"; (document.head || document.documentElement).appendChild(st);
     st.textContent = ":root{color-scheme:" + (toDark ? "dark" : "light") + " !important}";
     var now = lum();
-    if ((now > 128) === (was > 128)) st.textContent = "html{filter:invert(1) hue-rotate(180deg) !important} img,video,picture,canvas,iframe,svg image,[style*=background-image]{filter:invert(1) hue-rotate(180deg) !important}";
+    if ((now > 128) === (was > 128)) {
+      var M = "img,video,canvas,iframe,embed,object,svg image,[data-vos-img]";
+      st.textContent = "html{filter:invert(1) hue-rotate(180deg) !important} :is(" + M + "):not(:is(" + M + ") *){filter:invert(1) hue-rotate(180deg) !important} :is(" + M + ") :is(" + M + "){filter:none !important}";
+      var mark = function(root){ var all = (root.querySelectorAll ? root.querySelectorAll("*") : []);
+        for (var i = 0; i < all.length && i < 6000; i++) { var e = all[i]; if (e.hasAttribute("data-vos-img")) continue;
+          var bg = getComputedStyle(e).backgroundImage; if (bg && bg.indexOf("url(") >= 0) e.setAttribute("data-vos-img", ""); } };
+      mark(document);
+      if (!window.__vosImgObs) { var t = 0; window.__vosImgObs = new MutationObserver(function(){ if (t) return; t = setTimeout(function(){ t = 0; if (document.getElementById("vos-look")) mark(document); }, 400); });
+        window.__vosImgObs.observe(document.documentElement, { childList: true, subtree: true }); }
+    }
     return "on";
   })()`;
   function darkApply(wv, on) { try { wv.executeScript({ code: DARK_CODE(!!on) }, () => void chrome.runtime.lastError); } catch (e) {} }
