@@ -1713,3 +1713,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser[data-ft-clock-tone="dark"] .tiled[data-ft-float][data-ft-pip]:not(.webpageview) .tile > .SlideBar::after { background: rgba(0, 0, 0, 0.34) !important; }
 #browser#browser .tiled[data-ft-float][data-ft-pip]:not(.webpageview) .tile > .SlideBar--FullHeight::after { width: 4px !important; height: min(120px, 60%) !important; }
 #browser#browser .tiled[data-ft-float][data-ft-pip]:not(.webpageview) .tile > .SlideBar--FullWidth::after { width: min(120px, 60%) !important; height: 4px !important; }
+
+/* 1.0.249: the pinned app's circle is a handle: drag it to move its app */
+#browser #webpage-stack > .vos-pin-badge { pointer-events: auto !important; cursor: grab !important; touch-action: none !important; }
+#browser #webpage-stack > .vos-pin-badge:active { cursor: grabbing !important; }
+
+/* 1.0.249: the pinned app's circle smaller (24px, its picture 14px) */
+#browser#browser #webpage-stack > .vos-pin-badge > img { width: 14px !important; height: 14px !important; }

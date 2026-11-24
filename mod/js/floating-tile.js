@@ -1435,15 +1435,21 @@ window.vosBeat = window.vosBeat || (() => {
       b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge"; b.appendChild(document.createElement("img")).alt = "";
       host.appendChild(b); pinBadges.set(id, b);
     }
+    if (b.dataset.for !== id) b.dataset.for = id;
     const side = (pipCorner.get(id) || "bl")[1], plate = document.getElementById("tab-" + tid)?.getAttribute("data-vos-plate") || "";
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     const im = b.firstChild; if (src && im.getAttribute("src") !== src) im.src = src;
     b.toggleAttribute("data-empty", !src);
     b.toggleAttribute("data-drag", pipDrag?.id === id);                // 1.0.247: held and moved: gone at once (back where it lands)
-    const S = 30, G = 6, x = side === "r" ? r.x - S - G : r.x + r.w + G;
+    const S = 24, G = 6, x = side === "r" ? r.x - S - G : r.x + r.w + G;
     place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: S }, s, o);
     setStyle(b, "z-index", "99");
   }
+  addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
+    const b = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge"), id = b?.dataset.for;
+    if (!id || mission || lpOn() || !pip.includes(id)) return;
+    const el = targetOf(pageOf(id)); if (el) pipGesture(e, el, id, "move");
+  }, true);
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (!pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 
