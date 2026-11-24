@@ -1635,3 +1635,20 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #main [data-ft-pip]:hover > .vos-pin-badge { opacity: 0 !important; transform: scale(0.6) !important; }
 #browser #main [data-ft-pip] > .vos-pin-badge[data-empty],
 #browser:is([data-vos-mission], [data-launchpad]) #main [data-ft-pip] > .vos-pin-badge { display: none !important; }
+
+/* 1.0.234: the pin divider (where a pin goes, and the line between two pins) was the theme's text colour - dark grey in
+   light mode, lost on the wallpaper. Now the Bento grips' look in both modes: white with a thin dark edge */
+#browser#browser #webpage-stack > .vos-pin-slot,
+#browser#browser #webpage-stack > .vos-pip-hdiv::after { background: rgba(255, 255, 255, 0.85) !important; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.25) !important; }
+
+/* 1.0.235: the pinned app's circle: no drop shadow - a gentle 1px edge like the windows' (theme text colour at 14%: seen in both modes) */
+#browser#browser #main [data-ft-pip] > .vos-pin-badge { box-shadow: 0 0 0 1px color-mix(in srgb, var(--colorFg, #fff) 14%, transparent) !important; }
+
+/* 1.0.238: the Bento plot in the same glass as the other plots (snap, pin, gap): its dashed split edge and red conflict stay */
+#browser#browser .bento-preview {
+  background: rgba(255, 255, 255, 0.22) !important; border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25), inset 0 0 0 0.5px rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: blur(24px) saturate(1.5) !important;
+}
+#browser#browser .bento-preview[data-split] { border-style: dashed !important; }
+#browser#browser .bento-preview[data-conflict] { background: rgba(255, 59, 48, 0.16) !important; border-color: rgba(255, 59, 48, 0.7) !important; }

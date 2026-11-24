@@ -1535,7 +1535,7 @@ window.vosBeat = window.vosBeat || (() => {
   function pageAct(what, page) {
     const id = page.dataset.id, w = winOf(id);
     if (what === "res") {                           // only this page's scale
-      const steps = [1, 0.85, 0.7, 0.55], now = pageZoom[id] ?? zoomOf[w] ?? 1;
+      const steps = [1, 0.85, 0.7], now = pageZoom[id] ?? zoomOf[w] ?? 1;
       const i = steps.findIndex(z => Math.abs(z - now) < 0.02);
       const z = steps[(i + 1) % steps.length] ?? 1;
       pageZoom[id] = z;
@@ -2106,14 +2106,14 @@ window.vosBeat = window.vosBeat || (() => {
     if (action === "res") {                        // more room for the site: the page renders smaller
       if (!floating.has(id)) return;
       if (pip.includes(id)) {                        // held small: its own scale steps (kept while it is small)
-        const steps = [0.4, 0.55, 0.7, 0.85, 1], now = pinZoomFor(id);
+        const steps = [0.4, 0.7, 1], now = pinZoomFor(id);
         const i = steps.findIndex(z => Math.abs(z - now) < 0.02), z = steps[(i + 1) % steps.length];
         pipUserZoom.set(id, z);
         webviewsOf(id).forEach(wv => { zoomSet.delete(wv); setWebZoom(wv, z); });
         persist(id);                                                 // (kept after a restart too)
         return;
       }
-      const steps = [1, 0.85, 0.7, 0.55], now = zoomOf[id] || 1;
+      const steps = [1, 0.85, 0.7], now = zoomOf[id] || 1;
       const i = steps.findIndex(z => Math.abs(z - now) < 0.02);
       const z = steps[(i + 1) % steps.length] ?? 1;                // any other scale: back to 100%
       if (z === 1) delete zoomOf[id]; else zoomOf[id] = z;
@@ -2132,6 +2132,8 @@ window.vosBeat = window.vosBeat || (() => {
                       { duration: 1100, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => label.remove()) && setTimeout(() => label.remove(), 2500);
       }
       persist(id);
+      raise(id); activate(groupFloat.has(id) ? (splitFocus.get(id) || id) : id);   // 1.0.236: it comes forward with the keys - Ctrl + / - then zoom THIS window
+      setTimeout(() => webviewsOf(id)[0]?.focus(), 0);
       render();
       return;
     }
