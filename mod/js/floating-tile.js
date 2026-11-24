@@ -3250,6 +3250,7 @@ window.vosBeat = window.vosBeat || (() => {
       render();
       const w = targetOf(pageOf(id));
       if (w?.hasAttribute("data-ft-float")) startGesture(ev, w, "move");
+      setTimeout(() => shakeWindows(id), 420);                       // (and the others pinned, as any shake)
     };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
@@ -3766,7 +3767,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (shown) { snapPreview(null); shown = null; }
       if (!wsStrip) openWsStrip().then(() => { if (ended && wsStrip) closeWsStrip(); });   // let go meanwhile: not after
     };
-    const shake = shaker();
+    const shake = shaker(); let shook = false;
     let pinAt = null;                                                // over a corner or a side's pinned windows: it shrinks; let go - pinned there
     let pinSl = null;
     const pinShow = (c, x, y) => {
@@ -3841,7 +3842,10 @@ window.vosBeat = window.vosBeat || (() => {
       snapCheck(px, py);
       deskCheck(px, py);
       splitCheck(px, py);
-      if (how === "move" && bento.on && shake(px, ev.timeStamp)) bentoToggle(false);   // shake: Bento off
+      if (how === "move" && !shook && shake(px, ev.timeStamp)) {      // shake: the others pinned to the corners (Bento off first)
+        shook = true;
+        if (bento.on) { bentoToggle(false); setTimeout(() => shakeWindows(id), 420); } else shakeWindows(id);
+      }
       if (Math.hypot(px - sx, py - sy) > 4) moved = true;
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
@@ -3948,6 +3952,7 @@ window.vosBeat = window.vosBeat || (() => {
         const sl = pinSl; slotShow(null);
         if (c && ev.type === "pointerup" && floating.has(id) && !pip.includes(id)) { pinAt = null; persist(id); pinInto(id, c, sl); return; }   // pinned there, between the others
         if (c) pinShow(null); }
+      if (how !== "move" && moved && ev.type === "pointerup") { const m = pinMem.get(id); if (m) { delete m.w; delete m.h; } }   // resized: its remembered pinned size goes (its corner and place stay)
       let snap = ev.type === "pointerup" ? (shown || (!deskDrop && !leaving && !inMission ? fling(ev) : null)) : null;   // (thrown: the same snap)
       if (isPinFlick(snap)) {                                         // flicked to a corner / to the pinned apps: pinned there (it flies in)
         const sl = flickSlot(snap, id, ev.clientY, el);
@@ -4171,6 +4176,18 @@ window.vosBeat = window.vosBeat || (() => {
   }
 
   /* SHAKE: a window shaken left-right while you drag it (4 quick turns) */
+  /* SHAKE a window: every other window of this desktop is pinned, shared out over the four corners (front ones first) */
+  function shakeWindows(id) {                       // shaken: the others pinned - shaken again (pins there): every pin back to a window
+    const live = pip.filter(p => p !== id && !awayWs(p) && !minimized.has(p));
+    if (!live.length) return pinOthers(id);
+    flip(live.map(p => targetOf(pageOf(p))), () => { for (const p of live) { pipOff(p); persist(p); } render(); });   // (they glide back to their places)
+  }
+  function pinOthers(id) {
+    const C = ["tl", "tr", "bl", "br"];
+    const others = [...floating].filter(w => w !== id && !pip.includes(w) && !minimized.has(w) && !awayWs(w) && w !== cover && !groupFloat.has(w))
+      .sort((a, b) => zOrder.indexOf(b) - zOrder.indexOf(a));
+    others.forEach((w, i) => { try { pinInto(w, C[i % 4], null); } catch (e) {} });
+  }
   function shaker() {
     let dir = 0, turnX = null, turns = [];
     return (x, t) => {

@@ -1,3 +1,3 @@
 /* Bento OS version (written by Build Release): js/launchpad.js checks GitHub for a newer one */
-window.vosVersion = "1.0.230";
+window.vosVersion = "1.0.231";
 window.vosRepo = "AbdullahEgh/vivaldi-os";
