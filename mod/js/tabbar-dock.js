@@ -189,26 +189,33 @@
     try {                                            // (fetched: an <img> from chrome:// would lock the canvas)
       const blob = await (await fetch(src)).blob();
       if (/^text\//.test(blob.type)) { busy.delete(src); seen.set(src, "broken"); return "broken"; }   // a page, not a picture: no icon really
-      const bmp = await createImageBitmap(blob);
+      let bmp;
+      if (/svg/i.test(blob.type)) {                    // 1.0.303: an SVG icon (claude.ai's): drawn through a picture first
+        const u = URL.createObjectURL(blob), im = new Image(); im.src = u;
+        try { await im.decode(); } finally { setTimeout(() => URL.revokeObjectURL(u), 1000); }
+        bmp = im;
+      } else bmp = await createImageBitmap(blob);
       const N = 16, c = document.createElement("canvas"); c.width = c.height = N;
       const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, N, N);
       const d = g.getImageData(0, 0, N, N).data; let n = 0, hi = 0, lo = 0;
       // 1.0.301: its own tile (the ring round its edge: solid, one colour) - the circle takes it, so the icon is whole;
       // and its own colour (its coloured parts) - for a gentle tint of the circle
-      const ring = [], acc = [0, 0, 0, 0];
+      const ring = [], acc = [0, 0, 0, 0], all = [0, 0, 0, 0];
       for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
         const i = (y * N + x) * 4, r = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2);
         if (r >= 6 && r <= 7.6) ring.push(d[i + 3] > 200 ? [d[i], d[i + 1], d[i + 2]] : null);
+        if (d[i + 3] > 160) { all[0] += d[i]; all[1] += d[i + 1]; all[2] += d[i + 2]; all[3]++; }
         if (d[i + 3] > 160) { const C = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); if (C > 60) { acc[0] += d[i]; acc[1] += d[i + 1]; acc[2] += d[i + 2]; acc[3]++; } }
       }
       const solid = ring.filter(Boolean);
       let tile = null;
-      if (ring.length && solid.length / ring.length > 0.8) {
+      if (ring.length && solid.length / ring.length > 0.6) {         // (1.0.303: a tile with rounded corners too)
         const m = [0, 1, 2].map(k => solid.reduce((a, c) => a + c[k], 0) / solid.length);
         const dev = solid.reduce((a, c) => a + Math.abs(c[0] - m[0]) + Math.abs(c[1] - m[1]) + Math.abs(c[2] - m[2]), 0) / solid.length / 3;
-        if (dev < 28) tile = m.map(Math.round).join(",");
+        if (dev < 34) tile = m.map(Math.round).join(",");
       }
-      const tint = acc[3] >= 4 ? [acc[0], acc[1], acc[2]].map(x => Math.round(x / acc[3])).join(",") : null;
+      const tint = acc[3] >= 4 ? [acc[0], acc[1], acc[2]].map(x => Math.round(x / acc[3])).join(",")
+        : all[3] >= 4 ? [all[0], all[1], all[2]].map(x => Math.round(x / all[3])).join(",") : null;   // (1.0.303: a grey or black icon: its own grey)
       for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 120) {
         const L = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++;
         const C = (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2])) / 255;   // 1.0.282: a strong colour shows on black and on white

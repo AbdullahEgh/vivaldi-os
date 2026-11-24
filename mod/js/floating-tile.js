@@ -1651,6 +1651,18 @@ window.vosBeat = window.vosBeat || (() => {
       const has = await S.getRegisteredContentScripts({ ids: ["vos-look"] }).catch(() => []);
       if (!has.length) await S.registerContentScripts([{ id: "vos-look", matches: ["<all_urls>"], js: [file], runAt: "document_start", world: "MAIN", allFrames: true, persistAcrossSessions: true }]);
       lookLive = true;
+      // 1.0.303: pages Vivaldi restored before the page-start script was in place (right after a start) get it: one in a
+      // window with a look of its own is opened again once (its app picks its look as it starts); any other gets it loaded in
+      const fill = () => chrome.tabs.query({}, tabs => { for (const t of tabs || []) {
+        if (!/^https?:/.test(t.url || "") || t.discarded) continue;
+        chrome.scripting.executeScript({ target: { tabId: t.id }, world: "MAIN", func: () => !!window.__vosLookSet }).then(r => {
+          if (!r || !r[0] || r[0].result !== false) return;
+          const w = winOf(String(t.id)) || String(t.id);
+          if (lookWins.has(w) && performance.now() < 120000) { chrome.tabs.reload(t.id, {}, () => void chrome.runtime.lastError); return; }
+          chrome.scripting.executeScript({ target: { tabId: t.id, allFrames: true }, world: "MAIN", files: ["custom-vivaldi-os-page-look.js"] }).catch(() => {});
+        }).catch(() => {});
+      } });
+      fill(); setTimeout(fill, 20000);
       for (const w of lookWins.keys()) for (const wv of webviewsOf(w)) wv.__vosLookAt = null;   // (told again, now live)
       for (const w of lookWins.keys()) if (floating.has(w)) lookSync(w);
     } catch (e) { lookLive = false; }
@@ -1660,7 +1672,18 @@ window.vosBeat = window.vosBeat || (() => {
     const tabId = tabOfWv(wv); if (!lookLive || !tabId) return;
     const again = () => { if (!target || (wv.__vosLookTry = (wv.__vosLookTry || 0) + 1) > 20) return; if ((wv.__vosLookAt ?? "") === target) wv.__vosLookAt = null; };   // 1.0.298: not heard (a page still being restored after a start): told again on the next beat
     try { chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", injectImmediately: !!now, func: (t, q) => window.__vosLookSet ? window.__vosLookSet(t, q) : "none", args: [target || null, !!now] })
-      .then(r => { if (!r || !r[0] || r[0].result === "none" || r[0].result == null) setTimeout(again, 0); else wv.__vosLookTry = 0; }).catch(() => setTimeout(again, 0)); } catch (e) {}
+      .then(r => {
+        if (r && r[0] && r[0].result === "none" && target && !wv.__vosLookReload) { wv.__vosLookReload = true; try { chrome.tabs.reload(tabId, {}, () => void chrome.runtime.lastError); } catch (e) {} return; }
+        if (r && r[0] && r[0].result === "none" && target && !wv.__vosLookLoad) {   // 1.0.303: the page has no page-start script (it loaded before it, or without it): load it in, then tell it
+          wv.__vosLookLoad = true;
+          return chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", files: ["custom-vivaldi-os-page-look.js"] })
+            .then(() => chrome.scripting.executeScript({ target: { tabId, allFrames: true }, world: "MAIN", func: (t) => window.__vosLookSet ? window.__vosLookSet(t) : "none", args: [target] }))
+            .then(r2 => { wv.__vosLookLoad = false; if (!r2 || !r2[0] || r2[0].result === "none") setTimeout(again, 0); else wv.__vosLookTry = 0; })
+            .catch(() => { wv.__vosLookLoad = false; setTimeout(again, 0); });
+        }
+        if (r && r[0] && /\|late$/.test(r[0].result || "") && target && !wv.__vosLookReload) {   // 1.0.303: its script came late (the app had already picked its look): opened again once, so it starts in this look
+          wv.__vosLookReload = true; try { chrome.tabs.reload(tabId, {}, () => void chrome.runtime.lastError); } catch (e) {} return; }
+        if (!r || !r[0] || r[0].result === "none" || r[0].result == null) setTimeout(again, 0); else wv.__vosLookTry = 0; }).catch(() => setTimeout(again, 0)); } catch (e) {}
   }
   function lookApply(wv, target) {
     if (!wv.__vosLookHook) {                                         // each new page in it: at its very start

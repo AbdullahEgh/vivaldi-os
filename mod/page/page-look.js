@@ -4,7 +4,7 @@
    is told at once - the same signal a site gets when the Mac itself turns light or dark - so it redraws without a reload. */
 (function () {
   if (window.__vosLookSet) return;
-  var KEY = "__vosLook", real = window.matchMedia, W = window;
+  var KEY = "__vosLook", real = window.matchMedia, W = window, late = document.readyState !== "loading";   // (1.0.303: late - loaded into a page already running)
   var look = null; try { look = sessionStorage.getItem(KEY); } catch (e) {}
   if (look !== "light" && look !== "dark") look = null;
   var RE = /\(\s*prefers-color-scheme\s*:\s*(light|dark)\s*\)/gi, lists = [];
@@ -49,11 +49,11 @@
         var vt = D.startViewTransition(function () { go(); return new Promise(function (r) { setTimeout(function () { judge(); r(); }, 260); }); });   // (the site redraws, its rules switch; a made-up dark on or off with it)
         var done = function () { D.adoptedStyleSheets = D.adoptedStyleSheets.filter(function (x) { return x !== css; }); };
         vt.finished.then(done, done);
-        return look || "off";
+        return (look || "off") + (late ? "|late" : "");
       } catch (e) {}
     }
     go(); soon(400);
-    return look || "off";
+    return (look || "off") + (late ? "|late" : "");
   };
 
   /* 1.0.289: A SITE WITH NO DARK DESIGN OF ITS OWN gets one written for it - from its own style rules, not by turning its
@@ -279,7 +279,7 @@
   }
   function soon(ms) { clearTimeout(genT); genT = setTimeout(judge, ms || 600); }
   real.call(W, "(prefers-color-scheme: dark)").addEventListener("change", function () { soon(500); });
-  document.addEventListener("DOMContentLoaded", function () {
+  var ready = function () {
     soon(500);
     var t = 0; genWatch = new MutationObserver(function () {   // (a site that changes its own look later - while dark is written, only a theme-like change is measured)
       if (t) return;
@@ -287,8 +287,9 @@
       t = setTimeout(function () { t = 0; judge(); }, 800); });
     genWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme", "data-color-mode"] });
     if (document.body) genWatch.observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme"] });
-  });
-  addEventListener("load", function () { soon(500); setTimeout(judge, 2500); });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready); else ready();   // (1.0.303: loaded into a page already open: at once)
+  if (document.readyState === "complete") setTimeout(judge, 2500); else addEventListener("load", function () { soon(500); setTimeout(judge, 2500); });
 })();
 
 /* Bento OS - Windows only: Mac-style scroll bars on websites. The page's own bars are hidden and take no room; a thin

@@ -312,3 +312,9 @@
 #browser#browser#browser#browser #tabs-container .tab[data-vos-plate="dark"]:hover { background-color: #000000 !important; }
 #browser#browser#browser#browser #tabs-container .tab[data-vos-tint="tile"],
 #browser#browser#browser#browser #tabs-container .tab[data-vos-tint="tile"]:hover { background-color: var(--vos-tint) !important; }
+
+/* 1.0.303: a grey or black icon's tint shows too (a little more of it) */
+#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tint="soft"],
+#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tint="soft"]:hover { background-color: color-mix(in srgb, var(--vos-tint) 22%, #000000) !important; }
+#browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint="soft"],
+#browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint="soft"]:hover { background-color: color-mix(in srgb, var(--vos-tint) 14%, #ffffff) !important; }
