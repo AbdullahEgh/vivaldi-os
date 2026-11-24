@@ -1931,6 +1931,16 @@ window.vosBeat = window.vosBeat || (() => {
       if (tp && !tp.hasAttribute("data-ft-sel")) tp.setAttribute("data-ft-sel", "");
     }
     markPills();
+    {                                                                // 1.0.252: a minimized app: a thin line under its icon in the tab bar
+      const want = new Set();
+      for (const m of minimized) {
+        if (pip.includes(m)) continue;
+        const ids = groupFloat.has(m) ? membersOf(pageOf(m)) : [];
+        for (const t of ids.length ? ids : [m]) { const tp = document.getElementById("tab-" + t)?.closest(".tab-position"); if (tp) want.add(tp); }
+      }
+      for (const o of $$(".tab-position[data-vos-min]")) if (!want.has(o)) o.removeAttribute("data-vos-min");
+      for (const tp of want) if (!tp.hasAttribute("data-vos-min")) tp.setAttribute("data-vos-min", "");
+    }
     if (selId !== lastSiteTab) { lastSiteTab = selId; updateSiteName(); }
     else if (siteFor != null) for (const f of $$(".UrlBar-AddressField .UrlField")) {   // a re-drawn field
       if (f.getAttribute("data-ft-site") !== siteFor) f.setAttribute("data-ft-site", siteFor);

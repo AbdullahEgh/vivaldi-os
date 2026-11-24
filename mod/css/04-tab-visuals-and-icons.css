@@ -253,3 +253,17 @@
 #browser #tabs-container .tab[data-vos-plate="dark"],
 #browser #tabs-container .tab[data-vos-plate="dark"]:hover { background-color: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
 #browser #tabs-container .tab { transition: background-color 0.22s ease !important; }   /* (the plate comes and goes softly) */
+
+/* 1.0.252: a minimized app - a thin line under its icon, halfway between the icon and the bottom of the bar */
+#browser #tabs-container .tab-position[data-vos-min] { position: relative !important; }
+#browser #tabs-container .tab-position[data-vos-min]::after {
+  content: "" !important; position: absolute !important; left: 50% !important; width: 12px !important; height: 2px !important; margin-left: -6px !important;
+  top: calc(100% + 2px) !important; border-radius: 1px !important; pointer-events: none !important;   /* (the 30px circle ends 6px above the bar's bottom: the line centred in that gap) */
+  background: color-mix(in srgb, var(--colorFg) 60%, transparent) !important;
+}
+#browser.color-behind-tabs-on #tabs-container .tab-position[data-vos-min]::after { background: color-mix(in srgb, var(--colorAccentFg) 70%, transparent) !important; }
+/* (the tab strip clips at its own height: 6px more below it - nothing moves - so the line shows) */
+#browser #tabs-container .tab-strip { padding-bottom: 6px !important; margin-bottom: -6px !important; }
+/* (the line: the theme's text colour always - the bar's own text colour could be white on a light bar - a little wider) */
+#browser#browser #tabs-container .tab-position[data-vos-min]::after { background: color-mix(in srgb, var(--colorFg) 70%, transparent) !important; width: 14px !important; margin-left: -7px !important; }
+#browser#browser #tabs-container .tab-position[data-vos-min]::after { z-index: 10 !important; }   /* (over the tab's own wrapper) */
