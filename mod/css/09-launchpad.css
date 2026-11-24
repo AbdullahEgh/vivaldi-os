@@ -1625,3 +1625,7 @@
 /* 1.0.266: the New Update button: the address field's own live colours (the bar's accent, faded by Vivaldi with the bar) -
    it changes on the same frames as the tab bar, never a moment later */
 #browser#browser .vos-upd-tag { background: var(--colorAccentBgDark) !important; color: var(--colorAccentFg) !important; transition: none !important; }
+
+/* 1.0.329: the desktop has no search field - its apps move up into that room (the Launchpad from + keeps its own) */
+#browser #webpage-stack > .lp-layer.lp-desktop > .lp-searchbar { display: none !important; }
+#browser #webpage-stack > .lp-layer.lp-desktop { padding-top: 36px !important; }
