@@ -2730,7 +2730,9 @@ window.vosBeat = window.vosBeat || (() => {
     const b = wctl; b.removeAttribute("data-out"); b.setAttribute("data-gone", ""); b.removeAttribute("data-on");
     wctlFor = null; cornerH = null; clearInterval(wctlTick); clearTimeout(wctlOutT);
     wctlOutT = setTimeout(() => b.removeAttribute("data-gone"), 120);
+    wctlMute = Date.now() + 900;                                     // 1.0.294: not back while its window animates (the pointer is still there)
   }, true);
+  let wctlMute = 0;
   const wctlOff = () => {                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
     if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => b.removeAttribute("data-out"), 380); }
     wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
@@ -2746,6 +2748,7 @@ window.vosBeat = window.vosBeat || (() => {
     return true;
   };
   function wctlShow(id) {
+    if (Date.now() < wctlMute) return;
     const b = wctlEl(); if (!b) return;
     if (wctlFor === id && b.hasAttribute("data-on")) return;
     wctlFor = id; b.dataset.ftPage = id;

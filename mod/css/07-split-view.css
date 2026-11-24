@@ -1919,3 +1919,20 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser #webpage-stack > .vos-pin-badge[data-vos-look="dark"], #browser#browser > .vos-wctl[data-vos-look="dark"] .vos-wctl-ic { background: #000000 !important; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) !important; }
 #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="light"] .vos-pin-ctl::after { background: rgba(255, 255, 255, 0.72) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16), 0 0 0 0.5px rgba(0, 0, 0, 0.16), inset 0 0.5px 0 rgba(255, 255, 255, 0.6) !important; }
 #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="dark"] .vos-pin-ctl::after { background: rgba(30, 30, 32, 0.72) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.14), inset 0 0.5px 0 rgba(255, 255, 255, 0.12) !important; }
+
+/* 1.0.294: a pinned app's pill unrolls from just under its circle (uncovered downward, never over the circle); going, it
+   rolls back up into it */
+@keyframes vos-pin-ctl-in { from { clip-path: inset(0 -12px 100% -12px); } to { clip-path: inset(0 -12px -12px -12px); } }
+@keyframes vos-pin-ctl-out { from { clip-path: inset(0 -12px -12px -12px); } to { clip-path: inset(0 -12px 100% -12px); } }
+#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl { transform: none !important; }
+
+/* 1.0.294: the buttons' pill in the drop previews' glass (light / dark, Vivaldi's look - or the window's own) */
+#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after {
+  background: rgba(255, 255, 255, 0.22) !important; border: 1px solid rgba(255, 255, 255, 0.55) !important; box-sizing: border-box !important;
+  backdrop-filter: blur(24px) saturate(1.5) !important; -webkit-backdrop-filter: blur(24px) saturate(1.5) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), inset 0 0 0 0.5px rgba(0, 0, 0, 0.08) !important;
+}
+#browser#browser#browser#browser.theme-dark :is(#webpage-stack > .vos-pin-badge:not([data-vos-look="light"]), #browser > .vos-wctl:not([data-vos-look="light"])) > .vos-pin-ctl::after,
+#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="dark"] > .vos-pin-ctl::after {
+  background: rgba(40, 40, 46, 0.35) !important; border-color: rgba(255, 255, 255, 0.22) !important;
+}
