@@ -1417,8 +1417,8 @@ window.vosBeat = window.vosBeat || (() => {
     if (tEl.textContent !== title) tEl.textContent = title;
   }
   /* 1.0.243: a pinned app: its tab-bar circle OUTSIDE it, beside its top corner toward the middle of the screen (right pins:
-     top left, left pins: top right), under every window (z 99: windows start at 100). It hides while the pointer is in
-     that app */
+     top left, left pins: top right), under every window (z 99: windows start at 100). Always shown (1.0.246: outside the
+     app, nothing to hide) */
   const pinBadges = new Map();                       // window id -> its circle (in the page area, beside the windows)
   function pinBadge(el, id, r, s, o) {
     let b = pinBadges.get(id);
@@ -1434,23 +1434,14 @@ window.vosBeat = window.vosBeat || (() => {
       b?.remove(); b = document.createElement("div"); b.className = "vos-pin-badge"; b.appendChild(document.createElement("img")).alt = "";
       host.appendChild(b); pinBadges.set(id, b);
     }
-    if (el.__vosBadgeHover !== id) {                                  // the pointer in the app: the circle goes
-      el.__vosBadgeHover = id;
-      el.addEventListener("pointerenter", () => pinBadges.get(el.dataset.ftFloat)?.setAttribute("data-hide", ""));
-      el.addEventListener("pointerleave", () => pinBadges.get(el.dataset.ftFloat)?.removeAttribute("data-hide"));
-    }
     const side = (pipCorner.get(id) || "bl")[1], plate = document.getElementById("tab-" + tid)?.getAttribute("data-vos-plate") || "";
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     const im = b.firstChild; if (src && im.getAttribute("src") !== src) im.src = src;
     b.toggleAttribute("data-empty", !src);
-    b.toggleAttribute("data-hide", el.matches(":hover"));               // (1.0.245: as the pointer really is - never left hidden)
     const S = 30, G = 6, x = side === "r" ? r.x - S - G : r.x + r.w + G;
     place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: S }, s, o);
     setStyle(b, "z-index", "99");
   }
-  (window.vosBeat || (f => setInterval(f, 2500)))(() => {            // 1.0.245: each circle shown or hidden as the pointer really is
-    for (const [id, b] of pinBadges) { const el = targetOf(pageOf(id)); if (el) b.toggleAttribute("data-hide", el.matches(":hover")); }
-  });
   function pinBadgesSweep() { for (const [id, b] of pinBadges) if (!pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) { b.remove(); pinBadges.delete(id); } }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
 

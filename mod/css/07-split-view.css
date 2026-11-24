@@ -1697,6 +1697,5 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack > .vos-pin-badge[data-plate="light"] { background: color-mix(in srgb, var(--colorFg) 30%, var(--colorBg)) !important; }
 #browser #webpage-stack > .vos-pin-badge[data-plate="dark"] { background: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
 #browser #webpage-stack > .vos-pin-badge > img { width: 18px !important; height: 18px !important; object-fit: contain !important; }
-#browser #webpage-stack > .vos-pin-badge[data-hide] { opacity: 0 !important; transform: scale(0.6) !important; }
 #browser #webpage-stack > .vos-pin-badge[data-empty],
 #browser:is([data-vos-mission], [data-launchpad], :not([data-ft-desktop])) #webpage-stack > .vos-pin-badge { display: none !important; }
