@@ -1980,3 +1980,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-plate="light"] { background: #ffffff !important; }
 #browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-plate="dark"] { background: #000000 !important; }
 #browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-tint="tile"] { background: var(--vos-tint) !important; }
+
+/* 1.0.304: the pinned and window circles at that same level */
+#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-tint] { background: var(--vos-tint-d) !important; }
+#browser#browser#browser#browser#browser.theme-light :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic)[data-tint],
+#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge[data-vos-look="light"], #browser > .vos-wctl[data-vos-look="light"] .vos-wctl-ic)[data-tint] { background: var(--vos-tint-l) !important; }

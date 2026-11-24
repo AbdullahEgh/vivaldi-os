@@ -1495,7 +1495,8 @@ window.vosBeat = window.vosBeat || (() => {
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     { const tb = ids.length === 1 ? document.getElementById("tab-" + ids[0]) : null, k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
       if ((b.dataset.tint || "") !== k) { if (k) b.dataset.tint = k; else delete b.dataset.tint; }
-      if (b.style.getPropertyValue("--vos-tint") !== c) { if (c) b.style.setProperty("--vos-tint", c); else b.style.removeProperty("--vos-tint"); } }
+      if (b.style.getPropertyValue("--vos-tint") !== c) { if (c) b.style.setProperty("--vos-tint", c); else b.style.removeProperty("--vos-tint"); }
+      for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (b.style.getPropertyValue(v) !== x) { if (x) b.style.setProperty(v, x); else b.style.removeProperty(v); } } }
     b.toggleAttribute("data-multi", ids.length > 1);
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
     const dragging = pipDrag?.id === id && badgeHeld !== id;          // (1.0.292: held by its own circle: it stays, and goes with its app)
@@ -2805,7 +2806,8 @@ window.vosBeat = window.vosBeat || (() => {
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; }
       const tb = document.getElementById("tab-" + t), k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
       if ((ic.dataset.tint || "") !== k) { if (k) ic.dataset.tint = k; else delete ic.dataset.tint; }
-      if (ic.style.getPropertyValue("--vos-tint") !== c) { if (c) ic.style.setProperty("--vos-tint", c); else ic.style.removeProperty("--vos-tint"); } }
+      if (ic.style.getPropertyValue("--vos-tint") !== c) { if (c) ic.style.setProperty("--vos-tint", c); else ic.style.removeProperty("--vos-tint"); }
+      for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (ic.style.getPropertyValue(v) !== x) { if (x) ic.style.setProperty(v, x); else ic.style.removeProperty(v); } } }
     const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
     if (g.title !== tip) g.title = tip;
     if (!wctlPlace()) return wctlOff();

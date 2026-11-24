@@ -318,3 +318,12 @@
 #browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tint="soft"]:hover { background-color: color-mix(in srgb, var(--vos-tint) 22%, #000000) !important; }
 #browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint="soft"],
 #browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint="soft"]:hover { background-color: color-mix(in srgb, var(--vos-tint) 14%, #ffffff) !important; }
+
+/* 1.0.304: every app's circle at the same level: its icon's colour (its tile's, or its own), deep in dark, pale in light -
+   none brighter than another (a window in its own look: that look's level) */
+#browser#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tint],
+#browser#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tint]:hover,
+#browser#browser#browser#browser#browser#browser.theme-light #tabs-container .tab-position[data-vos-look="dark"] .tab[data-vos-tint] { background-color: var(--vos-tint-d) !important; }
+#browser#browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint],
+#browser#browser#browser#browser#browser#browser.theme-light #tabs-container .tab[data-vos-tint]:hover,
+#browser#browser#browser#browser#browser#browser #tabs-container .tab-position[data-vos-look="light"] .tab[data-vos-tint] { background-color: var(--vos-tint-l) !important; }
