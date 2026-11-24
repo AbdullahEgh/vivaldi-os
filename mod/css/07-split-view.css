@@ -1994,3 +1994,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.307: a pinned app's buttons come out with the pointer near its circle too (a small ring round it), not only on it */
 #browser#browser #webpage-stack > .vos-pin-badge::before { content: "" !important; position: absolute !important; inset: -14px !important; border-radius: 50% !important; }
+
+/* 1.0.308: a pinned app's circle while pinned apps show none (Bento, or a window full beside them): unseen at its corner;
+   the pointer there brings it - it comes out as a window's circle does, its buttons unrolling under it */
+#browser#browser #webpage-stack > .vos-pin-badge[data-bare] { animation: none !important; opacity: 0 !important; transform: scale(0.85) !important; transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.5, 0, 0.75, 0) !important; }
+#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover { opacity: 1 !important; transform: none !important; transition: opacity 0.18s ease, transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl::after { animation-delay: 0.14s !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc::before { animation-delay: 0.2s !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }

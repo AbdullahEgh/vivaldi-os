@@ -1465,7 +1465,8 @@ window.vosBeat = window.vosBeat || (() => {
   const pinBadges = new Map();                       // window id -> its circle (in the page area, beside the windows)
   function pinBadge(el, id, r, s, o) {
     let b = pinBadges.get(id);
-    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r || bento.on || roomActive()) { if (b) badgeGone(b, id); return; }   // (1.0.250: none with Bento on)
+    if (!pip.includes(id) || awayWs(id) || minimized.has(id) || !r) { if (b) badgeGone(b, id); return; }
+    const bare = bento.on || roomActive();                           // 1.0.308: no circle on show: it waits, unseen, at its corner (the pointer there brings it)   // (1.0.250: none with Bento on)
     const host = stack(); if (!host) return;
     // 1.0.251: a split: every pane's icon, one above the other in one pill (the tab bar's split pill, upright)
     const ids = (groupFloat.has(id) && membersOf(pageOf(id)).length > 1) ? membersOf(pageOf(id)) : [groupFloat.has(id) ? (splitFocus.get(id) || id) : id];
@@ -1502,6 +1503,7 @@ window.vosBeat = window.vosBeat || (() => {
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
     const dragging = pipDrag?.id === id && badgeHeld !== id;          // (1.0.292: held by its own circle: it stays, and goes with its app)
     b.toggleAttribute("data-drag", dragging);                          // 1.0.247: held and moved: gone at once (back where it lands)
+    b.toggleAttribute("data-bare", bare);
     const S = 24, G = 6, H = S + (ids.length - 1) * 20, x = side === "r" ? r.x - S - G : r.x + r.w + G;
     // 1.0.268: it comes out from behind its app once the app has settled (new, or back after a drag) - toward its own side
     if (!dragging && (b.__vosIn !== side || b.__vosWasDrag)) {
@@ -1724,7 +1726,7 @@ window.vosBeat = window.vosBeat || (() => {
     };
     const watchTheme = () => { const b = browserEl(); if (!b) return setTimeout(watchTheme, 800); themeSettled(); new MutationObserver(themeCheck).observe(b, { attributes: true, attributeFilter: ["class"] }); };
     watchTheme(); }
-  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (bento.on || roomActive() || !pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) badgeGone(b, id); }
+  function pinBadgesSweep() { for (const [id, b] of pinBadges) if (!pip.includes(id) || !floating.has(id) || awayWs(id) || minimized.has(id)) badgeGone(b, id); }
   function badgeGone(b, id) {                                        // 1.0.301: a pinned app's circle, no longer needed: it goes into its window
     if (pinBadges.get(id) === b) pinBadges.delete(id);
     if (b.__gone) return; b.__gone = true; b.style.pointerEvents = "none";
@@ -2859,7 +2861,7 @@ window.vosBeat = window.vosBeat || (() => {
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     startGesture(e, el, "move");
   }, true);
-  const pinBare = () => bento.on || roomActive();                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
+  const pinBare = () => false;                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
   const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id);   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
