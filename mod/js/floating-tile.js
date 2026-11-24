@@ -2750,6 +2750,12 @@ window.vosBeat = window.vosBeat || (() => {
     }
   }, { capture: true, passive: true });
   let wctlXY = null;
+  addEventListener("pointerdown", e => {                          // 1.0.284: the circle is a handle, as a pinned app's - pressed, its window moves
+    if (e.button !== 0 || !wctl || !wctlFor || !e.target?.closest?.(".vos-wctl-ic") || !wctl.contains(e.target)) return;
+    const id = wctlFor, el = targetOf(pageOf(id)); if (!el || mission || lpOn()) return;
+    wctlOff();                                                       // (gone while it moves, back at the corner)
+    startGesture(e, el, "move");
+  }, true);
   const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && !el.hasAttribute("data-ft-pip") && !minimized.has(id) && !awayWs(id);
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;

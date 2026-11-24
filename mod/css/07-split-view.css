@@ -1870,3 +1870,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser > .vos-wctl[data-on] .ft-light:nth-child(2) { animation-delay: 0.25s !important; }
 #browser#browser > .vos-wctl[data-on] .ft-light:nth-child(3) { animation-delay: 0.3s !important; }
 #browser#browser > .vos-wctl[data-on] .ft-light:nth-child(4) { animation-delay: 0.35s !important; }
+
+/* 1.0.284: the window's circle is a handle: drag it to move the window */
+#browser#browser > .vos-wctl .vos-wctl-ic { cursor: grab !important; touch-action: none !important; }
+#browser#browser > .vos-wctl .vos-wctl-ic:active { cursor: grabbing !important; }
