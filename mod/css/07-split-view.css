@@ -2008,3 +2008,29 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    finds it there), and whenever it is hovered */
 #browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare],
 #browser#browser#browser #webpage-stack > .vos-pin-badge:hover { z-index: 2147483000 !important; }
+
+/* 1.0.311: FROM INSIDE ONLY. A pinned app's buttons (and, while the circles are hidden, its circle) come from the strip along
+   its own top at its circle's end (floating-tile.js: data-show) - not from the pointer outside, on or near its circle */
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:not([data-show]) > .vos-pin-ctl { pointer-events: none !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:not([data-show]) > .vos-pin-ctl::after { animation: vos-pill-v-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:not([data-show]) > .vos-pin-ctl .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl { pointer-events: auto !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl::after { animation: vos-pill-v-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) backwards !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.06s both !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.11s !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.16s !important; }
+/* (its circle hidden: it comes first, then its pill - as a window's) */
+#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:not([data-show]) { opacity: 0 !important; transform: scale(0.85) !important; pointer-events: none !important; }
+#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] { opacity: 1 !important; transform: none !important; pointer-events: auto !important; transition: opacity 0.18s ease, transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl::after { animation-delay: 0.14s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc::before { animation-delay: 0.2s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }
+
+/* 1.0.311: ONCE THEY SHOW, EASIER TO HIT: a wider hold round them, and each button's target reaching further */
+#browser#browser #webpage-stack > .vos-pin-badge:not([data-show])::before { display: none !important; }
+#browser#browser #webpage-stack > .vos-pin-badge[data-show]::before { inset: -18px !important; }
+#browser#browser#browser > .vos-wctl::after { left: -18px !important; right: -18px !important; top: -16px !important; }
+#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) .vos-pc > i, #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) .vos-pc::after { content: "" !important; position: absolute !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge .vos-pc::after { inset: -2px -10px !important; }
+#browser#browser#browser #browser > .vos-wctl .vos-pc::after { inset: -10px -2px !important; }

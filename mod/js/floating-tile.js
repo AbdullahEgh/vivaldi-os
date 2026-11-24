@@ -2825,7 +2825,7 @@ window.vosBeat = window.vosBeat || (() => {
     wctlTick = setInterval(() => {                                   // (over the page the browser hears no moves: checked here)
       if (wctlFor !== id) return clearInterval(wctlTick);
       if (wctlHeld || wctl.matches(":hover") || cornerH?.matches(":hover")) return;
-      if (wctlZone && wctlZone(id)) return;                          // (still in the corner's area)
+      if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:hover`)) return;   // (1.0.311: on its edge, between the strip and them)
       wctlOff();
     }, 200);
   }
@@ -2835,18 +2835,29 @@ window.vosBeat = window.vosBeat || (() => {
     if (wctl && wctl.contains(t)) return;
     wctlXY = [ev.clientX, ev.clientY, t];
     if (mission || lpOn()) return;
-    const h = t?.closest?.(".ft-frame > .ft-resize");
-    if (h && /\bft-(tl|t)\b/.test(h.className)) {
-      const id = h.parentElement?.dataset.ftFor, el = id && targetOf(pageOf(id));
-      const r = h.parentElement.getBoundingClientRect();
-      if (el && wctlOk(id, el) && (h.classList.contains("ft-tl") || ev.clientX - r.left < 90)) { cornerH = h; return wctlShow(id); }
+    /* 1.0.311: FROM INSIDE ONLY - the strip along the window's own top, at its corner (a window: its left end; a pinned app:
+       the end its circle is at). Not from outside it */
+    const bar = t?.closest?.("[data-ft-float][data-ft-notitle] > .ft-titlebar"), el = bar?.parentElement, id = bar?.dataset.ftPage && winOf(bar.dataset.ftPage);
+    if (!bar || !el || !id) return;
+    const w = el.getBoundingClientRect();
+    if (el.hasAttribute("data-ft-pip")) {
+      const side = (pipCorner.get(id) || "bl")[1], near = side === "r" ? ev.clientX - w.left < 120 : w.right - ev.clientX < 120;   // (its circle's end)
+      if (near) pinShow(id, bar);
+      return;
     }
-    for (const id of [...zOrder].reverse()) {                        // 1.0.282: or just near that corner - the topmost window there
-      const el = targetOf(pageOf(id)); if (!el || !wctlOk(id, el)) continue;
-      const other = t?.closest?.("[data-ft-float]"); if (other && other !== el) continue;   // (another window's own area)
-      if (wctlZone(id)) { cornerH = null; return wctlShow(id); }
-    }
+    if (wctlOk(id, el) && ev.clientX - w.left < 120) { cornerH = bar; wctlShow(id); }
   }, { capture: true, passive: true });
+  let pinShown = null, pinShowT = 0;
+  function pinShow(id, bar) {                                        // a pinned app's circle and buttons, brought from inside its corner
+    const b = pinBadges.get(id); if (!b) return;
+    if (pinShown && pinShown !== b) pinShown.removeAttribute("data-show");
+    pinShown = b; if (!b.hasAttribute("data-show")) b.setAttribute("data-show", "");
+    clearInterval(pinShowT);
+    pinShowT = setInterval(() => {                                   // (kept while the pointer is on its corner, its circle or its buttons)
+      if (b.matches(":hover") || bar.matches(":hover") || b.__vosHover || badgeHeld === id) return;
+      b.removeAttribute("data-show"); if (pinShown === b) pinShown = null; clearInterval(pinShowT);
+    }, 200);
+  }
   let wctlXY = null, wctlHeld = false;
   addEventListener("pointerdown", e => {                          // 1.0.297: its window resized (an edge or corner pressed): they stay, following it
     const h = e.button === 0 && wctlFor && e.target?.closest?.(".ft-frame > .ft-resize");
