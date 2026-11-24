@@ -192,9 +192,14 @@
       const bmp = await createImageBitmap(blob);
       const N = 16, c = document.createElement("canvas"); c.width = c.height = N;
       const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, N, N);
-      const d = g.getImageData(0, 0, N, N).data; let s = 0, n = 0;
-      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 120) { s += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++; }
-      v = n > 12 ? s / n : null;                     // (almost nothing drawn: leave it)
+      const d = g.getImageData(0, 0, N, N).data; let n = 0, hi = 0, lo = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 120) {
+        const L = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++;
+        if (L > 0.35) hi++; if (L < 0.65) lo++;
+      }
+      // 1.0.244: not its average - how much of it shows against the circle: a dark tile with bright marks (its own
+      // background) shows on black and needs no plate; only an icon with hardly any bright (or, in light mode, dark) part does
+      v = n > 12 ? { hi: hi / n, lo: lo / n } : null;   // (almost nothing drawn: leave it)
     } catch (e) {}
     busy.delete(src); seen.set(src, v);
     return v;
@@ -212,7 +217,7 @@
       if (!src) { tab.removeAttribute("data-vos-plate"); continue; }
       const v = seen.get(src);
       if (v === undefined) { brightness(src).then(x => { if (x !== undefined) soon(); }); continue; }
-      const want = typeof v !== "number" ? null : dark && v < 0.22 ? "light" : !dark && v > 0.86 ? "dark" : null;
+      const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
     }
