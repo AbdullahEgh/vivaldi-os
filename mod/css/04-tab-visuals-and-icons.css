@@ -267,3 +267,7 @@
 /* (the line: the theme's text colour always - the bar's own text colour could be white on a light bar - a little wider) */
 #browser#browser #tabs-container .tab-position[data-vos-min]::after { background: color-mix(in srgb, var(--colorFg) 70%, transparent) !important; width: 14px !important; margin-left: -7px !important; }
 #browser#browser #tabs-container .tab-position[data-vos-min]::after { z-index: 10 !important; }   /* (over the tab's own wrapper) */
+/* 1.0.253: the line takes the app's circle colour (white circles: a white line, black ones: black), the soft plate too */
+#browser#browser #tabs-container .tab-position[data-vos-min]::after { background: var(--colorBg) !important; }
+#browser#browser #tabs-container .tab-position[data-vos-min]:has(.tab[data-vos-plate="light"])::after { background: color-mix(in srgb, var(--colorFg) 30%, var(--colorBg)) !important; }
+#browser#browser #tabs-container .tab-position[data-vos-min]:has(.tab[data-vos-plate="dark"])::after { background: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
