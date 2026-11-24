@@ -3330,3 +3330,42 @@
 
   vstore.get(TM_KEY).then(v => { if (v && typeof v === "object") { tm = { ...tm, ...v }; ensureTick(); } });              // the seed file may load after this one
 })();
+
+/* 1.0.330: Windows only - Mac-style scroll bars in Bento OS's own screens (the desktop, the Launchpad, its folders, panels):
+   the standard bars hidden, with no room kept for them; a thin rounded bar shows only while one scrolls, then fades.
+   (Web pages get the same from the page-start file; a Mac does this by itself.) */
+(() => {
+  "use strict";
+  const plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+  if (!/^win/i.test(plat) || window.__vosUiBars) return;
+  window.__vosUiBars = 1;
+  const OURS = '#browser :is([class^="lp-"], [class*=" lp-"], [class^="vos-"], [class*=" vos-"])';
+  const st = document.createElement("style");
+  st.textContent = `${OURS} { scrollbar-width: none !important; } ${OURS}::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+    #vos-ui-bars { position: fixed; inset: 0; pointer-events: none; z-index: 2147483646; }
+    #vos-ui-bars i { position: fixed; display: block; border-radius: 4px; opacity: 0; transition: opacity .35s ease; }
+    #vos-ui-bars i.on { opacity: 1; transition: opacity .1s ease; }`;
+  document.head.appendChild(st);
+  let host = null, bars = null, hideT = 0;
+  const make = () => {
+    if (host?.isConnected) return;
+    host = document.createElement("div"); host.id = "vos-ui-bars"; host.innerHTML = "<i></i><i></i>";
+    document.body.appendChild(host); bars = host.querySelectorAll("i");
+  };
+  addEventListener("scroll", e => {
+    const el = e.target; if (!(el instanceof Element) || !el.matches(OURS.replace("#browser ", "#browser "))) return;
+    if (!el.closest("#browser")) return;
+    make();
+    const r = el.getBoundingClientRect(), dark = document.getElementById("browser")?.classList.contains("theme-dark") || !!el.closest(".lp-desktop");
+    [0, 1].forEach(k => {
+      const b = bars[k], vert = k === 0, size = vert ? el.scrollHeight : el.scrollWidth, view = vert ? el.clientHeight : el.clientWidth;
+      if (size <= view + 1) { b.className = ""; return; }
+      const track = (vert ? r.height : r.width) - 6, len = Math.max(28, track * view / size), pos = (track - len) * ((vert ? el.scrollTop : el.scrollLeft) / (size - view));
+      b.style.background = dark ? "rgba(255,255,255,.5)" : "rgba(0,0,0,.45)";
+      b.style.boxShadow = dark ? "0 0 0 1px rgba(0,0,0,.35)" : "0 0 0 1px rgba(255,255,255,.35)";
+      b.style.cssText += vert ? `;width:7px;height:${len}px;left:${r.right - 9}px;top:${r.top + 3 + pos}px` : `;height:7px;width:${len}px;top:${r.bottom - 9}px;left:${r.left + 3 + pos}px`;
+      b.className = "on";
+    });
+    clearTimeout(hideT); hideT = setTimeout(() => bars.forEach(b => b.className = ""), 900);
+  }, { capture: true, passive: true });
+})();
