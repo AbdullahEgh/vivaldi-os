@@ -1732,11 +1732,20 @@ window.vosBeat = window.vosBeat || (() => {
   function badgeGone(b, id) {                                        // 1.0.301: a pinned app's circle, no longer needed: it goes into its window
     if (pinBadges.get(id) === b) pinBadges.delete(id);
     if (b.__gone) return; b.__gone = true; b.style.pointerEvents = "none";
-    const el = targetOf(pageOf(id)), w = el?.getBoundingClientRect(), r = b.getBoundingClientRect();
-    if (!w || !w.width || !r.width || awayWs(id)) { b.remove(); return; }
-    const dx = w.left + Math.min(w.width, 80) / 2 - (r.left + r.width / 2), dy = w.top + Math.min(w.height, 80) / 2 - (r.top + r.height / 2);   // (toward its window's corner)
-    b.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${Math.round(dx)}px, ${Math.round(dy)}px) scale(0.5)`, opacity: 0 }],
-      { duration: 280, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "forwards" }).finished.catch(() => {}).then(() => b.remove());
+    const el = targetOf(pageOf(id)), r = b.getBoundingClientRect();   // 1.0.312: it travels into its window - wherever the window is as it goes (still growing back)
+    if (!el || !r.width || awayWs(id)) { b.remove(); return; }
+    const t0 = performance.now(), D = 320, cx0 = r.left + r.width / 2, cy0 = r.top + r.height / 2, ease = k => k * k * (3 - 2 * k);
+    const step = now => {
+      if (!b.isConnected) return;
+      const k = Math.min(1, (now - t0) / D), e = ease(k), w = el.getBoundingClientRect();
+      const tx = w.left + Math.min(w.width, 120) / 2, ty = w.top + Math.min(w.height, 120) / 2;   // (just inside its top left corner)
+      b.style.setProperty("transform", `translate(${Math.round((tx - cx0) * e)}px, ${Math.round((ty - cy0) * e)}px) scale(${(1 - 0.5 * e).toFixed(3)})`, "important");
+      b.style.setProperty("opacity", String(1 - k * k), "important");
+      b.style.setProperty("animation", "none", "important");
+      if (k < 1) requestAnimationFrame(step); else b.remove();
+    };
+    b.style.setProperty("transition", "none", "important");
+    requestAnimationFrame(step);
     setTimeout(() => b.remove(), 600);
   }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
