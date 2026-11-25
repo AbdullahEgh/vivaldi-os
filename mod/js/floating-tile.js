@@ -2934,7 +2934,7 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
     const t = ev.target;
-    if (wctl && wctl.contains(t)) { if (t.closest?.(".vos-wctl-ic")) wctlBtnsOn(); return; }   // 1.0.369: on its icon - its buttons
+    if (wctl && wctl.contains(t)) { wctlBtnsOn(); return; }          // 1.0.370: on its icon or where its buttons come (all their area) - its buttons
     wctlXY = [ev.clientX, ev.clientY, t];
     if (mission || lpOn()) return;
     /* 1.0.311: FROM INSIDE ONLY - the strip along the window's own top, at its corner (a window: its left end; a pinned app:
@@ -7228,6 +7228,8 @@ window.vosBeat = window.vosBeat || (() => {
     const imgs = [...ic.querySelectorAll(":scope > img")];
     ids.forEach((id, i) => {
       const im = imgs[i], t = tabCircle(id); if (!im) return;
+      { let v = tabIcon(id); if (!v) { const u = pageOf(id)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} }   // 1.0.370: its picture kept in step (an icon not known at first: filled in, never an empty slot)
+        if (v && im.getAttribute("src") !== v) im.src = v; const vis = v ? "" : "hidden"; if (im.style.visibility !== vis) im.style.visibility = vis; }
       const bg = circleOf(id).bg;                                         // (1.0.347: no tint - its look's circle)
       if (im.__vosBg !== bg) { im.__vosBg = bg; im.style.setProperty("background-color", bg, "important"); }
       const dim = !!t?.hasAttribute("data-vos-dim"); if (im.hasAttribute("data-vos-dim") !== dim) im.toggleAttribute("data-vos-dim", dim);

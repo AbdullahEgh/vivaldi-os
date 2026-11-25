@@ -2237,3 +2237,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on][data-btns] .vos-pc:nth-child(4)::before { animation-delay: 0.19s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-btns-out] .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl .vos-wctl-ic::before { content: "" !important; position: absolute !important; inset: -7px !important; border-radius: 50% !important; }
+
+/* ===== 1.0.370: the window buttons come with the pointer anywhere over their own area (the icon and where the buttons
+   will be, a little round it) - not the icon alone ===== */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on]::after { left: -8px !important; right: -8px !important; top: -8px !important; bottom: -4px !important; }
