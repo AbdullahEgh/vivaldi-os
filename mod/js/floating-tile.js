@@ -1495,12 +1495,7 @@ window.vosBeat = window.vosBeat || (() => {
     // 1.0.251: a split: every pane's icon, one above the other in one pill (the tab bar's split pill, upright)
     const ids = (groupFloat.has(id) && membersOf(pageOf(id)).length > 1) ? membersOf(pageOf(id)) : [groupFloat.has(id) ? (splitFocus.get(id) || id) : id];
     const iconOf = t => {
-      let src = tabIcon(t);
-      if (!src) {                                                     // (1.0.245: the tab bar's picture not there yet: the site's own icon)
-        const u = pageOf(t)?.querySelector("webview")?.getAttribute("src") || "";
-        if (/^https?:/.test(u)) try { src = favicon(u); } catch (e) {}
-      }
-      return src;
+      return appPic(t);                                               // (1.0.372: its tab bar icon - never the page's big one)
     };
     const srcs = ids.map(iconOf);
     if (!b || b.parentElement !== host) {
@@ -2886,7 +2881,7 @@ window.vosBeat = window.vosBeat || (() => {
     wctlFor = id; b.dataset.ftPage = id; wctlSide = side; b.toggleAttribute("data-side-r", side === "r");
     clearTimeout(wctlBtnT); b.removeAttribute("data-btns"); b.removeAttribute("data-btns-out");   // 1.0.369: the icon alone at first
     const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
-    const iconOf = x => { let v = tabIcon(x); if (!v) { const u = pageOf(x)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} } return v; };
+    const iconOf = x => appPic(x);                                   // (1.0.372: its tab bar icon - never the page's big one)
     let src = iconOf(t);
     /* 1.0.338: a window holding a split: every app's icon side by side in one pill (as a pinned split's, upright there) */
     { const ic = b.querySelector(".vos-wctl-ic"), mem = groupFloat.has(id) ? membersOf(pageOf(id)) : [], multi = mem.length > 1, want = multi ? mem.length : 1;
@@ -7194,13 +7189,13 @@ window.vosBeat = window.vosBeat || (() => {
     const w = document.getElementById("tab-" + tid), tab = w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); if (!el) return;   // (the circle itself, not its wrapper)
     if (!tab) {                                                        // 1.0.366: its tab not in the bar now (another desktop): its look's circle, its tab's icon
       const bg = circleOf(tid).bg; if (el.__vosBg !== bg) { el.__vosBg = bg; el.style.setProperty("background", bg, "important"); }
-      const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
+      const src = appPic(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
       for (const a of ["data-vos-dim", "data-vos-ink"]) if (el.hasAttribute(a)) el.removeAttribute(a);
       return;
     }
     const bg = circleOf(tid).bg;                                       // 1.0.357: its circle worked out (white / black), as the tab's will end
     if (el.__vosBg !== bg) { el.__vosBg = bg; el.style.setProperty("background", bg, "important"); }
-    const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
+    const src = appPic(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
     const dim = tab.hasAttribute("data-vos-dim"); if (el.hasAttribute("data-vos-dim") !== dim) el.toggleAttribute("data-vos-dim", dim);
     const ink = tab.hasAttribute("data-vos-ink"); if (el.hasAttribute("data-vos-ink") !== ink) el.toggleAttribute("data-vos-ink", ink);   // 1.0.365: a one-colour icon flipped, as its tab's   // (1.0.316: its icon brightened as the tab's)
   }
@@ -7233,7 +7228,7 @@ window.vosBeat = window.vosBeat || (() => {
     const imgs = [...ic.querySelectorAll(":scope > img")];
     ids.forEach((id, i) => {
       const im = imgs[i], t = tabCircle(id); if (!im) return;
-      { let v = tabIcon(id); if (!v) { const u = pageOf(id)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} }   // 1.0.370: its picture kept in step (an icon not known at first: filled in, never an empty slot)
+      { let v = appPic(id);   // 1.0.370: its picture kept in step (an icon not known at first: filled in, never an empty slot)
         if (v && im.getAttribute("src") !== v) im.src = v; const vis = v ? "" : "hidden"; if (im.style.visibility !== vis) im.style.visibility = vis; }
       const bg = circleOf(id).bg;                                         // (1.0.347: no tint - its look's circle)
       if (im.__vosBg !== bg) { im.__vosBg = bg; im.style.setProperty("background-color", bg, "important"); }
@@ -7289,7 +7284,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (ic.hasAttribute("data-multi") !== multi) ic.toggleAttribute("data-multi", multi);
       if (fsctl.hasAttribute("data-split") !== multi) fsctl.toggleAttribute("data-split", multi);
       if (multi) {
-        mem.forEach((m, i) => { let v = tabIcon(m); if (!v) { const u = pageOf(m)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} }
+        mem.forEach((m, i) => { let v = appPic(m);
           const x = imgs()[i]; if (v && x.getAttribute("src") !== v) x.src = v; x.style.visibility = v ? "" : "hidden"; });
         for (const a of ["data-plate", "data-tint", "data-vos-dim", "data-empty"]) ic.removeAttribute(a);
         for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
@@ -7310,10 +7305,23 @@ window.vosBeat = window.vosBeat || (() => {
   const favById = new Map(), favAsk = new Set();
   try { chrome.tabs.onUpdated.addListener((tid, ch) => { if (ch.favIconUrl) favById.set(String(tid), ch.favIconUrl); });
         chrome.tabs.onRemoved.addListener(tid => { favById.delete(String(tid)); favAsk.delete(String(tid)); }); } catch (e) {}
+  const favAt = new Map(), favNone = new Set();
   function farIcon(id) {
     const k = String(id), f = favById.get(k);
-    if (f === undefined && !favAsk.has(k)) { favAsk.add(k); try { chrome.tabs.get(Number(k), t => { void chrome.runtime.lastError; favById.set(k, t?.favIconUrl || ""); favAsk.delete(k); }); } catch (e) { favAsk.delete(k); } }
+    /* 1.0.372: asked right after a start, before the page had its icon: the empty answer was kept for good, so its buttons
+       showed the page's big icon (Claude's cream tile) - an empty answer is asked again until the icon comes */
+    if ((f === undefined || (!f && Date.now() - (favAt.get(k) || 0) > 1200)) && !favAsk.has(k)) { favAsk.add(k); favAt.set(k, Date.now());
+      try { chrome.tabs.get(Number(k), t => { void chrome.runtime.lastError; const u = t?.favIconUrl || ""; favById.set(k, u); favAsk.delete(k); if (!u && t?.status === "complete") favNone.add(k); else favNone.delete(k); }); } catch (e) { favAsk.delete(k); } }
     return /^(https?:|data:image)/.test(f || "") ? `chrome://favicon2/?size=32&iconUrl=${encodeURIComponent(f)}` : "";
+  }
+  /* 1.0.372: AN APP'S PICTURE, EVERYWHERE (its window's buttons, its pinned circle, a joined pill): its tab bar icon - the same
+     picture, smaller. Not known yet: nothing (filled in the moment it is) - never the page's big icon in its place; that
+     one only for a site that has no icon at all */
+  function appPic(id) {
+    const v = tabIcon(id); if (v) return v;
+    const f = farIcon(id); if (f) return f;
+    if (favNone.has(String(id))) { const u = pageOf(String(id))?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { return favicon(u); } catch (e) {} }
+    return "";
   }
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
