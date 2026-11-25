@@ -1926,7 +1926,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl::after { animation: vos-pill-v-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) backwards !important; }
 
 /* 1.0.300: the buttons' pill a stronger colour (the same glass, more of its tint) */
-#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after { background: rgba(255, 255, 255, 0.55) !important; }
+#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after { background: rgba(255, 255, 255, 0.3) !important; }
 #browser#browser#browser#browser#browser.theme-dark :is(#webpage-stack > .vos-pin-badge:not([data-vos-look="light"]), #browser > .vos-wctl:not([data-vos-look="light"])) > .vos-pin-ctl::after,
 #browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl)[data-vos-look="dark"] > .vos-pin-ctl::after { background: rgba(40, 40, 46, 0.62) !important; }
 
@@ -2006,7 +2006,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-fsctl .vos-wctl-ic img { width: 14px !important; height: 14px !important; object-fit: contain !important; }
 #browser .vos-fsctl .vos-pin-ctl { position: relative !important; display: flex !important; flex-direction: row !important; height: 24px !important; isolation: isolate !important; }
 #browser .vos-fsctl .vos-pin-ctl::after { content: "" !important; position: absolute !important; left: 1px !important; right: 1px !important; top: 3px !important; bottom: 3px !important; border-radius: 9px !important; z-index: -1 !important; pointer-events: none !important;
-  background: rgba(255, 255, 255, 0.55) !important; backdrop-filter: blur(30px) saturate(1.8) !important; transform-origin: 0 50% !important; }
+  background: rgba(255, 255, 255, 0.3) !important; backdrop-filter: blur(30px) saturate(1.8) !important; transform-origin: 0 50% !important; }
 #browser.theme-dark .vos-fsctl .vos-pin-ctl::after { background: rgba(40, 40, 46, 0.62) !important; }
 #browser .vos-fsctl .vos-pc { all: unset !important; display: block !important; position: relative !important; width: 20px !important; height: 24px !important; cursor: default !important; }
 #browser .vos-fsctl .vos-pc::after { content: "" !important; position: absolute !important; inset: -6px -2px !important; }

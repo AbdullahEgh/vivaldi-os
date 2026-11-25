@@ -193,10 +193,33 @@
   const favOf = new Map(), favAsked = new Set();     // tab -> its site icon's address
   try {                                              // 1.0.340: asked once per tab; a new icon, or a closed tab, from Vivaldi's own events
     chrome.tabs.onUpdated.addListener((id, ch) => { if (ch.favIconUrl && /^(https?:|data:image)/.test(ch.favIconUrl) && favOf.get(id) !== ch.favIconUrl) { favOf.set(id, ch.favIconUrl); soon(); } });
-    chrome.tabs.onRemoved.addListener(id => { favOf.delete(id); favAsked.delete(id); });
+    chrome.tabs.onRemoved.addListener(id => { favOf.delete(id); favAsked.delete(id); siteIcons.delete(id); });
   } catch (e) {}
   const busy = new Set();
   const hasMedia = new Set(), variant = new Map();   // 1.0.305: an SVG icon with a light and a dark version of its own
+  /* 1.0.356: a site's own light and dark icons (<link rel="icon" media="(prefers-color-scheme: dark)">): each look its own picture -
+     its tab, its window's buttons, its pinned circle */
+  const siteIcons = new Map();                       // tab -> { key, light, dark }
+  function siteIcon(id, look) {
+    const key = favOf.get(id) || "", e = siteIcons.get(id);
+    if (!e || e.key !== key) {
+      siteIcons.set(id, { key });
+      const wv = document.querySelector(`.webpageview[data-id="${id}"] webview`) || document.querySelector(`webview[tab_id="${id}"]`);
+      if (wv && typeof wv.executeScript === "function") try {
+        wv.executeScript({ code: `JSON.stringify([...document.querySelectorAll('link[rel~="icon" i]')].map(l => [l.href, (l.media || "").toLowerCase()]))` }, r => {
+          void chrome.runtime.lastError;
+          let L = []; try { L = JSON.parse(r?.[0] || "[]"); } catch (x) {}
+          L = L.filter(x => /^https?:/.test(x[0] || ""));
+          const dk = L.find(x => /prefers-color-scheme\s*:\s*dark/.test(x[1])), lt = L.find(x => /prefers-color-scheme\s*:\s*light/.test(x[1])) || (dk && L.find(x => !x[1]));
+          const cur = siteIcons.get(id); if (!cur || cur.key !== key) return;
+          if (dk || lt) { cur.dark = dk?.[0] || ""; cur.light = lt?.[0] || ""; soon(); }
+        });
+      } catch (x) {}
+      else siteIcons.delete(id);                     // (not loaded yet: asked again next time)
+      return "";
+    }
+    return e[look] || "";
+  }
   const flipSvg = (t, look) => t.replace(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi, (m, x) => x.toLowerCase() === look ? "(min-width: 0px)" : "(max-width: 0px)");
   async function brightness(src0, look) {          // (measured as it is drawn in that look)
     const src = src0 + "|" + look, url = src0;
@@ -277,11 +300,12 @@
       if (id && !favAsked.has(id)) { favAsked.add(id); try { chrome.tabs.get(id, x => { void chrome.runtime.lastError; const f = x?.favIconUrl || ""; if (/^(https?:|data:image)/.test(f) && favOf.get(id) !== f) { favOf.set(id, f); soon(); } }); } catch (e) { favAsked.delete(id); } }
       if (!src) { tab.removeAttribute("data-vos-plate"); continue; }
       const tp = tab.closest(".tab-position"), look = tp?.getAttribute("data-vos-look") || (dark ? "dark" : "light");
-      const v = seen.get(src + "|" + look);
-      { const other = look === "dark" ? "light" : "dark"; if (seen.get(src + "|" + other) === undefined && !tab.__vosWarm?.[other]) { (tab.__vosWarm ||= {})[other] = 1; brightness(src, other); } }   // 1.0.355: the other look read ahead - a switch shows its icons at once
-      if (v === undefined) { brightness(src, look).then(x => { if (x !== undefined) soon(); }); continue; }
+      const own = siteIcon(id, look), shown = own || src;   // 1.0.356: the site's own icon for this look, if it has one
+      const v = seen.get(shown + "|" + look);
+      { const other = look === "dark" ? "light" : "dark", os = siteIcon(id, other) || src; if (seen.get(os + "|" + other) === undefined) brightness(os, other); }   // 1.0.355: the other look read ahead - a switch shows its icons at once
+      if (v === undefined) { brightness(shown, look).then(x => { if (x !== undefined) soon(); }); continue; }
       if (tp) {                                      // 1.0.305: its window in the other look: the icon's own version for it
-        const alt = hasMedia.has(src) ? variant.get(src + "|" + look) || "" : "";   // (1.0.306: whichever look - the tab and its window's circles the same picture)
+        const alt = own || (hasMedia.has(src) ? variant.get(src + "|" + look) || "" : "");   // (1.0.306: whichever look - the tab and its window's circles the same picture)
         if ((tp.dataset.vosFavUrl || "") !== alt) { if (alt) { tp.dataset.vosFavUrl = alt; tp.style.setProperty("--vos-fav", `url("${alt}")`); } else { delete tp.dataset.vosFavUrl; tp.style.removeProperty("--vos-fav"); } }
       }
       const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
