@@ -1763,8 +1763,8 @@ window.vosBeat = window.vosBeat || (() => {
     const pane = lookPane(win), pg = pageOf(win);                       // 1.0.353: a split - every app in it changes together (by the one in front)
     const all = pg && isTiled(pg) ? membersOf(pg) : [], panes = all.length > 1 ? all : [pane];
     const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = panes.length > 1 ? splitTone(panes) : appTone(pane), next = now === "dark" ? "light" : "dark";   // (1.0.363: what it shows - a split: as a whole)
-    for (const p of panes) { if (next === viv) lookWins.delete(p); else lookWins.set(p, next); }   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
-    for (const p of panes) { const pg = pageOf(p); if (pg) { pg.dataset.vosTone = next; const wv = pg.querySelector("webview"); if (wv) { toneRead.delete(wv); wv.__vosToneN = 0; setTimeout(() => readTone(pg), 700); } } }   // 1.0.361: its page will show that look (read again to confirm)
+    for (const p of panes) lookWins.set(p, next);   // 1.0.367: always told its look - "no look of its own" left a script-themed app (Claude, Calendar) as it was: switched, yet still light   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
+    for (const p of panes) { const pg = pageOf(p); if (pg) { pg.dataset.vosTone = next; pg.__vosToneHold = { t: next, until: Date.now() + 3000 }; const wv = pg.querySelector("webview"); if (wv) { toneRead.delete(wv); wv.__vosToneN = 0; setTimeout(() => readTone(pg), 700); } } }   // 1.0.361: its page will show that look (read again to confirm)
     lookSync(win); for (const p of panes) { if (p !== win) lookSync(p); persist(p); } if (!panes.includes(win) && floating.has(win)) persist(win); render();
     circlesSync(); requestAnimationFrame(circlesSync); setTimeout(circlesSync, 300);   // (1.0.358: every icon's circle in the same moment - the buttons' too)
   }
@@ -7214,6 +7214,10 @@ window.vosBeat = window.vosBeat || (() => {
   function pillSetTone(el, tone) { if ((el.getAttribute("data-vos-pill-tone") || "") !== tone) { if (tone) el.setAttribute("data-vos-pill-tone", tone); else el.removeAttribute("data-vos-pill-tone"); } }
   function skinMulti(ic, ids, front) {
     if (!ic || !ids?.length) return;
+    /* 1.0.367: a window that held ONE app before it was joined kept that app's circle colour written on it (and its icon
+       flip) - over the pill's own colour: a white pill round two black circles. A pill: its majority colour only */
+    if (ic.__vosBg || ic.style.getPropertyValue("background")) { ic.__vosBg = null; ic.style.removeProperty("background"); }
+    for (const a of ["data-vos-ink", "data-vos-dim"]) if (ic.hasAttribute(a)) ic.removeAttribute(a);
     const imgs = [...ic.querySelectorAll(":scope > img")];
     ids.forEach((id, i) => {
       const im = imgs[i], t = tabCircle(id); if (!im) return;
@@ -7618,6 +7622,7 @@ window.vosBeat = window.vosBeat || (() => {
         const v = Array.isArray(x) ? x[0] : x, [bg, fg, scheme] = Array.isArray(v) ? v : [v];
         const lum = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c || ""); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : null; };
         const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
+        const hold = page.__vosToneHold; if (hold && Date.now() < hold.until && t !== hold.t) return;   // 1.0.367: just switched - the app still redrawing: its old colour not taken back (no flicker)
         if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); queueRender(); requestAnimationFrame(() => circlesSync()); }   // (1.0.361: its icons follow the page)
       });
     } catch (e) {}
