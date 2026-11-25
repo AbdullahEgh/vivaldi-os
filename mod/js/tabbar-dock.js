@@ -153,7 +153,7 @@
     for (const el of [footer, header, $("#main")]) if (el) new MutationObserver(watch).observe(el, { childList: true });
     addEventListener("resize", queue);
     watch();
-    (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(watch);   // a re-drawn tab bar is picked up within 2.5s
+    (window.vosBeat || (f => setInterval(() => { if (!document.hidden) f(); }, 2500)))(() => { if ($("#tabs-container") !== watched) watch(); });   // 1.0.340: only a re-drawn tab bar   // a re-drawn tab bar is picked up within 2.5s
     document.addEventListener("visibilitychange", () => { if (!document.hidden) watch(); });
   }
   // clicking anywhere outside the address field ends typing there: the field
@@ -180,6 +180,10 @@
   "use strict";
   const seen = new Map();                            // icon address -> its brightness (0..1, null: no answer)
   const favOf = new Map(), favAsked = new Set();     // tab -> its site icon's address
+  try {                                              // 1.0.340: asked once per tab; a new icon, or a closed tab, from Vivaldi's own events
+    chrome.tabs.onUpdated.addListener((id, ch) => { if (ch.favIconUrl && /^(https?:|data:image)/.test(ch.favIconUrl) && favOf.get(id) !== ch.favIconUrl) { favOf.set(id, ch.favIconUrl); soon(); } });
+    chrome.tabs.onRemoved.addListener(id => { favOf.delete(id); favAsked.delete(id); });
+  } catch (e) {}
   const busy = new Set();
   const hasMedia = new Set(), variant = new Map();   // 1.0.305: an SVG icon with a light and a dark version of its own
   const flipSvg = (t, look) => t.replace(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi, (m, x) => x.toLowerCase() === look ? "(min-width: 0px)" : "(max-width: 0px)");
@@ -259,7 +263,7 @@
       // the site's own icon address (Vivaldi's chrome://favicon2 picture cannot be read by a script)
       const id = Number((tab.closest(".tab-wrapper")?.id || tab.querySelector(".tab-wrapper")?.id || tab.closest(".tab-position")?.querySelector(".tab-wrapper")?.id || "").slice(4));
       const src = favOf.get(id) || "";
-      if (id && !favAsked.has(id)) { favAsked.add(id); try { chrome.tabs.get(id, x => { void chrome.runtime.lastError; favAsked.delete(id); const f = x?.favIconUrl || ""; if (/^(https?:|data:image)/.test(f) && favOf.get(id) !== f) { favOf.set(id, f); soon(); } }); } catch (e) { favAsked.delete(id); } }
+      if (id && !favAsked.has(id)) { favAsked.add(id); try { chrome.tabs.get(id, x => { void chrome.runtime.lastError; const f = x?.favIconUrl || ""; if (/^(https?:|data:image)/.test(f) && favOf.get(id) !== f) { favOf.set(id, f); soon(); } }); } catch (e) { favAsked.delete(id); } }
       if (!src) { tab.removeAttribute("data-vos-plate"); continue; }
       const tp = tab.closest(".tab-position"), look = tp?.getAttribute("data-vos-look") || (dark ? "dark" : "light");
       const v = seen.get(src + "|" + look);

@@ -169,6 +169,7 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointerdown", ev => { if (document.querySelector(".ft-shield")) unstick("press"); }, true);
   document.addEventListener("visibilitychange", () => { if (document.hidden) unstick("hidden"); });
   setInterval(() => {                                   // a cover with no button held for 3s is stale
+    if (document.hidden) return;
     for (const sh of document.querySelectorAll(".ft-shield")) {
       sh.__seen = (sh.__seen || 0) + 1;
       if (sh.__seen > 3 && !unstick.down) unstick("idle");
@@ -497,6 +498,9 @@ window.vosBeat = window.vosBeat || (() => {
         for (const k of [...extCache.keys()]) if (!live.has(k)) extCache.delete(k);
         if (wsChanged) queueRender();
         for (const k of [...splitOfTab.keys()]) if (!live.has(k)) { splitOfTab.delete(k); changed = true; }
+        for (const m of [tileMeta, lookWins, raisedAt, startBorn, roomPrev, pinMem]) for (const k of [...m.keys()]) if (!live.has(String(k))) m.delete(k);   // 1.0.340: closed tabs
+        for (const k of [...roomOn]) if (!live.has(String(k))) roomOn.delete(k);
+        for (const k of Object.keys(pageZoom)) if (!live.has(k)) delete pageZoom[k];
         tilingRead = true;
         readTrees();
         if (changed) markPills();
@@ -659,7 +663,7 @@ window.vosBeat = window.vosBeat || (() => {
     pendingActive = String(id);
     clearTimeout(pendingTimer);
     pendingTimer = setTimeout(() => { pendingActive = null; queueRender(); }, 1500);
-    chrome.tabs.update(t, { active: true });
+    chrome.tabs.update(t, { active: true }, () => void chrome.runtime.lastError);
   }
 
   /* focus mode: double-click a title bar. The windows in focus stay sharp and
@@ -754,7 +758,7 @@ window.vosBeat = window.vosBeat || (() => {
  } : undefined;
         if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want)) return;
         if (want) ext[EXT_KEY] = want; else delete ext[EXT_KEY];
-        chrome.tabs.update(t, { vivExtData: JSON.stringify(ext) });
+        chrome.tabs.update(t, { vivExtData: JSON.stringify(ext) }, () => void chrome.runtime.lastError);
       });
     }, 400));
   }
@@ -2024,7 +2028,7 @@ window.vosBeat = window.vosBeat || (() => {
 
   let marked = new Map();                           // element -> { attr: value } from the last render
   let lastSiteTab = null;
-  function render() { const t = performance.now(); pipSideCache = new Map(); originCache = new Map(); try { return renderNow(); } finally { pipSideCache = null; originCache = null; perf.render[0]++; perf.render[1] += performance.now() - t; } }
+  function render() { try { queued = false; } catch (e) {} const t = performance.now(); pipSideCache = new Map(); originCache = new Map(); try { return renderNow(); } finally { pipSideCache = null; originCache = null; perf.render[0]++; perf.render[1] += performance.now() - t; } }
   let focusTry = { id: null, at: 0 };                 // the last window brought up because the keyboard focus was in it
   function renderNow() {
     reconcile();
@@ -5625,9 +5629,11 @@ window.vosBeat = window.vosBeat || (() => {
     return null;
   }
   /* Vivaldi's workspace store (its own list of the desktop each window shows) */
-  let wsStoreApi = null;
+  let wsStoreApi = null, wsStoreMiss = 0;
   function vivWsStore() {
     if (wsStoreApi) return wsStoreApi;
+    if (wsStoreMiss && performance.now() - wsStoreMiss < 10000) return null;   // 1.0.340: not found - looked for again in 10s, not on every call
+    wsStoreMiss = performance.now();
     try {
       let host = null;
       try { host = chrome.extension?.getBackgroundPage?.(); } catch (e) {}
@@ -5649,8 +5655,9 @@ window.vosBeat = window.vosBeat || (() => {
   }
   // the desktop this Vivaldi window shows, as Vivaldi has it (null: none; undefined: not known)
   const vivActiveWs = (win = myWin()) => {
+    if (win == null) return undefined;
     const st = vivWsStore();
-    if (!st || win == null) return undefined;
+    if (!st) return undefined;
     try { const v = st.getActiveWorkspaceId(Number(win)); return v === undefined ? null : v; } catch (e) { return undefined; }
   };
   /* an EMPTY DESKTOP is just that: no tab at all (no blank Start Page) - Vivaldi's own switch
@@ -7156,6 +7163,7 @@ window.vosBeat = window.vosBeat || (() => {
         [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Page size - hold: light / dark"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
     }
     if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
+    { const lk = lookWins.get(id) || ""; if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
     const key = mem.length > 1 ? "split:" + [...mem].sort().join(",") : id;   // (another app of the same split in front: the same buttons, not again)
     fsctl.dataset.ftPage = id;
     if (fsctl.dataset.ftKey !== key) { fsctl.dataset.ftKey = key; fsctl.removeAttribute("data-on"); }
@@ -7518,7 +7526,7 @@ window.vosBeat = window.vosBeat || (() => {
     seeing = el;
     if (el && !el.hasAttribute("data-ft-dragging")) el.setAttribute("data-ft-dragging", "");
   }
-  setInterval(() => { if (!drag && seeing) seeThrough(null); }, 500);
+  setInterval(() => { if (!document.hidden && !drag && seeing) seeThrough(null); }, 500);
   /* the keyboard focus never rests in a window behind the front one: a click there is then always heard
      (the page takes the focus again) and brings that window up - checked often, not only on redraws */
 
@@ -8103,7 +8111,6 @@ window.vosBeat = window.vosBeat || (() => {
       try { const l = JSON.parse(layout || "{}"); if (l && typeof l === "object" && !l.s && !l.w) Object.assign(bentoLayouts, l); } catch (e) {}
       setTimeout(() => { bento.ws = null; bentoWs.clear(); queueRender(); }, 1500);   // this desktop's own Bento
     });
-    vosBeat(bentoButton);                                             // the tab bar can be rebuilt
     document.addEventListener("pointermove", bentoHover, { capture: true, passive: true });
     document.addEventListener("keydown", ev => {                     // Bento undo / redo
       if (lpOn() || !bento.on || !(ev.metaKey || ev.ctrlKey) || ev.key.toLowerCase() !== "z" || bento.gesture) return;

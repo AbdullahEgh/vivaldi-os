@@ -84,9 +84,10 @@
 
 /* 1.0.223: REDUCE MOTION (your system's accessibility setting): Bento OS's movements become quick and calm - nothing
    flies, slides or bounces; things simply appear (the same in js: every animation of Bento OS shortened) */
-@media (prefers-reduced-motion: reduce) {
+@layer vos-reduced-motion { @media (prefers-reduced-motion: reduce) {   /* 1.0.340: a layer - its !important wins over every unlayered one */
   #browser *, #browser *::before, #browser *::after {
     animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
     transition-duration: 1ms !important; transition-delay: 0s !important;
   }
-}
+}}
+

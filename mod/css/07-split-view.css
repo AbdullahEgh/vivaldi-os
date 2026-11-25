@@ -1527,10 +1527,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile { top: 3px !important; height: 12px !important; }
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile::after {
   content: "" !important; position: absolute !important; top: 4px !important; left: 50% !important; width: 36px !important; height: 4px !important;
-  margin-left: -18px !important; border-radius: 2px !important; background: rgba(0, 0, 0, 0.26) !important; box-shadow: none !important;
+  margin-left: -18px !important; border-radius: 2px !important; background: rgba(0, 0, 0, 0.34) !important; box-shadow: none !important;
   opacity: 0 !important; transition: opacity 0.15s ease !important;
 }
-#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview[data-vos-tone="dark"] .mosaic-tile::after { background: rgba(255, 255, 255, 0.34) !important; }
+#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview[data-vos-tone="dark"] .mosaic-tile::after { background: rgba(255, 255, 255, 0.46) !important; }
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile:hover::after { opacity: 1 !important; }
 
 /* 1.0.157: the desktops strip scrolls from edge to edge of its panel - every desktop can be reached (a centred row that
@@ -2096,11 +2096,11 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-fsctl:is([data-on], [data-out]) .vos-wctl-ic { will-change: transform, opacity; }
 
 /* 1.0.323: the Mac's "Reduce motion": the buttons and circles fade in and out instead of moving */
-@media (prefers-reduced-motion: reduce) {
+@layer vos-reduced-motion { @media (prefers-reduced-motion: reduce) {
   #browser > .vos-wctl *, #browser > .vos-wctl *::before, #browser > .vos-wctl *::after,
   #browser #webpage-stack > .vos-pin-badge, #browser #webpage-stack > .vos-pin-badge *, #browser #webpage-stack > .vos-pin-badge *::before, #browser #webpage-stack > .vos-pin-badge *::after,
   #browser .vos-fsctl *, #browser .vos-fsctl *::before, #browser .vos-fsctl *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; transition-duration: 0.12s !important; }
-}
+} }
 
 /* 1.0.324: the full-screen buttons' grey one */
 #browser .vos-fsctl .vos-pc-gray::before { background-color: #a1a1a6 !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='2.8' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
@@ -2136,3 +2136,23 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser .vos-fsctl .vos-wctl-ic[data-multi] { width: auto !important; flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center !important;
   gap: 6px !important; padding: 0 5px !important; border-radius: 12px !important; }
 #browser#browser#browser .vos-fsctl[data-split] .vos-pc-gray { display: none !important; }
+
+/* ===== 1.0.340: OVERALL QA ===== */
+/* one family: the full-screen buttons' circle as a window's and a pinned app's - its tab's tint, plate and look, the same
+   0.45s glide; in light, every circle at the light level (as its tab) */
+#browser#browser#browser#browser .vos-fsctl .vos-wctl-ic[data-tint="soft"] { background: color-mix(in srgb, var(--vos-tint) 16%, #000000) !important; }
+#browser#browser#browser#browser .vos-fsctl .vos-wctl-ic[data-plate="light"] { background: #ffffff !important; }
+#browser#browser#browser#browser .vos-fsctl .vos-wctl-ic[data-plate="dark"] { background: #000000 !important; }
+#browser#browser#browser#browser#browser .vos-fsctl .vos-wctl-ic[data-tint] { background: var(--vos-tint-d) !important; }
+#browser#browser#browser#browser#browser#browser.theme-light :is(#webpage-stack > .vos-pin-badge:not([data-vos-look="dark"]), #browser > .vos-wctl:not([data-vos-look="dark"]) .vos-wctl-ic, .vos-fsctl:not([data-vos-look="dark"]) .vos-wctl-ic)[data-tint],
+#browser#browser#browser#browser#browser#browser .vos-fsctl[data-vos-look="light"] .vos-wctl-ic[data-tint] { background: var(--vos-tint-l) !important; }
+#browser#browser#browser .vos-fsctl .vos-wctl-ic { transition: background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
+#browser#browser#browser .vos-fsctl .vos-wctl-ic[data-vos-dim] img { filter: brightness(1.45) saturate(1.15) !important; }
+/* the window's hairline: the theme's own ink (white on dark, dark on light - as its circle's) */
+#browser#browser #main [data-ft-float]:not([data-ft-pip]), #browser#browser #main .webpageview[data-ft-float]:not([data-ft-pip]) { box-shadow: 0 0 0 1px color-mix(in srgb, var(--colorFg, #fff) 14%, transparent), 0 8px 22px rgba(0, 0, 0, 0.22) !important; }
+#browser#browser #main [data-ft-float][data-ft-front]:not([data-ft-pip]), #browser#browser #main .webpageview[data-ft-float][data-ft-front]:not([data-ft-pip]) { box-shadow: 0 0 0 1px color-mix(in srgb, var(--colorFg, #fff) 14%, transparent), 0 28px 72px rgba(0, 0, 0, 0.46), 0 10px 24px rgba(0, 0, 0, 0.3) !important; }
+/* a pinned app's circle settles as every other intro (0.3s), not a quicker 0.22s */
+#browser#browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.2, 0.9, 0.25, 1), background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
+/* editing the desktop: the shaking icons' delete buttons without their own blur (one blur per icon, every frame) */
+#browser#browser .lp-layer[data-editing] :is(.lp-del, .lp-tile.lp-folder) { backdrop-filter: none !important; }
+#browser#browser .lp-layer[data-editing] .lp-del { background: rgba(142, 142, 147, 0.95) !important; }

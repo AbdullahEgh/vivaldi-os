@@ -3243,10 +3243,12 @@
   }
   for (const ev of ["onCreated", "onRemoved", "onMoved", "onAttached"]) chrome.tabs?.[ev]?.addListener(saveTabs);
   chrome.tabs?.onUpdated?.addListener((id, info) => { if (info.url || info.pinned != null) saveTabs(); });   // only a new address, not every title / icon
-  setTimeout(async () => {
+  setTimeout(() => (navigator.locks ? navigator.locks.request("vos-reopen", reopenOnce) : reopenOnce()), 6000);   // 1.0.340: one window at a time
+  async function reopenOnce() {
     try {
       const ran = await vstore.get(RAN_KEY), saved = await vstore.get(TABS_KEY);
       const updated = window.vosVersion && ran && ran !== window.vosVersion;
+      if (updated) await new Promise(r => { try { chrome.storage.local.set({ [RAN_KEY]: window.vosVersion }, () => { void chrome.runtime.lastError; r(); }); } catch (e) { r(); } });           // (claimed first: another window, next, finds it done)
       if (updated && saved?.list?.length && Date.now() - saved.t < 3 * 864e5) {
         const open = await new Promise(r => chrome.tabs.query({}, t => r(t || [])));
         const have = new Set(open.filter(siteTab).map(t => t.url || t.pendingUrl));
@@ -3257,7 +3259,7 @@
       if (window.vosVersion) vstore.set(RAN_KEY, window.vosVersion);
     } catch (e) {}
     restoring = false; saveTabs();
-  }, 6000);
+  }
   const LOG_UPD = (...a) => console.log("%c[vivaldi-os]", "color:#8e8e93", ...a);
 
   /* "New Update": a tag at the left end of the tab bar while a newer release exists */
@@ -3355,6 +3357,7 @@
   };
   addEventListener("scroll", e => {
     const el = e.target; if (!(el instanceof Element) || !el.matches(OURS.replace("#browser ", "#browser "))) return;
+    if (el.classList.contains("lp-ios-body")) return;                  // 1.0.340: it draws its own bar
     if (!el.closest("#browser")) return;
     make();
     const r = el.getBoundingClientRect(), dark = document.getElementById("browser")?.classList.contains("theme-dark") || !!el.closest(".lp-desktop");

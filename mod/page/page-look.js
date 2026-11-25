@@ -35,7 +35,8 @@
     lists.push(fire);
     return mq;
   }
-  window.matchMedia = function matchMedia(q) { q = String(q); return /prefers-color-scheme/i.test(q) ? wrap(q) : real.call(W, q); };
+  var mqs = {};                                               // 1.0.340: one per query - asked again (a site's every render, a scroll): the same one
+  window.matchMedia = function matchMedia(q) { q = String(q); return /prefers-color-scheme/i.test(q) ? (mqs[q] || (mqs[q] = wrap(q))) : real.call(W, q); };
   window.__vosLookSet = function (t, quiet) {                 // (called by Bento OS for this tab only)
     look = t === "light" || t === "dark" ? t : null;
     try { look ? sessionStorage.setItem(KEY, look) : sessionStorage.removeItem(KEY); } catch (e) {}
@@ -46,7 +47,7 @@
         var css = new CSSStyleSheet();
         css.replaceSync("::view-transition-old(root),::view-transition-new(root){animation-duration:.45s !important;animation-timing-function:ease !important}");
         D.adoptedStyleSheets = D.adoptedStyleSheets.concat([css]);
-        var vt = D.startViewTransition(function () { go(); return new Promise(function (r) { setTimeout(function () { judge(); r(); }, 260); }); });   // (the site redraws, its rules switch; a made-up dark on or off with it)
+        var vt = D.startViewTransition(function () { go(); return new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(function () { judge(); r(); }); }); }); });   // (1.0.340: its redraw, two frames on - not a fixed wait)   // (the site redraws, its rules switch; a made-up dark on or off with it)
         var done = function () { D.adoptedStyleSheets = D.adoptedStyleSheets.filter(function (x) { return x !== css; }); };
         vt.finished.then(done, done);
         return (look || "off") + (late ? "|late" : "");
@@ -63,6 +64,7 @@
      dark). Pictures, videos and icons are never touched. Its own colour variables are re-written the same way, and colours
      written on the elements themselves too. A site with a dark design of its own is never touched; one that turns dark by
      itself later loses the written one again. Light is never written. */
+  var nfetch = W.fetch && W.fetch.bind(W);                       // 1.0.340: the browser's own fetch (taken before the site's scripts can wrap it)
   var gen = null, genT = 0, genObs = null, genWatch = null, inl = [], swept = [], far = {}, probe = null, pc = {};
   var want = function () { return answer("(prefers-color-scheme: dark)"); };
   function rgbOf(c) {                                            // any CSS colour -> [r, g, b, a] (null: not a plain colour)
@@ -171,7 +173,7 @@
     var href = sh.href; if (!href) return;
     if (far[href] === undefined) {                              // another site's style sheet: read again, once
       far[href] = null;
-      fetch(href, { credentials: "omit" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
+      (nfetch || fetch)(href, { credentials: "omit" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
         if (!t) { far[href] = false; unread++; return; }
         var s2 = new CSSStyleSheet(); try { s2.replaceSync(t); far[href] = s2; } catch (e) { far[href] = false; unread++; }
         later();
@@ -184,7 +186,7 @@
   function build() {                                             // the dark twin of the page's style sheets (only when they change)
     if (!gen) return;
     var D = document, list = [].slice.call(D.styleSheets).concat((D.adoptedStyleSheets || []).filter(function (x) { return x !== gen; }));
-    var now = list.map(function (x) { var n = 0; try { n = x.cssRules.length; } catch (e) { n = far[x.href] ? -far[x.href].cssRules.length : 0; } return (x.href || "") + n; }).join("|");
+    var now = list.map(function (x) { var n = 0; try { n = x.cssRules.length; } catch (e) { n = far[x.href] ? -far[x.href].cssRules.length : 0; } return (x.href || "") + n; }).join("|") + "#" + unread;
     if (now === sig) return; sig = now;                          // (nothing new: nothing to do)
     vuse = {}; vuseBg = {}; var out = [];
     var all = function (o) { list.forEach(function (x) { sheet(x, o); }); };
@@ -207,14 +209,16 @@
   }
   function inline(root) { var els = (root || document).querySelectorAll("[style]"); for (var i = 0; i < els.length && i < 3000; i++) inlineOne(els[i]); if (root && root.hasAttribute && root.hasAttribute("style")) inlineOne(root); }
   function sweep(sel) {                                          // (a style sheet that could not be read: what it drew, element by element)
-    var all = document.querySelectorAll(sel || "body *");
-    for (var i = 0; i < all.length && i < 5000; i++) {
-      var el = all[i]; if (el.__vosSw || el.closest("[data-vos-keep]")) continue; el.__vosSw = 1;
+    var all = document.querySelectorAll(sel || "body *"), todo = [], n = 0;   // 1.0.340: every colour read first, then all written (one style pass)
+    for (var i = 0; i < all.length && n < 5000; i++) {
+      var el = all[i]; if (el.__vosSw || el.closest("[data-vos-keep]")) continue; el.__vosSw = 1; n++;
       if (/^(IMG|VIDEO|CANVAS|PICTURE|SVG|IFRAME|EMBED|OBJECT)$/i.test(el.tagName)) continue;
       var cs = getComputedStyle(el), b = mapC(cs.backgroundColor, "bg"), f = mapC(cs.color, "fg");
-      if (b) { swept.push([el, "background-color", el.style.getPropertyValue("background-color"), el.style.getPropertyPriority("background-color")]); el.style.setProperty("background-color", b, "important"); }
-      if (f) { swept.push([el, "color", el.style.getPropertyValue("color"), el.style.getPropertyPriority("color")]); el.style.setProperty("color", f, "important"); }
+      if (b || f) todo.push([el, b, f]);
     }
+    todo.forEach(function (x) { var el = x[0];
+      if (x[1]) { swept.push([el, "background-color", el.style.getPropertyValue("background-color"), el.style.getPropertyPriority("background-color")]); el.style.setProperty("background-color", x[1], "important"); }
+      if (x[2]) { swept.push([el, "color", el.style.getPropertyValue("color"), el.style.getPropertyPriority("color")]); el.style.setProperty("color", x[2], "important"); } });
   }
   var lT = 0;
   function later() { if (lT) return; lT = setTimeout(function () { lT = 0; idle(function () { if (gen) { build(); inline(); sweep("input,textarea,select,button"); frames(); leftLight(); } }); }, 400); }
@@ -228,7 +232,8 @@
       var sheets = false;
       for (var i = 0; i < ms.length; i++) { var m = ms[i];
         if (m.type === "attributes") { if (m.target.__vosInl !== m.target.style.cssText) pend.push(m.target); continue; }
-        if (m.type === "characterData" || (m.target && m.target.tagName === "STYLE")) { sheets = true; continue; }
+        if (m.type === "characterData") { if (m.target.parentNode && m.target.parentNode.nodeName === "STYLE") sheets = true; continue; }   // (1.0.340: only a style's text)
+        if (m.target && m.target.tagName === "STYLE") { sheets = true; continue; }
         for (var j = 0; j < m.addedNodes.length; j++) { var a = m.addedNodes[j]; if (a.nodeType !== 1) continue;
           if (/^(STYLE|LINK)$/.test(a.tagName)) sheets = true; else pend.push(a); }
         for (var k = 0; k < m.removedNodes.length; k++) if (/^(STYLE|LINK)$/.test(m.removedNodes[k].tagName || "")) sheets = true;
@@ -241,13 +246,13 @@
       });
     });
     genObs.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["style"] });
-    document.addEventListener("load", function (e) {
-      var t = e.target; if (!gen || !t) return;
-      if (t.tagName === "LINK") later(); else if (t.tagName === "IMG") { t.__vosF = 0; frames([t]); }   // (a picture arrived: a frame?)
-    }, true);
     [800, 2500, 6000].forEach(function (ms) { setTimeout(later, ms); });   // (its style sheets still arriving)
-    addEventListener("load", later);
   }
+  document.addEventListener("load", function (e) {                 // (1.0.340: once for the page - they did nothing while no dark is written)
+    var t = e.target; if (!gen || !t) return;
+    if (t.tagName === "LINK") later(); else if (t.tagName === "IMG") { t.__vosF = 0; frames([t]); }   // (a picture arrived: a frame?)
+  }, true);
+  addEventListener("load", function () { if (gen) later(); });
   function genOff() {
     if (!gen) return; var g = gen; gen = null; sig = "";
     if (genObs) { genObs.disconnect(); genObs = null; }
@@ -315,9 +320,14 @@
     if (!siteSw || gen || swScrollT) return;
     swScrollT = setTimeout(function () { swScrollT = 0; if (siteSw && !gen && want() && lightShare() > 0.2) genOn(); }, 900);
   }, { passive: true, capture: true });
+  var judgeLater = false;
   function judge() {
     clearTimeout(genT); genT = 0;
     if (!/html/i.test(document.contentType || "")) return;
+    if (W !== W.top && (innerWidth < 200 || innerHeight < 120)) return;   // 1.0.340: a tiny frame (an ad, a tracker): nothing to judge
+    if (document.hidden && want()) {                                 // (a tab in the background: judged once it is seen)
+      if (!judgeLater) { judgeLater = true; document.addEventListener("visibilitychange", function v() { if (document.hidden) return; document.removeEventListener("visibilitychange", v); judgeLater = false; soon(150); }); }
+      return; }
     if (!want()) { swOff(); swTried = false; return genOff(); }
     if (siteSw && gen) return;
     if (siteSw) return;                                            // (the site's own dark design is on - with written dark for what it leaves light)
@@ -361,7 +371,7 @@
     css.replaceSync("*{scrollbar-width:none !important} ::-webkit-scrollbar{display:none !important;width:0 !important;height:0 !important}");
     D.adoptedStyleSheets = D.adoptedStyleSheets.concat([css]);
   } catch (e) {}
-  var host = null, bars = null, hideT = 0;
+  var host = null, bars = null, hideT = 0, darkQ = null;
   function make() {
     if (host && host.isConnected) return;
     host = D.createElement("vos-scroll-bars");
@@ -378,7 +388,7 @@
     var r = root ? { left: 0, top: 0, width: innerWidth, height: innerHeight } : se.getBoundingClientRect();
     var ch = root ? innerHeight : se.clientHeight, cw = root ? innerWidth : se.clientWidth;
     make();
-    var dark = matchMedia("(prefers-color-scheme: dark)").matches;   // (this tab's own look, when one is set)
+    var dark = (darkQ || (darkQ = matchMedia("(prefers-color-scheme: dark)"))).matches;   // (this tab's own look, when one is set - 1.0.340: asked once)
     [0, 1].forEach(function (k) {
       var b = bars[k], vert = k === 0, size = vert ? se.scrollHeight : se.scrollWidth, view = vert ? ch : cw;
       if (size <= view + 1) { b.className = ""; return; }
