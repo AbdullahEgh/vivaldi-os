@@ -2226,3 +2226,14 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser #webpage-stack > .vos-vsplit-shell[data-vos-look="light"] { --colorBg: #ffffff; --colorFg: #000000; }
 #browser#browser #webpage-stack > .vos-vsplit-shell[data-vos-look="dark"] { --colorBg: #1c1c1e; --colorFg: #ffffff; }
 #browser .tiled[data-ft-float]:not(.webpageview), #browser #webpage-stack > .vos-vsplit-shell { transition: background-color 0.4s ease, background 0.4s ease !important; }
+
+/* ===== 1.0.369: A WINDOW'S BUTTONS AS A PINNED APP'S - its corner brings the app's icon alone; the buttons pop out only with
+   the pointer on the icon (a 7px ring round it counts too), and pop back in when it leaves - the icon stays ===== */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl:not([data-btns]):not([data-btns-out]) > .vos-pin-ctl { visibility: hidden !important; pointer-events: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl:not([data-btns]):not([data-btns-out]) .vos-pc::before { animation: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on][data-btns] .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.04s both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on][data-btns] .vos-pc:nth-child(2)::before { animation-delay: 0.09s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on][data-btns] .vos-pc:nth-child(3)::before { animation-delay: 0.14s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on][data-btns] .vos-pc:nth-child(4)::before { animation-delay: 0.19s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-btns-out] .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl .vos-wctl-ic::before { content: "" !important; position: absolute !important; inset: -7px !important; border-radius: 50% !important; }

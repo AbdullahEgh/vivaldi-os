@@ -2845,8 +2845,13 @@ window.vosBeat = window.vosBeat || (() => {
     wctlMute = Date.now() + 900;                                     // 1.0.294: not back while its window animates (the pointer is still there)
   }, true);
   let wctlMute = 0;
+  /* 1.0.369: AS A PINNED APP'S - the corner brings the app's icon alone; its buttons unroll only with the pointer on the icon
+     (a little round it too), stay while it is on them, and roll back into the icon when it leaves (the icon stays) */
+  let wctlBtnT = 0;
+  const wctlBtnsOn = () => { if (!wctl?.hasAttribute("data-on") || wctl.hasAttribute("data-btns")) return; clearTimeout(wctlBtnT); wctl.removeAttribute("data-btns-out"); wctl.setAttribute("data-btns", ""); };
+  const wctlBtnsOff = () => { if (!wctl?.hasAttribute("data-btns")) return; const b = wctl; b.removeAttribute("data-btns"); b.setAttribute("data-btns-out", ""); clearTimeout(wctlBtnT); wctlBtnT = setTimeout(() => b.removeAttribute("data-btns-out"), 220); };
   const wctlOff = () => {                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
-    if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => b.removeAttribute("data-out"), 380); }
+    if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => { b.removeAttribute("data-out"); b.removeAttribute("data-btns"); b.removeAttribute("data-btns-out"); }, 380); }
     wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
   };
   const wctlPlace = () => {
@@ -2874,6 +2879,7 @@ window.vosBeat = window.vosBeat || (() => {
     const b = wctlEl(); if (!b) return;
     if (wctlFor === id && b.hasAttribute("data-on") && wctlSide === side) return;
     wctlFor = id; b.dataset.ftPage = id; wctlSide = side; b.toggleAttribute("data-side-r", side === "r");
+    clearTimeout(wctlBtnT); b.removeAttribute("data-btns"); b.removeAttribute("data-btns-out");   // 1.0.369: the icon alone at first
     const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
     const iconOf = x => { let v = tabIcon(x); if (!v) { const u = pageOf(x)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} } return v; };
     let src = iconOf(t);
@@ -2911,6 +2917,7 @@ window.vosBeat = window.vosBeat || (() => {
     clearInterval(wctlTick);
     wctlTick = setInterval(() => {                                   // (over the page the browser hears no moves: checked here)
       if (wctlFor !== id) return clearInterval(wctlTick);
+      if (!wctlHeld && !wctl.matches(":hover")) wctlBtnsOff();         // 1.0.369: off the icon and its buttons: they roll back in
       if (wctlHeld || wctl.matches(":hover")) return;
       if (cornerH?.matches(":hover") && inCorner(id)) return;           // 1.0.348: on its top strip - but only at its corner (further right along it: gone)
       if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:is(.ft-tl, .ft-l, .ft-t, .ft-tr, .ft-r):hover`) && inCorner(id)) return;   // (1.0.358: its top-right corner too)   // (1.0.311: on its edge, between the strip and them)
@@ -2927,7 +2934,7 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
     const t = ev.target;
-    if (wctl && wctl.contains(t)) return;
+    if (wctl && wctl.contains(t)) { if (t.closest?.(".vos-wctl-ic")) wctlBtnsOn(); return; }   // 1.0.369: on its icon - its buttons
     wctlXY = [ev.clientX, ev.clientY, t];
     if (mission || lpOn()) return;
     /* 1.0.311: FROM INSIDE ONLY - the strip along the window's own top, at its corner (a window: its left end; a pinned app:
