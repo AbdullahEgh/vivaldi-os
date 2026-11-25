@@ -2241,3 +2241,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* ===== 1.0.370: the window buttons come with the pointer anywhere over their own area (the icon and where the buttons
    will be, a little round it) - not the icon alone ===== */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on]::after { left: -8px !important; right: -8px !important; top: -8px !important; bottom: -4px !important; }
+
+/* ===== 1.0.371: A SPLIT IN THE PAGE (Vivaldi's own, full size): its borders in its apps' look (floating-tile.js:
+   data-vos-look - most of its apps), fading in the same 0.4s as its icons, its pill and a floating split's frame ===== */
+#browser#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview)[data-vos-look="light"] { --colorBg: #ffffff; --colorFg: #000000; background-color: #ffffff !important; }
+#browser#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview)[data-vos-look="dark"] { --colorBg: #1c1c1e; --colorFg: #ffffff; background-color: #1c1c1e !important; }
+#browser#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) { transition: background-color 0.4s ease !important; }

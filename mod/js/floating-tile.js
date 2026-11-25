@@ -2290,7 +2290,12 @@ window.vosBeat = window.vosBeat || (() => {
       for (const [tp, look] of want) if (tp.getAttribute("data-vos-look") !== look) tp.setAttribute("data-vos-look", look);
       const parts = new Map();                                       // 1.0.293: the window itself, its pinned circle and buttons - all that look
       for (const w of floating) { const look = lookOfWin(w); if (!look) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); const sh = vsShells.get(w); if (sh) parts.set(sh, look); }   // (1.0.368: a split's stand-in frame too)
-      for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look], #webpage-stack > .vos-vsplit-shell[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
+      /* 1.0.371: A SPLIT IN THE PAGE (not a window - Vivaldi's own, full size): its borders in its apps' look too (most of them;
+         a tie: its first), fading with them - no longer Vivaldi's colour whatever its apps show */
+      { const ap = activePage(), mem = ap && isTiled(ap) && !winOf(ap.dataset.id) ? membersOf(ap) : [];
+        const box = mem.length > 1 ? ap.parentElement?.closest(".tiled:not(.webpageview)") : null;
+        if (box && !box.hasAttribute("data-ft-float")) parts.set(box, splitTone(mem)); }
+      for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look], #webpage-stack > .vos-vsplit-shell[data-vos-look], #webpage-stack .tiled:not([data-ft-float]):not(.webpageview)[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
       for (const [o, look] of parts) if (o.getAttribute("data-vos-look") !== look) o.setAttribute("data-vos-look", look);
       if (wctl && wctlFor) { const lk = lookOfWin(wctlFor); if ((wctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) wctl.setAttribute("data-vos-look", lk); else wctl.removeAttribute("data-vos-look"); } }
     }
