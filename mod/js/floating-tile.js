@@ -1451,7 +1451,7 @@ window.vosBeat = window.vosBeat || (() => {
      (and their order), and when it shows (a pinned app: always, the buttons on the circle's hover - a normal window: its
      top left corner) */
   const CTL = {
-    pin: { dir: "v", buttons: [["gray", "res", "Page size - hold: light / dark"], ["yellow", "unpin", "Back to the canvas"], ["red", "close", "Close"]] },   // (1.0.333: no green; yellow an arrow toward the canvas)   // (1.0.326: green back; yellow its minus - both as full screen's: out of it)
+    pin: { dir: "v", buttons: [["gray", "res", "Light / dark - hold: page size"], ["yellow", "unpin", "Back to the canvas"], ["red", "close", "Close"]] },   // (1.0.333: no green; yellow an arrow toward the canvas)   // (1.0.326: green back; yellow its minus - both as full screen's: out of it)
     win: { dir: "h", buttons: [["red", "close", "Close"], ["yellow", "minimize", "Minimize"], ["green", "zoom", "Full screen"], ["gray", "res", ""]] },
   };
   const ctlHtml = type => `<div class="vos-pin-ctl" data-dir="${CTL[type].dir}">` + CTL[type].buttons.map(([c, a, t]) => type === "pin"
@@ -1475,7 +1475,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (bar.dataset.ftPage !== id) bar.dataset.ftPage = id;
     { const g = $(":scope > .ft-right > .ft-res", bar), L = $(":scope > .ft-lights", bar); if (g && L) L.appendChild(g); }   // (a title bar made before 1.0.267)
     const pct = Math.round((zoomOf[id] || 1) * 100);
-    const gray = $(".ft-res", bar), tip = `Resolution ${pct}% - click for more room`;
+    const gray = $(".ft-res", bar), tip = `Light / dark - hold: page size (${pct}%)`;
     if (gray.title !== tip) gray.title = tip;
     const tid = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;   // a split: its selected tile
     fetchTitle(tid);
@@ -1579,7 +1579,7 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointerdown", e => {                          // 1.0.270: its grey one held: light <-> dark
     const g = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge .vos-pc-gray"); if (!g) return;
     const id = g.closest(".vos-pin-badge").dataset.for; clearTimeout(pcHold?.t);
-    pcHold = { id, done: false, t: setTimeout(() => { pcHold.done = true; toggleDark(id); }, BTN_HOLD) };
+    pcHold = { id, done: false, t: setTimeout(() => { pcHold.done = true; const pg = pageOf(id); if (pg) act("res", pg); }, BTN_HOLD) };   // (1.0.349: held - its page size)
   }, true);
   addEventListener("pointerup", () => { if (pcHold && !pcHold.done) { clearTimeout(pcHold.t); pcHold = null; } }, true);
   addEventListener("click", e => {                                // 1.0.265: the pinned app's own buttons
@@ -1590,7 +1590,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!pg || !pip.includes(id)) return;
     if (btn.dataset.pc === "close") act("close", pg);
     else if (btn.dataset.pc === "unpin") holdAct("minimize", id);      // back to its window (as the yellow button did)
-    else act("res", pg);                                             // its page size: 40% / 75% / 100%
+    else toggleDark(id);                                             // 1.0.349: the grey one clicked - light <-> dark (held: its page size)
   }, true);
   /* 1.0.273: one window's look on its own - its site's OWN light design (Vivaldi dark) or its own dark design (Vivaldi
      light), never a recolouring. In that window's page only: the site's style rules made for the other look are switched
@@ -2788,7 +2788,7 @@ window.vosBeat = window.vosBeat || (() => {
     finally { fullOnNewDesk.busy = false; }
   }
   function holdAct(what, win) {
-    if (what === "res") return toggleDark(win);                     // 1.0.270: the grey one held: this window light <-> dark
+    if (what === "res") { const pg = pageOf(win); if (pg) act("res", pg); return; }   // 1.0.349: the grey one held: its page size (a click: light <-> dark)
     const el = targetOf(pageOf(win));
     if (!el || !floating.has(win)) return;
     raise(win); activate(splitFocus.get(win) || win);
@@ -2843,17 +2843,22 @@ window.vosBeat = window.vosBeat || (() => {
     if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || el.hasAttribute("data-ft-cover")) return false;
     const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
     let lx = w.left + (up ? 0 : 6); const ty0 = up ? w.top - H - 6 : w.top + 6;
-    if (macLights() && ty0 < 44 && lx < 84) lx = 84;                  // 1.0.320: not under Vivaldi's own buttons - just past them
+    if (wctlSide === "r") {                                           // 1.0.349: from its top-right corner - mirrored, ending at its right edge
+      lx = w.right - (up ? 0 : 6) - wctlW;
+      if (winLights() && ty0 < 44 && lx + wctlW > innerWidth - 150) lx = innerWidth - 150 - wctlW;   // (not under Vivaldi's own buttons on Windows)
+    }
+    else if (macLights() && ty0 < 44 && lx < 84) lx = 84;             // 1.0.320: not under Vivaldi's own buttons - just past them
     wctl.style.left = Math.round(lx) + "px";
     wctl.style.top = Math.round(up ? w.top - H - 6 : w.top + 6) + "px";
     wctl.toggleAttribute("data-in", !up);
     return true;
   };
-  function wctlShow(id) {
+  let wctlSide = "l", wctlW = 0;
+  function wctlShow(id, side = "l") {
     if (Date.now() < wctlMute) return;
     const b = wctlEl(); if (!b) return;
-    if (wctlFor === id && b.hasAttribute("data-on")) return;
-    wctlFor = id; b.dataset.ftPage = id;
+    if (wctlFor === id && b.hasAttribute("data-on") && wctlSide === side) return;
+    wctlFor = id; b.dataset.ftPage = id; wctlSide = side; b.toggleAttribute("data-side-r", side === "r");
     const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
     const iconOf = x => { let v = tabIcon(x); if (!v) { const u = pageOf(x)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} } return v; };
     let src = iconOf(t);
@@ -2880,8 +2885,9 @@ window.vosBeat = window.vosBeat || (() => {
       if ((ic.dataset.tint || "") !== k) { if (k) ic.dataset.tint = k; else delete ic.dataset.tint; }
       if (ic.style.getPropertyValue("--vos-tint") !== c) { if (c) ic.style.setProperty("--vos-tint", c); else ic.style.removeProperty("--vos-tint"); }
       for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (ic.style.getPropertyValue(v) !== x) { if (x) ic.style.setProperty(v, x); else ic.style.removeProperty(v); } } } }
-    const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
+    const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Light / dark - hold: page size (${pct}%)`;
     if (g.title !== tip) g.title = tip;
+    wctlW = b.offsetWidth || 120;                                      // (its width, once - for the right corner)
     if (!wctlPlace()) return wctlOff();
     clearTimeout(wctlOutT); b.removeAttribute("data-out"); b.removeAttribute("data-gone");
     b.removeAttribute("data-on"); void b.offsetWidth; b.setAttribute("data-on", "");
@@ -2899,7 +2905,9 @@ window.vosBeat = window.vosBeat || (() => {
   function inCorner(id) {                                            // 1.0.348: the pointer at the window's top-left corner (where they came from) - not further along
     const el = targetOf(pageOf(id)), p = wctlXY; if (!el || !p) return false;
     const w = el.getBoundingClientRect(), reach = (macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + 120 : 120) + 40;
-    return p[0] > w.left - 30 && p[0] - w.left < reach && p[1] > w.top - 50 && p[1] < w.top + 44;
+    if (p[1] <= w.top - 50 || p[1] >= w.top + 44) return false;
+    if (wctlSide === "r") return p[0] < w.right + 30 && w.right - p[0] < Math.max(reach, wctlW + 40);   // 1.0.349: its top-right corner
+    return p[0] > w.left - 30 && p[0] - w.left < reach;
   }
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
@@ -2919,6 +2927,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     const reach = macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + 120 : 120;   // 1.0.320: part of its corner under Vivaldi's own buttons: the strip reaches past them
     if (wctlOk(id, el) && ev.clientX - w.left < reach) { cornerH = bar; wctlShow(id); }
+    else if (wctlOk(id, el) && w.right - ev.clientX < 120 && w.width > 300) { cornerH = bar; wctlShow(id, "r"); }   // 1.0.349: its top-right corner - the same, mirrored
   }, { capture: true, passive: true });
   let pinShown = null, pinShowT = 0;
   function pinShow(id, bar) {                                        // a pinned app's circle and buttons, brought from inside its corner
@@ -2948,6 +2957,7 @@ window.vosBeat = window.vosBeat || (() => {
     startGesture(e, el, "move");
   }, true);
   const pinBare = () => false;
+  const winLights = () => { const b = browserEl(); return !!b && b.classList.contains("win") && !b.classList.contains("fullscreen"); };   // (1.0.349: Vivaldi's own buttons, top right, on Windows)
   const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
   const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id);   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
@@ -7220,7 +7230,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!fsctl || !fsctl.isConnected) {
       fsctl = document.createElement("div"); fsctl.className = "vos-fsctl ft-titlebar";
       fsctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="vos-pin-ctl" data-dir="h">` +
-        [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Page size - hold: light / dark"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
+        [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Light / dark - hold: page size"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
     }
     if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
     { const lk = lookWins.get(id) || ""; if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
@@ -8064,6 +8074,7 @@ window.vosBeat = window.vosBeat || (() => {
         flip([rootOf(page)], () => { groupFloat.add(w); floatNow(w, pageOf(w)); origin.set(w, { tiled: true, group: groupOf(page) }); render(); });
         return;
       }
+      if (page && btn.dataset.act === "res") { toggleDark(barId || page.dataset.id); return; }   // 1.0.349: the grey one clicked - light <-> dark (held: page size)
       if (page) act(btn.dataset.act, page);
     }, true);
     document.addEventListener("pointerdown", onPointerDown, true);

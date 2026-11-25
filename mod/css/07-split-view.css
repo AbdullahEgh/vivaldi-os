@@ -2166,3 +2166,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone][data-vos-look="light"] .tab:not([data-vos-tint]):not([data-vos-plate]) { background-color: #ffffff !important; }
 /* (a joined pill's pieces overlap by 1px: no hairline seam between its circles - it showed once a pill could be white) */
 #browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill="first"]::before, #browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill="mid"]::before { right: -7px !important; }
+
+/* 1.0.349: FROM THE TOP-RIGHT CORNER - the same controls, mirrored: the app's circle at the window's right end, its pill
+   growing out of it to the left, the buttons in mirrored order (red next to the circle) */
+#browser#browser#browser#browser > .vos-wctl[data-side-r] { flex-direction: row-reverse !important; }
+#browser#browser#browser#browser > .vos-wctl[data-side-r] > .vos-pin-ctl { flex-direction: row-reverse !important; }
+@keyframes vos-pill-h-in-r { 0% { clip-path: inset(0 0 0 calc(100% - 18px) round 9px); opacity: 0; } 30% { opacity: 1; } 100% { clip-path: inset(0 0 0 0 round 9px); opacity: 1; } }
+@keyframes vos-pill-h-out-r { 0% { clip-path: inset(0 0 0 0 round 9px); opacity: 1; } 70% { opacity: 1; } 100% { clip-path: inset(0 0 0 calc(100% - 18px) round 9px); opacity: 0; } }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-side-r][data-on] > .vos-pin-ctl::after { animation-name: vos-pill-h-in-r !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-side-r][data-out] > .vos-pin-ctl::after,
+#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-side-r][data-gone] > .vos-pin-ctl::after { animation-name: vos-pill-h-out-r !important; }
