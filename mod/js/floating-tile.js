@@ -2921,6 +2921,9 @@ window.vosBeat = window.vosBeat || (() => {
       if (wctlHeld || wctl.matches(":hover")) return;
       if (cornerH?.matches(":hover") && inCorner(id)) return;           // 1.0.348: on its top strip - but only at its corner (further right along it: gone)
       if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:is(.ft-tl, .ft-l, .ft-t, .ft-tr, .ft-r):hover`) && inCorner(id)) return;   // (1.0.358: its top-right corner too)   // (1.0.311: on its edge, between the strip and them)
+      { const p = wctlXY, el = targetOf(pageOf(id));                   // 1.0.374: still just outside its top corner (over the desktop): it stays
+        if (p && el && !document.querySelector("webview:hover") && !p[2]?.closest?.("[data-ft-float]")) { const r = el.getBoundingClientRect();
+          if (p[1] >= r.top - 36 && p[1] <= r.top + 2 && (wctlSide === "r" ? p[0] <= r.right + 24 && p[0] > r.right - WCTL_REACH : p[0] >= r.left - 24 && p[0] < r.left + WCTL_REACH)) return; } }
       wctlOff();
     }, 200);
   }
@@ -2944,6 +2947,18 @@ window.vosBeat = window.vosBeat || (() => {
       const h = t?.closest?.(".ft-frame > .ft-resize"), fid = h && /^(tl|t|tr)$/.test(h.dataset.edge || "") ? h.parentElement?.dataset.ftFor : null;
       const pe = fid && floating.has(fid) ? targetOf(pageOf(fid)) : null;
       if (pe?.matches?.("[data-ft-float][data-ft-notitle]")) { el = pe; id = fid; bar = pe.querySelector(":scope > .ft-titlebar"); }
+    }
+    if (!bar && !t?.closest?.("[data-ft-float], .vos-wctl, .vos-pin-badge, .vos-mc-icons, #tabs-container, .toolbar")) {
+      /* 1.0.374: the pointer just OUTSIDE a window's top corner (up to 36px above it, 24px beside it) brings its icon too -
+         the top-most window there, a normal one */
+      const X = ev.clientX, Y = ev.clientY;
+      for (const z of [...zOrder].reverse()) {
+        const e2 = targetOf(pageOf(z)); if (!e2 || minimized.has(z) || awayWs(z) || !e2.matches("[data-ft-float][data-ft-notitle]") || e2.hasAttribute("data-ft-pip")) continue;
+        const r = e2.getBoundingClientRect(); if (Y < r.top - 36 || Y > r.top + 2) continue;
+        const reachL = Math.min(macLights() && r.top < 44 && r.left < 84 ? 84 - r.left + WCTL_REACH : WCTL_REACH, r.width / 2);
+        if (X >= r.left - 24 && X < r.left + reachL) { if (wctlOk(z, e2)) { cornerH = e2.querySelector(":scope > .ft-titlebar"); wctlShow(z); } return; }
+        if (r.width > 300 && X <= r.right + 24 && X > r.right - Math.min(WCTL_REACH, r.width / 2)) { if (wctlOk(z, e2)) { cornerH = e2.querySelector(":scope > .ft-titlebar"); wctlShow(z, "r"); } return; }
+      }
     }
     if (!bar || !el || !id) return;
     const w = el.getBoundingClientRect();
@@ -7324,9 +7339,12 @@ window.vosBeat = window.vosBeat || (() => {
     return "";
   }
   function tabIcon(id) {
-    const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
     if (!document.getElementById("tab-" + id)) return farIcon(id);
-    const tab = document.getElementById("tab-" + id), im = tab?.querySelector("img");
+    /* 1.0.374: THE PICTURE THE TAB BAR DRAWS - read from its picture as drawn (its look's own version when it has one, else its
+       icon), not from the stored "other version" (it changed while a page loaded: Claude's cream tile while its tab showed
+       its star) */
+    const tab = document.getElementById("tab-" + id), im = tab?.querySelector(".favicon img, .site-icon img") || tab?.querySelector("img");
+    if (im) { const c = getComputedStyle(im).content, m = /^url\("(.*)"\)$/.exec(c || ""); if (m && m[1]) return m[1]; }
     const src = im?.currentSrc || im?.src || "";
     if (src || !tab) return src;
     /* 1.0.344: Vivaldi's own pages (Settings, Downloads...) draw their tab icon as a drawing, not a picture: that drawing,
