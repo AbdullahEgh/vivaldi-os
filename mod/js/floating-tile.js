@@ -1753,10 +1753,12 @@ window.vosBeat = window.vosBeat || (() => {
   function fullPage(id) { const pg = pageOf(id); return !!pg && !floating.has(id) && !isTiled(pg) && !isStart(pg); }   // (1.0.324: a page full screen)
   function toggleDark(win) {                                          // (the grey button held)
     if (!floating.has(win) && !fullPage(win)) return;
-    const pane = lookPane(win);                                         // 1.0.347: a split - only the app in front changes
+    const pane = lookPane(win), pg = pageOf(win);                       // 1.0.353: a split - every app in it changes together (by the one in front)
+    const all = pg && isTiled(pg) ? membersOf(pg) : [], panes = all.length > 1 ? all : [pane];
     const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(pane) || viv, next = now === "dark" ? "light" : "dark";
-    if (next === viv) lookWins.delete(pane); else lookWins.set(pane, next);   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
-    lookSync(win); persist(pane); if (pane !== win && floating.has(win)) persist(win); render();
+    for (const p of panes) { if (next === viv) lookWins.delete(p); else lookWins.set(p, next); }   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
+    lookSync(win); for (const p of panes) persist(p); if (!panes.includes(win) && floating.has(win)) persist(win); render();
+    setTimeout(circlesSync, 60); setTimeout(circlesSync, 400);          // (their icons' circles follow at once)
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { if (!lookWins.size) return; for (const w of floating) lookSync(w); for (const k of lookWins.keys()) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) lookSync(k); } });   // (1.0.347: a split full screen too)   // (a pane added to it, a restart)
   { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
