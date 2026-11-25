@@ -2126,3 +2126,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    and carries the blur itself */
 #browser#browser #panels-container.right.icons { width: 40px !important; min-width: 40px !important; backdrop-filter: blur(24px) saturate(1.5) !important; }
 #browser #panels-container.right #switch { backdrop-filter: none !important; }
+
+/* 1.0.338: a window holding a split: its apps' icons side by side in one pill (a pinned split's pill, lying down) */
+#browser#browser#browser > .vos-wctl .vos-wctl-ic[data-multi] { width: auto !important; flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center !important;
+  gap: 6px !important; padding: 0 5px !important; border-radius: 12px !important; }

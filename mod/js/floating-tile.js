@@ -2842,19 +2842,31 @@ window.vosBeat = window.vosBeat || (() => {
     if (wctlFor === id && b.hasAttribute("data-on")) return;
     wctlFor = id; b.dataset.ftPage = id;
     const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
-    let src = tabIcon(t);
-    if (!src) { const u = pageOf(t)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { src = favicon(u); } catch (e) {} }
+    const iconOf = x => { let v = tabIcon(x); if (!v) { const u = pageOf(x)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} } return v; };
+    let src = iconOf(t);
+    /* 1.0.338: a window holding a split: every app's icon side by side in one pill (as a pinned split's, upright there) */
+    { const ic = b.querySelector(".vos-wctl-ic"), mem = groupFloat.has(id) ? membersOf(pageOf(id)) : [], multi = mem.length > 1, want = multi ? mem.length : 1;
+      const imgs = () => [...ic.querySelectorAll(":scope > img")];
+      while (imgs().length < want) { const x = document.createElement("img"); x.alt = ""; ic.appendChild(x); }
+      while (imgs().length > want) imgs().pop().remove();
+      ic.toggleAttribute("data-multi", multi);
+      if (multi) mem.forEach((m, i) => { const v = iconOf(m), x = imgs()[i]; if (v && x.getAttribute("src") !== v) x.src = v; x.style.visibility = v ? "" : "hidden"; });
+      else imgs()[0].style.visibility = ""; }
     const im = b.querySelector(".vos-wctl-ic img");
     if (src && im.getAttribute("src") !== src) im.src = src;
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
     { const lk = lookWins.get(id) || ""; if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look)
-    mirrorTab(b.querySelector(".vos-wctl-ic"), b.querySelector(".vos-wctl-ic img"), t);   // 1.0.307: its tab's circle
+    if (b.querySelector(".vos-wctl-ic").hasAttribute("data-multi")) { const ic = b.querySelector(".vos-wctl-ic");
+      for (const a of ["data-plate", "data-tint", "data-vos-dim"]) ic.removeAttribute(a);
+      for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
+      ic.removeAttribute("data-empty"); }
+    else { mirrorTab(b.querySelector(".vos-wctl-ic"), b.querySelector(".vos-wctl-ic img"), t);   // 1.0.307: its tab's circle
     { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; }
       const tb = document.getElementById("tab-" + t), k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
       if ((ic.dataset.tint || "") !== k) { if (k) ic.dataset.tint = k; else delete ic.dataset.tint; }
       if (ic.style.getPropertyValue("--vos-tint") !== c) { if (c) ic.style.setProperty("--vos-tint", c); else ic.style.removeProperty("--vos-tint"); }
-      for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (ic.style.getPropertyValue(v) !== x) { if (x) ic.style.setProperty(v, x); else ic.style.removeProperty(v); } } }
+      for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (ic.style.getPropertyValue(v) !== x) { if (x) ic.style.setProperty(v, x); else ic.style.removeProperty(v); } } } }
     const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Resolution ${pct}% - click for more room`;
     if (g.title !== tip) g.title = tip;
     if (!wctlPlace()) return wctlOff();
@@ -7124,7 +7136,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   const circlesSync = () => {                                        // (the tab's circle changes - a tint read, a look switched: they follow)
     for (const [id, b] of pinBadges) { if (b.hasAttribute("data-multi")) continue; const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id; mirrorTab(b, b.querySelector(":scope > img"), t); }
-    if (wctl && wctlFor && wctl.hasAttribute("data-on")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
+    if (wctl && wctlFor && wctl.hasAttribute("data-on") && !wctl.querySelector(".vos-wctl-ic[data-multi]")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
   };
   /* 1.0.320: A PAGE FULL SCREEN (no Bento, no pinned apps over it - the page alone): its window buttons, with its app's
      circle, sit in the toolbar right after the Desktops button - the same component as a window's, side by side */

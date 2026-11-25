@@ -340,3 +340,9 @@
 
 /* 1.0.331: on the desktop the + is off (the desktop is the Launchpad already): dimmed, and it takes no press */
 #browser[data-vos-desk-bare] #tabs-tabbar-container :is(.newtab, #newtab-main) { opacity: 0.35 !important; pointer-events: none !important; transition: opacity 0.2s ease !important; }
+
+/* 1.0.338: a split's pill in the tab bar hugs its icons: its ends are the first and last circles' own edges (the circle is
+   30px, centred in its place) - no room past them on either side */
+#browser#browser #tabs-container .tab-position[data-ft-pill="first"], #browser#browser #tabs-container .tab-position[data-ft-pill="last"] { margin-left: 0 !important; margin-right: 0 !important; }
+#browser#browser #tabs-container .tab-position[data-ft-pill="first"]::before { left: calc(50% - 15px) !important; }
+#browser#browser #tabs-container .tab-position[data-ft-pill="last"]::before { right: calc(50% - 15px) !important; }

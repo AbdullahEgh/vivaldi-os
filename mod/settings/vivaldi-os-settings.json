@@ -92,11 +92,9 @@
       }
     ],
     "vivaldi.panels.position": 1,
-    "vivaldi.panels.window_defaults": {
-      "barVisible": true,
-      "contentVisible": false,
-      "width": 463
-    },
+    "vivaldi.panels.window_defaults.barVisible": true,
+    "vivaldi.panels.window_defaults.contentVisible": false,
+    "vivaldi.panels.window_defaults.width": 463,
     "vivaldi.startpage": {
       "navigation": 2,
       "speed_dial": {
@@ -125,13 +123,8 @@
       "double_click": 2,
       "never_close_last": true,
       "stacking": {
-        "mode": 0,
-        "open_accordions": [
-          "b1e29f0c-4bff-4842-b66b-634a83953171",
-          "01dbed8b-4fd0-4235-b760-f6f05ee6d944",
-          "82b76340-515f-415f-8a92-b457141c0d11",
-          "129cd491-5a49-4807-bd5e-8b06d369361f"
-        ]
+        "mode": 3,
+        "open_accordions": []
       },
       "visible": true
     },

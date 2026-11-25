@@ -421,3 +421,7 @@
    the first letter */
 #browser #tabs-tabbar-container .UrlBar-AddressField input:placeholder-shown:focus { text-align: left !important; }
 #browser #tabs-tabbar-container .UrlBar-AddressField input:placeholder-shown:focus::placeholder { text-align: center !important; }
+
+/* 1.0.338: the panel bar on the right: the tab bar's right end (widgets, side-menu button) moves right, so the side-menu
+   button stands over the panel bar's icons, centred on the same line (its 40px column: centre 20px from the edge) */
+#browser:is(.tabs-top, .tabs-bottom):has(#panels-container.right:not(.hidden)) #tabs-container > .toolbar-tabbar-after { position: relative !important; left: 9px !important; }
