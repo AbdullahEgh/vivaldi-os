@@ -347,8 +347,3 @@
 #browser#browser #tabs-container .tab-position[data-ft-pill="first"]::before { left: calc(50% - 15px) !important; }
 #browser#browser #tabs-container .tab-position[data-ft-pill="last"]::before { right: calc(50% - 15px) !important; }
 
-/* 1.0.359: an icon with its own disc or tile (white or black): its circle that colour, so the icon is whole on it */
-#browser#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tile="light"]:not([data-vos-plate]),
-#browser#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tile="light"]:not([data-vos-plate]):hover { background-color: #ffffff !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tile="dark"]:not([data-vos-plate]),
-#browser#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab[data-vos-tile="dark"]:not([data-vos-plate]):hover { background-color: #000000 !important; }

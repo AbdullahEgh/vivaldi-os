@@ -2878,7 +2878,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (multi) mem.forEach((m, i) => { const v = iconOf(m), x = imgs()[i]; if (v && x.getAttribute("src") !== v) x.src = v; x.style.visibility = v ? "" : "hidden"; });
       else imgs()[0].style.visibility = ""; }
     const im = b.querySelector(".vos-wctl-ic img");
-    if (src && im.getAttribute("src") !== src) im.src = src;
+    if (src && !b.querySelector(".vos-wctl-ic[data-multi]") && im.getAttribute("src") !== src) im.src = src;   // 1.0.360: a joined pill: each slot its own app's picture (the front app's no longer written into the first)
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
     { const lk = lookOfWin(id); if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look - 1.0.347: a split's, the app in front)
     if (b.querySelector(".vos-wctl-ic").hasAttribute("data-multi")) { const ic = b.querySelector(".vos-wctl-ic");
@@ -7184,7 +7184,7 @@ window.vosBeat = window.vosBeat || (() => {
   function circleOf(id) {                                              // 1.0.347: an app's circle colour - its tab's, or (no tint: see-through) its look's
     /* 1.0.357: no tints - white or black, by its look (an icon that would vanish on it: its plate), worked out, never read
        from the tab mid-change (that left circles and icons out of step) */
-    const t = tabCircle(id), plate = t?.getAttribute("data-vos-plate") || t?.getAttribute("data-vos-tile") || "";   // (1.0.359: its own disc's colour)
+    const t = tabCircle(id), plate = t?.getAttribute("data-vos-plate") || "";   // (1.0.360: its look decides - an icon's own disc never does)
     const look = plate || lookWins.get(String(id)) || (browserEl()?.classList.contains("theme-dark") ? "dark" : "light");
     return { bg: look === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)", L: look === "light" ? 1 : 0, own: !!plate };
   }

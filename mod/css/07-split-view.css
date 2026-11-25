@@ -1944,7 +1944,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.305: a window's look changed (grey held): its circle, its buttons' pill and its frame change colour with its page's
    dissolve - the same 0.45s, the same ease */
-#browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) !important; }   /* (1.0.358: its colour at once, as every icon's) */
+#browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease !important; }   /* (1.0.360: its colour dissolves with every icon's) */
 #browser#browser#browser > .vos-wctl .vos-wctl-ic { transition: background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
 #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl) > .vos-pin-ctl::after { transition: background-color 0.45s ease, background 0.45s ease !important; }
 
@@ -2185,8 +2185,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   backdrop-filter: blur(30px) saturate(1.8) brightness(1.4) !important; -webkit-backdrop-filter: blur(30px) saturate(1.8) brightness(1.4) !important;
 }
 
-/* ===== 1.0.358: a look switched - every icon circle and the buttons' background change in the same moment (no fades of
-   different lengths: the tab's 0.22s and the pill's 0.45s left them out of step) ===== */
+/* ===== 1.0.360: a look switched - every icon circle, the joined pill and the buttons' background DISSOLVE together: one fade,
+   one length, started in the same moment (1.0.358's different lengths were the glitch; no fade at all was wrong) ===== */
 #browser#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab,
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl, .vos-fsctl) .vos-pin-ctl::after,
-#browser#browser#browser#browser#browser#browser#browser#browser :is(#browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic, :is(#webpage-stack > .vos-pin-badge, .vos-wctl-ic)[data-multi] > img) { transition-property: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser :is(#browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic, :is(#webpage-stack > .vos-pin-badge, .vos-wctl-ic)[data-multi] > img) { transition: background-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease !important; }

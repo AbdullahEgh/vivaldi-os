@@ -312,10 +312,7 @@
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
       const kind = "", col = "";   // 1.0.355: no tint at all - every app on a plain white (light) / black (dark) circle
-      { /* 1.0.359: an icon with its own disc or tile (Google's white one): its circle - and a joined pill - that colour, white or black,
-           so circle, icon and pill always match */
-        let tt = ""; if (v && typeof v === "object" && v.tile) { const [r, g, bl] = v.tile.split(",").map(Number), L = (0.2126 * r + 0.7152 * g + 0.0722 * bl) / 255; tt = L > 0.75 ? "light" : L < 0.2 ? "dark" : ""; }
-        if ((tab.getAttribute("data-vos-tile") || "") !== tt) { if (tt) tab.setAttribute("data-vos-tile", tt); else tab.removeAttribute("data-vos-tile"); } }
+      if (tab.hasAttribute("data-vos-tile")) tab.removeAttribute("data-vos-tile");   // (1.0.360: no own-disc colour - the look decides)
       { const dim = !!(v && typeof v === "object" && dk && ((v.tile && hslL(v.tile) < 0.3) || want === "light"));   // 1.0.316: an icon too dim for the dark bar
         if (tab.hasAttribute("data-vos-dim") !== dim) tab.toggleAttribute("data-vos-dim", dim); }
       if ((tab.getAttribute("data-vos-tint") || "") !== kind) { if (kind) tab.setAttribute("data-vos-tint", kind); else tab.removeAttribute("data-vos-tint"); }
