@@ -1906,10 +1906,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.297: blurred all the way, coming and going: the pill is no longer uncovered by a clip (a clip stops its glass blurring)
    - it grows out of the circle and shrinks back into it, its glass blurring all the while */
-@keyframes vos-pill-h-in { from { transform: scaleX(0); } to { transform: none; } }
-@keyframes vos-pill-h-out { from { transform: none; } to { transform: scaleX(0); } }
-@keyframes vos-pill-v-in { from { transform: scaleY(0); } to { transform: none; } }
-@keyframes vos-pill-v-out { from { transform: none; } to { transform: scaleY(0); } }
+@keyframes vos-pill-h-in { 0% { clip-path: inset(0 calc(100% - 18px) 0 0 round 9px); opacity: 0; } 30% { opacity: 1; } 100% { clip-path: inset(0 0 0 0 round 9px); opacity: 1; } }   /* 1.0.343: a circle that grows long - a pill (never squeezed) */
+@keyframes vos-pill-h-out { 0% { clip-path: inset(0 0 0 0 round 9px); opacity: 1; } 70% { opacity: 1; } 100% { clip-path: inset(0 calc(100% - 18px) 0 0 round 9px); opacity: 0; } }   /* (back into its circle) */
+@keyframes vos-pill-v-in { 0% { clip-path: inset(0 0 calc(100% - 18px) 0 round 9px); opacity: 0; } 30% { opacity: 1; } 100% { clip-path: inset(0 0 0 0 round 9px); opacity: 1; } }
+@keyframes vos-pill-v-out { 0% { clip-path: inset(0 0 0 0 round 9px); opacity: 1; } 70% { opacity: 1; } 100% { clip-path: inset(0 0 calc(100% - 18px) 0 round 9px); opacity: 0; } }
 @keyframes vos-wctl-ic-gone { from { opacity: 1; } to { opacity: 0; } }
 #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #webpage-stack > .vos-pin-badge:hover, #browser > .vos-wctl, #browser > .vos-wctl[data-on], #browser > .vos-wctl[data-out], #browser > .vos-wctl[data-gone]) > .vos-pin-ctl { clip-path: none !important; animation: none !important; transform: none !important; }
 /* a window's: sideways, out of its circle */
