@@ -37,6 +37,10 @@
   }
   var mqs = {};                                               // 1.0.340: one per query - asked again (a site's every render, a scroll): the same one
   window.matchMedia = function matchMedia(q) { q = String(q); return /prefers-color-scheme/i.test(q) ? (mqs[q] || (mqs[q] = wrap(q))) : real.call(W, q); };
+  var paint = function () {                                     // (how the page is drawn now: its colours and theme marks)
+    try { var D = document, h = D.documentElement, bd = D.body, c = getComputedStyle(h), cb = bd ? getComputedStyle(bd) : c;
+      return c.backgroundColor + c.color + cb.backgroundColor + cb.color + h.className + (bd ? bd.className : "") + (h.getAttribute("data-theme") || "") + D.adoptedStyleSheets.length; } catch (e) { return ""; }
+  };
   window.__vosLookSet = function (t, quiet) {                 // (called by Bento OS for this tab only)
     look = t === "light" || t === "dark" ? t : null;
     try { look ? sessionStorage.setItem(KEY, look) : sessionStorage.removeItem(KEY); } catch (e) {}
@@ -47,7 +51,10 @@
         var css = new CSSStyleSheet();
         css.replaceSync("::view-transition-old(root),::view-transition-new(root){animation-duration:.45s !important;animation-timing-function:ease !important}");
         D.adoptedStyleSheets = D.adoptedStyleSheets.concat([css]);
-        var vt = D.startViewTransition(function () { go(); return new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(function () { judge(); r(); }); }); }); });   // (1.0.340: its redraw, two frames on - not a fixed wait)   // (the site redraws, its rules switch; a made-up dark on or off with it)
+        var vt = D.startViewTransition(function () {                 // 1.0.345: no frames run inside a view transition's update (rAF waited for ever,
+          var look0 = paint(); go();                                  // the fade was dropped): plain timers - on as soon as the page has redrawn, at most 260ms
+          return new Promise(function (r) { var t0 = Date.now(), tick = function () {
+            if (paint() !== look0 || Date.now() - t0 >= 260) { judge(); setTimeout(r, 20); } else setTimeout(tick, 25); }; setTimeout(tick, 25); }); });   // (the site redraws, its rules switch; a made-up dark on or off with it)
         var done = function () { D.adoptedStyleSheets = D.adoptedStyleSheets.filter(function (x) { return x !== css; }); };
         vt.finished.then(done, done);
         return (look || "off") + (late ? "|late" : "");
