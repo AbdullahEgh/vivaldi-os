@@ -2890,10 +2890,16 @@ window.vosBeat = window.vosBeat || (() => {
     clearInterval(wctlTick);
     wctlTick = setInterval(() => {                                   // (over the page the browser hears no moves: checked here)
       if (wctlFor !== id) return clearInterval(wctlTick);
-      if (wctlHeld || wctl.matches(":hover") || cornerH?.matches(":hover")) return;
-      if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:hover`)) return;   // (1.0.311: on its edge, between the strip and them)
+      if (wctlHeld || wctl.matches(":hover")) return;
+      if (cornerH?.matches(":hover") && inCorner(id)) return;           // 1.0.348: on its top strip - but only at its corner (further right along it: gone)
+      if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:is(.ft-tl, .ft-l, .ft-t):hover`) && inCorner(id)) return;   // (1.0.311: on its edge, between the strip and them)
       wctlOff();
     }, 200);
+  }
+  function inCorner(id) {                                            // 1.0.348: the pointer at the window's top-left corner (where they came from) - not further along
+    const el = targetOf(pageOf(id)), p = wctlXY; if (!el || !p) return false;
+    const w = el.getBoundingClientRect(), reach = (macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + 120 : 120) + 40;
+    return p[0] > w.left - 30 && p[0] - w.left < reach && p[1] > w.top - 50 && p[1] < w.top + 44;
   }
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
