@@ -7179,7 +7179,13 @@ window.vosBeat = window.vosBeat || (() => {
   /* 1.0.307: ONE ICON: a pinned app's circle and a window's circle are its tab's circle - the very picture the tab shows, on
      the very colour it has (its tile, its tint, its plate, its look) - copied from the tab, and kept so */
   function mirrorTab(el, im, tid) {
-    const w = document.getElementById("tab-" + tid), tab = w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); if (!tab || !el) return;   // (the circle itself, not its wrapper)
+    const w = document.getElementById("tab-" + tid), tab = w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); if (!el) return;   // (the circle itself, not its wrapper)
+    if (!tab) {                                                        // 1.0.366: its tab not in the bar now (another desktop): its look's circle, its tab's icon
+      const bg = circleOf(tid).bg; if (el.__vosBg !== bg) { el.__vosBg = bg; el.style.setProperty("background", bg, "important"); }
+      const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
+      for (const a of ["data-vos-dim", "data-vos-ink"]) if (el.hasAttribute(a)) el.removeAttribute(a);
+      return;
+    }
     const bg = circleOf(tid).bg;                                       // 1.0.357: its circle worked out (white / black), as the tab's will end
     if (el.__vosBg !== bg) { el.__vosBg = bg; el.style.setProperty("background", bg, "important"); }
     const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
@@ -7281,8 +7287,19 @@ window.vosBeat = window.vosBeat || (() => {
   };
   addEventListener("vos-tabicons", () => circlesSync());            // 1.0.355: the tab bar's icons redone - every circle of them in step
   setInterval(() => { if (document.hidden) return; circlesSync(); fsCtlSync(); hintSync(); }, 450);   // 1.0.332: one light beat for the three (none while not seen)
+  /* 1.0.366: a window whose tab is not in the tab bar now (it is on another desktop): its tab's own icon - the same address the
+     tab draws (chrome://favicon2 ?iconUrl=) - never the page's big icon (Claude's cream tile, Calendar's white-rimmed one) */
+  const favById = new Map(), favAsk = new Set();
+  try { chrome.tabs.onUpdated.addListener((tid, ch) => { if (ch.favIconUrl) favById.set(String(tid), ch.favIconUrl); });
+        chrome.tabs.onRemoved.addListener(tid => { favById.delete(String(tid)); favAsk.delete(String(tid)); }); } catch (e) {}
+  function farIcon(id) {
+    const k = String(id), f = favById.get(k);
+    if (f === undefined && !favAsk.has(k)) { favAsk.add(k); try { chrome.tabs.get(Number(k), t => { void chrome.runtime.lastError; favById.set(k, t?.favIconUrl || ""); favAsk.delete(k); }); } catch (e) { favAsk.delete(k); } }
+    return /^(https?:|data:image)/.test(f || "") ? `chrome://favicon2/?size=32&iconUrl=${encodeURIComponent(f)}` : "";
+  }
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
+    if (!document.getElementById("tab-" + id)) return farIcon(id);
     const tab = document.getElementById("tab-" + id), im = tab?.querySelector("img");
     const src = im?.currentSrc || im?.src || "";
     if (src || !tab) return src;
