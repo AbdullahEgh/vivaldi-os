@@ -286,7 +286,7 @@
       const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
-      const kind = v && typeof v === "object" ? (v.tile ? "tile" : v.tint ? "soft" : "") : "", col = kind === "tile" ? v.tile : kind === "soft" ? v.tint : "";   // 1.0.301
+      const kind = v && typeof v === "object" && v.tile ? "tile" : "", col = kind === "tile" ? v.tile : "";   // 1.0.301 (1.0.354: no soft tint - a plain white / black circle; a square icon still fills its own)
       { const dim = !!(v && typeof v === "object" && dark && ((v.tile && hslL(v.tile) < 0.3) || want === "light"));   // 1.0.316: an icon too dim for the dark bar
         if (tab.hasAttribute("data-vos-dim") !== dim) tab.toggleAttribute("data-vos-dim", dim); }
       if ((tab.getAttribute("data-vos-tint") || "") !== kind) { if (kind) tab.setAttribute("data-vos-tint", kind); else tab.removeAttribute("data-vos-tint"); }
