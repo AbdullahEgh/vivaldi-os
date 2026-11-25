@@ -2843,7 +2843,7 @@ window.vosBeat = window.vosBeat || (() => {
     const el = targetOf(pageOf(wctlFor));
     if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || el.hasAttribute("data-ft-cover")) return false;
     const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
-    const R = Math.max(up ? 0 : 6, wctlRadius(el));                   // 1.0.350: past its rounded corner - the corner itself stays free to resize from
+    const R = Math.max(up ? 0 : 6, Math.round(wctlRadius(el) / 2));   // 1.0.350: in from its rounded corner - the corner itself stays free to resize from (1.0.352: half of it)
     let lx = w.left + R; const ty0 = up ? w.top - H - 6 : w.top + 6;
     if (wctlSide === "r") {                                           // 1.0.349: from its top-right corner - mirrored, ending at its right edge
       lx = w.right - R - wctlW;
