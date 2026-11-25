@@ -8081,109 +8081,75 @@ window.vosBeat = window.vosBeat || (() => {
   start();
 })();
 
-/* 1.0.335: EXTENSION SIDE PANELS THAT REFUSE VIVALDI'S PANEL (Claude in Chrome). Vivaldi shows an extension's side panel in
-   a hidden tab; Claude's panel asks "am I in a tab?" and, being in one, says it is not available on this page. Bento OS
-   shows it itself instead: in its own sheet at the right edge (a frame, not a tab - as Chrome's side panel), one per app
-   window, as Chrome keeps one per tab - shown with its window in front, hidden with it. Its button (or its shortcut) opens
-   and closes it; Vivaldi's own panel for it is closed again at once. The extension itself is left as it is */
+/* 1.0.337: EXTENSION SIDE PANELS THAT REFUSE VIVALDI'S PANEL (Claude in Chrome) - INSIDE VIVALDI'S OWN PANEL. Vivaldi runs an
+   extension's side panel page in a hidden tab; Claude's page asks "am I in a tab?" and, being in one, says it is not
+   available on this page. Its panel stays Vivaldi's own (its icon in the panel bar, its width, opening and closing as any
+   panel) - only the page in it is Bento OS's: a frame, not a tab, as Chrome's side panel, for the app window in front
+   (one per window, as Chrome keeps one per tab). The extension itself is left as it is */
 (() => {
   const HOSTED = { fcoeoabgfenejglbffodgkkbkcdhcgfn: "sidepanel.html" };
-  const sheets = new Map();                                           // app tab id -> its sheet
-  let shownFor = null, sheetW = 400;
-  try { const w = Number(localStorage.getItem("vosSheetW")); if (w >= 320 && w <= 720) sheetW = w; } catch (e) {}
-  const browser = () => document.getElementById("browser");
-  function place(s) {
-    const main = document.getElementById("main"), r = main ? main.getBoundingClientRect() : { top: 40, bottom: innerHeight };
-    s.style.top = Math.round(r.top + 8) + "px"; s.style.height = Math.max(200, Math.round(r.bottom - r.top - 16)) + "px"; s.style.width = sheetW + "px";
-  }
-  function make(info) {
-    const s = document.createElement("div"); s.className = "vos-sheet"; s.dataset.tab = info.tab;
-    s.innerHTML = `<div class="vos-sheet-grip" title="Drag to resize"></div>`;
-    const wv = document.createElement("webview");
-    wv.setAttribute("src", `chrome-extension://${info.ext}/${info.page}?tabId=${info.tab}`);
-    wv.addEventListener("close", () => drop(info.tab));                // (its own close: window.close() in it)
-    wv.addEventListener("newwindow", e => { try { chrome.tabs.create({ url: e.targetUrl, openerTabId: info.tab }); } catch (x) {} });
-    wv.addEventListener("permissionrequest", e => { if (e.permission === "media" || e.permission === "fullscreen") e.request.allow(); });
-    s.appendChild(wv);
-    s.querySelector(".vos-sheet-grip").addEventListener("pointerdown", ev => {
-      ev.preventDefault(); const x0 = ev.clientX, w0 = sheetW; s.setAttribute("data-sizing", "");
-      const mv = e => { sheetW = Math.max(320, Math.min(720, w0 + (x0 - e.clientX))); for (const k of sheets.values()) k.style.width = sheetW + "px"; };
-      const up = () => { removeEventListener("pointermove", mv, true); removeEventListener("pointerup", up, true); s.removeAttribute("data-sizing"); try { localStorage.setItem("vosSheetW", String(sheetW)); } catch (e) {} };
-      addEventListener("pointermove", mv, true); addEventListener("pointerup", up, true);
-    });
-    browser().appendChild(s); place(s); sheets.set(info.tab, s);
-    return s;
-  }
-  function show(tab) {
-    for (const [t, s] of sheets) if (t !== tab && s.hasAttribute("data-on")) hide(s);
-    const s = sheets.get(tab); if (!s) return;
-    clearTimeout(s.__out); s.removeAttribute("data-out"); place(s);
-    if (!s.hasAttribute("data-on")) { s.style.display = ""; void s.offsetWidth; s.setAttribute("data-on", ""); }
-    shownFor = tab; markBtn();
-  }
-  function hide(s) {
-    if (!s.hasAttribute("data-on")) return;
-    s.removeAttribute("data-on"); s.setAttribute("data-out", "");
-    s.__out = setTimeout(() => { s.removeAttribute("data-out"); s.style.display = "none"; }, 220);
-    if (shownFor === Number(s.dataset.tab)) shownFor = null;
-    markBtn();
-  }
-  function drop(tab) {
-    const s = sheets.get(tab); if (!s) return; sheets.delete(tab); hide(s); setTimeout(() => s.remove(), 240);
-  }
-  function asked(info) {                                              // its button / shortcut: open it for that window, or close it
-    const s = sheets.get(info.tab);
-    if (s && s.hasAttribute("data-on")) return drop(info.tab);
-    if (!s) make(info);
-    show(info.tab);
-  }
-  /* its button or shortcut: Vivaldi says so (the extension asks for its panel in that window) - Bento OS's sheet answers
-     for the window in front there; Vivaldi's own panel for it (that would only say "not available") is closed again */
-  function closeVivaldis(ext) {
-    const pc = document.getElementById("panels-container");
-    const wv = pc && [...pc.querySelectorAll("webview")].find(w => (w.getAttribute("src") || "").startsWith(`chrome-extension://${ext}/`));
-    if (!wv || !pc.classList.contains("expanded") || !wv.offsetWidth) return false;
-    const btn = [...document.querySelectorAll("#switch button[title]")].find(b => b.title.includes(`chrome-extension://${ext}/`));
-    passThru = true;
-    if (btn) for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"])   // (its button takes a whole press, not a click alone)
-      btn.dispatchEvent(new (t.startsWith("pointer") ? PointerEvent : MouseEvent)(t, { bubbles: true, cancelable: true, button: 0, pointerType: "mouse" }));
-    passThru = false;
-    return true;
-  }
-  /* 1.0.336: ITS ICON IN THE PANEL BAR (right edge) opens and closes the same sheet - Vivaldi's own panel for it is never opened */
-  let passThru = false;
-  const barBtn = t => { const b = t?.closest?.('#switch button[data-name^="EXT_PANEL_"]'); const ext = b?.dataset.name.slice(10); return b && HOSTED[ext] ? { b, ext } : null; };
-  for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) addEventListener(type, ev => {
-    if (passThru || ev.button !== 0) return;
-    const hit = barBtn(ev.target); if (!hit) return;
-    ev.preventDefault(); ev.stopImmediatePropagation();
-    if (type !== "click") return;
-    chrome.windows.getCurrent(w => { if (!chrome.runtime.lastError && w) chrome.tabs.query({ active: true, windowId: w.id }, tabs => {
-      const t = tabs?.[0]; if (!chrome.runtime.lastError && t) asked({ ext: hit.ext, page: HOSTED[hit.ext], tab: t.id }); }); });
-  }, true);
-  function markBtn() {                                                // (its icon in the panel bar lit while its sheet shows)
-    for (const b of document.querySelectorAll('#switch button[data-name^="EXT_PANEL_"]')) {
-      const on = !!HOSTED[b.dataset.name.slice(10)] && shownFor != null;
-      if (b.hasAttribute("data-vos-on") !== on) b.toggleAttribute("data-vos-on", on);
+  const KEEP = 3;                                                     // (frames kept for the last windows it was open for)
+  const frames = new Map();                                           // app tab id -> its frame (most recent last)
+  let activeTab = null, openSince = 0;
+  const slotOf = () => {
+    for (const ext in HOSTED) {
+      const wv = document.querySelector(`#panels-container .webpanel webview:not(.vos-hosted)[src^="chrome-extension://${ext}/"]`);
+      if (wv) return { ext, wv, slot: wv.parentElement, panel: wv.closest(".webpanel") };
     }
+    return null;
+  };
+  const isOpen = h => !!h && h.panel?.classList.contains("visible") && document.getElementById("panels-container")?.classList.contains("expanded") && h.slot.offsetWidth > 0;
+  function frameFor(h, tab) {
+    let f = frames.get(tab);
+    if (f && f.parentElement !== h.slot) { f.remove(); frames.delete(tab); f = null; }   // (its panel was made anew)
+    if (!f) {
+      f = document.createElement("webview"); f.className = "vos-hosted";
+      f.setAttribute("src", `chrome-extension://${h.ext}/${HOSTED[h.ext]}?tabId=${tab}`);
+      f.addEventListener("close", () => { frames.delete(tab); f.remove(); sync(); });   // (its own close: window.close() in it)
+      f.addEventListener("newwindow", e => { try { chrome.tabs.create({ url: e.targetUrl, openerTabId: tab }); } catch (x) {} });
+      f.addEventListener("permissionrequest", e => { if (e.permission === "media" || e.permission === "fullscreen") e.request.allow(); });
+      h.slot.appendChild(f);
+    }
+    frames.delete(tab); frames.set(tab, f);
+    while (frames.size > KEEP) { const [old, of] = frames.entries().next().value; if (old === tab) break; of.remove(); frames.delete(old); }
+    return f;
   }
-  let askT = 0;
-  function onAsk(ext, action, winId) {
-    if (!HOSTED[ext] || action !== "show" || askT) return;
-    askT = setTimeout(() => { askT = 0; }, 400);                      // (one press, told more than once)
-    chrome.tabs.query({ active: true, windowId: winId }, tabs => {
+  function sync() {
+    const h = slotOf();
+    if (!isOpen(h)) { openSince = 0; return; }
+    if (!openSince) openSince = Date.now();
+    if (activeTab == null) return;
+    const f = frameFor(h, activeTab);
+    for (const g of frames.values()) { const on = g === f; if (g.hasAttribute("data-on") !== on) g.toggleAttribute("data-on", on); }
+  }
+  function setActive() {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       const t = tabs?.[0]; if (chrome.runtime.lastError || !t) return;
-      asked({ ext, page: HOSTED[ext], tab: t.id });
+      const panelTab = (() => { try { return JSON.parse(t.vivExtData || "{}").panelId != null; } catch (e) { return false; } })();
+      if (panelTab || /^chrome-extension:\/\//.test(t.url || "")) return;   // (not a page Claude works on)
+      activeTab = t.id; sync();
     });
-    let n = 0; const tryClose = () => { if (!closeVivaldis(ext) && ++n < 12) setTimeout(tryClose, 120); };
-    setTimeout(tryClose, 150);
   }
+  /* its toolbar button (or shortcut) asks again while its panel is open: closed, as the same button does in Chrome */
+  function onAsk(ext, action) {
+    if (!HOSTED[ext] || action !== "show") return;
+    const h = slotOf();
+    if (!(isOpen(h) && openSince && Date.now() - openSince > 400)) return setTimeout(setActive, 50);
+    const btn = document.querySelector(`#switch button[data-name="EXT_PANEL_${ext}"]`);
+    if (btn) setTimeout(() => { for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"])
+      btn.dispatchEvent(new (t.startsWith("pointer") ? PointerEvent : MouseEvent)(t, { bubbles: true, cancelable: true, button: 0, pointerType: "mouse" })); }, 120);
+  }
+  let syncT = 0;
+  const kick = () => { if (!syncT) syncT = setTimeout(() => { syncT = 0; sync(); }, 50); };
   function start() {
-    if (!browser()) return setTimeout(start, 1000);
-    try { vivaldi.extensionActionUtils.onSidePanelActionRequested.addListener(onAsk); } catch (e) { return; }
-    chrome.tabs.onActivated.addListener(({ tabId }) => { if (sheets.has(tabId)) show(tabId); else if (shownFor != null) hide(sheets.get(shownFor)); });
-    chrome.tabs.onRemoved.addListener(tabId => drop(tabId));
-    addEventListener("resize", () => { for (const s of sheets.values()) place(s); });
+    const pc = document.getElementById("panels-container");
+    if (!pc) return setTimeout(start, 1000);
+    new MutationObserver(kick).observe(pc, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "src"] });
+    try { vivaldi.extensionActionUtils.onSidePanelActionRequested.addListener(onAsk); } catch (e) {}
+    chrome.tabs.onActivated.addListener(setActive);
+    chrome.windows.onFocusChanged.addListener(setActive);
+    chrome.tabs.onRemoved.addListener(tab => { const f = frames.get(tab); if (f) { f.remove(); frames.delete(tab); } });
+    setActive();
   }
   start();
 })();
