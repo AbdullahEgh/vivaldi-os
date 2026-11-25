@@ -94,6 +94,7 @@ window.vosBeat = window.vosBeat || (() => {
   const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
   const DUR = 320;
   const EXT_KEY = "vivaldiOsFloat";                 // our key inside the tab's vivExtData
+  const LOOK_KEY = "vivaldiOsLook";                 // 1.0.347: its app's own look (light / dark) - any app, in a split too
 
   /* ---------------- state, keyed by tab id (= the page's data-id) ---------------- */
   const floating = new Set();       // windows on the desktop
@@ -756,8 +757,10 @@ window.vosBeat = window.vosBeat || (() => {
                                           dk: lookWins.get(id) || undefined,   // 1.0.273: its own look ("light" / "dark")
                                           lp: !pc && pinMem.has(id) ? pinMem.get(id) : undefined,   // where it was pinned last (pinned again: there)
  } : undefined;
-        if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want)) return;
+        const lk = lookWins.get(id) || undefined;                       // 1.0.347: its app's own look, on its own tab (a split's apps: each its own)
+        if (JSON.stringify(ext[EXT_KEY]) === JSON.stringify(want) && ext[LOOK_KEY] === lk) return;
         if (want) ext[EXT_KEY] = want; else delete ext[EXT_KEY];
+        if (lk) ext[LOOK_KEY] = lk; else delete ext[LOOK_KEY];
         chrome.tabs.update(t, { vivExtData: JSON.stringify(ext) }, () => void chrome.runtime.lastError);
       });
     }, 400));
@@ -788,6 +791,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (x.tiling?.id && x[EXT_KEY]?.g) splitHome.set(String(x.tiling.id), String(tab.id));
       }
       for (const tab of tabs || []) {
+        { const lk = ext(tab)[LOOK_KEY]; if (lk === "light" || lk === "dark") lookWins.set(String(tab.id), lk); }   // 1.0.347: each app's own look
         let f;
         try { f = JSON.parse(tab.vivExtData || "{}")?.[EXT_KEY]; } catch { continue; }
         if (!f) continue;
@@ -1740,15 +1744,20 @@ window.vosBeat = window.vosBeat || (() => {
     try { wv.executeScript({ code: lookCode(target || "light", !!target) }, () => void chrome.runtime.lastError); } catch (e) {}   // the page open now: at once
     wv.__vosLookAt = target || "";
   }
-  function lookSync(id) { const t = lookWins.get(id) || ""; for (const wv of webviewsOf(id)) if ((wv.__vosLookAt ?? "") !== t) lookApply(wv, t); }
+  function lookSync(id) {                                              // 1.0.347: each pane its own app's look (a split: each app keeps its own)
+    for (const wv of webviewsOf(id)) { const pid = wv.closest(".webpageview[data-id]")?.dataset.id || id, t = lookWins.get(pid) || ""; if ((wv.__vosLookAt ?? "") !== t) lookApply(wv, t); }
+  }
+  const lookPane = w => groupFloat.has(w) ? (splitFocus.get(w) || w) : w;   // (a split: the app in front)
+  const lookOfWin = w => w == null ? "" : (lookWins.get(lookPane(w)) || "");
   function fullPage(id) { const pg = pageOf(id); return !!pg && !floating.has(id) && !isTiled(pg) && !isStart(pg); }   // (1.0.324: a page full screen)
   function toggleDark(win) {                                          // (the grey button held)
     if (!floating.has(win) && !fullPage(win)) return;
-    const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(win) || viv, next = now === "dark" ? "light" : "dark";
-    if (next === viv) lookWins.delete(win); else lookWins.set(win, next);   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
-    lookSync(win); if (floating.has(win)) persist(win); render();
+    const pane = lookPane(win);                                         // 1.0.347: a split - only the app in front changes
+    const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(pane) || viv, next = now === "dark" ? "light" : "dark";
+    if (next === viv) lookWins.delete(pane); else lookWins.set(pane, next);   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
+    lookSync(win); persist(pane); if (pane !== win && floating.has(win)) persist(win); render();
   }
-  (window.vosBeat || (f => setInterval(f, 2500)))(() => { for (const w of lookWins.keys()) if (floating.has(w) || fullPage(w)) lookSync(w); });   // (a pane added to it, a restart)
+  (window.vosBeat || (f => setInterval(f, 2500)))(() => { if (!lookWins.size) return; for (const w of floating) lookSync(w); for (const k of lookWins.keys()) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) lookSync(k); } });   // (1.0.347: a split full screen too)   // (a pane added to it, a restart)
   { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
     let themeT = 0;
     const themeCheck = () => { clearTimeout(themeT); themeT = setTimeout(themeSettled, 1200); };   // 1.0.299: only a change that stays (not Vivaldi loading its theme)
@@ -2260,18 +2269,18 @@ window.vosBeat = window.vosBeat || (() => {
     }
     {                                                                // 1.0.279: a window in its own look: its circle in the tab bar too
       const want = new Map();
-      for (const [w, look] of lookWins) {
-        if (!floating.has(w) && !fullPage(w)) continue;
-        const ids = groupFloat.has(w) ? membersOf(pageOf(w)) : [];
-        for (const t of ids.length ? ids : [w]) { const tp = document.getElementById("tab-" + t)?.closest(".tab-position"); if (tp) want.set(tp, look); }
+      if (lookWins.size) {                                             // 1.0.347: each app its own (a split's apps each theirs)
+        const tpOf = t => document.getElementById("tab-" + t)?.closest(".tab-position");
+        for (const w of floating) for (const t of (groupFloat.has(w) ? membersOf(pageOf(w)) : [w])) { const look = lookWins.get(t), tp = look && tpOf(t); if (tp) want.set(tp, look); }
+        for (const [k, look] of lookWins) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) { const tp = tpOf(k); if (tp) want.set(tp, look); } }
       }
       for (const o of $$(".tab-position[data-vos-look]")) if (!want.has(o)) o.toggleAttribute("data-vos-look", false);
       for (const [tp, look] of want) if (tp.getAttribute("data-vos-look") !== look) tp.setAttribute("data-vos-look", look);
       const parts = new Map();                                       // 1.0.293: the window itself, its pinned circle and buttons - all that look
-      for (const [w, look] of lookWins) { if (!floating.has(w)) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); }
+      if (lookWins.size) for (const w of floating) { const look = lookOfWin(w); if (!look) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); }
       for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
       for (const [o, look] of parts) if (o.getAttribute("data-vos-look") !== look) o.setAttribute("data-vos-look", look);
-      if (wctl && wctlFor) { const lk = lookWins.get(wctlFor) || ""; if ((wctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) wctl.setAttribute("data-vos-look", lk); else wctl.removeAttribute("data-vos-look"); } }
+      if (wctl && wctlFor) { const lk = lookOfWin(wctlFor); if ((wctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) wctl.setAttribute("data-vos-look", lk); else wctl.removeAttribute("data-vos-look"); } }
     }
     if (selId !== lastSiteTab) { lastSiteTab = selId; updateSiteName(); }
     else if (siteFor != null) for (const f of $$(".UrlBar-AddressField .UrlField")) {   // a re-drawn field
@@ -2859,11 +2868,11 @@ window.vosBeat = window.vosBeat || (() => {
     const im = b.querySelector(".vos-wctl-ic img");
     if (src && im.getAttribute("src") !== src) im.src = src;
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
-    { const lk = lookWins.get(id) || ""; if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look)
+    { const lk = lookOfWin(id); if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look - 1.0.347: a split's, the app in front)
     if (b.querySelector(".vos-wctl-ic").hasAttribute("data-multi")) { const ic = b.querySelector(".vos-wctl-ic");
       for (const a of ["data-plate", "data-tint", "data-vos-dim"]) ic.removeAttribute(a);
       for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
-      ic.removeAttribute("data-empty"); skinMulti(ic, ic.__vosIds || []); }
+      ic.removeAttribute("data-empty"); skinMulti(ic, ic.__vosIds || [], splitFocus.get(id)); }
     else { mirrorTab(b.querySelector(".vos-wctl-ic"), b.querySelector(".vos-wctl-ic img"), t);   // 1.0.307: its tab's circle
     { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; }
@@ -7143,35 +7152,50 @@ window.vosBeat = window.vosBeat || (() => {
      pill they share light or dark by most of them (a tie: as it was) - in the tab bar, a window's buttons, full screen's
      buttons, a pinned split's circle */
   function tabCircle(tid) { const w = document.getElementById("tab-" + tid); return w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); }
+  function circleOf(id) {                                              // 1.0.347: an app's circle colour - its tab's, or (no tint: see-through) its look's
+    const t = tabCircle(id); let bg = t ? getComputedStyle(t).backgroundColor : "";
+    const m = (bg.match(/[\d.]+/g) || []).map(Number);
+    if (!t || m.length < 3 || (m.length > 3 && m[3] < 0.5)) {
+      const look = lookWins.get(String(id)) || (browserEl()?.classList.contains("theme-dark") ? "dark" : "light");
+      return { bg: look === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)", L: look === "light" ? 1 : 0, own: false };
+    }
+    return { bg, L: (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255, own: true };
+  }
   function circleLum(t) { const m = (getComputedStyle(t).backgroundColor.match(/[\d.]+/g) || []).map(Number); return m.length < 3 || (m.length > 3 && m[3] < 0.5) ? null : (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; }
-  function pillToneOf(ids) {
+  function pillToneOf(ids, front) {                                    // most of its apps; a tie: the app in front
     let l = 0, d = 0;
-    for (const id of ids || []) { const t = tabCircle(id); const L = t ? circleLum(t) : null; if (L == null) continue; if (L > 0.5) l++; else d++; }
-    return l > d ? "light" : d > l ? "dark" : "";
+    for (const id of ids || []) { if (circleOf(id).L > 0.5) l++; else d++; }
+    if (l !== d) return l > d ? "light" : "dark";
+    const f = front && ids.includes(String(front)) ? front : ids?.[0];
+    return f == null ? "" : circleOf(f).L > 0.5 ? "light" : "dark";
   }
   function pillSetTone(el, tone) { if ((el.getAttribute("data-vos-pill-tone") || "") !== tone) { if (tone) el.setAttribute("data-vos-pill-tone", tone); else el.removeAttribute("data-vos-pill-tone"); } }
-  function skinMulti(ic, ids) {
+  function skinMulti(ic, ids, front) {
     if (!ic || !ids?.length) return;
     const imgs = [...ic.querySelectorAll(":scope > img")];
     ids.forEach((id, i) => {
       const im = imgs[i], t = tabCircle(id); if (!im) return;
-      const bg = t ? getComputedStyle(t).backgroundColor : "", clear = !bg || /rgba\(0, 0, 0, 0\)|transparent/.test(bg);
-      if (im.__vosBg !== bg) { im.__vosBg = bg; if (clear) im.style.removeProperty("background-color"); else im.style.setProperty("background-color", bg, "important"); }
+      const bg = circleOf(id).bg;                                         // (1.0.347: no tint - its look's circle)
+      if (im.__vosBg !== bg) { im.__vosBg = bg; im.style.setProperty("background-color", bg, "important"); }
       const dim = !!t?.hasAttribute("data-vos-dim"); if (im.hasAttribute("data-vos-dim") !== dim) im.toggleAttribute("data-vos-dim", dim);
     });
-    pillSetTone(ic, pillToneOf(ids));
+    pillSetTone(ic, pillToneOf(ids, front));
   }
   function tabPillTones() {
     let grp = [];
-    const flush = () => { if (!grp.length) return; const tone = pillToneOf(grp.map(tp => (tp.querySelector(".tab-wrapper[id^='tab-']")?.id || "").slice(4))); grp.forEach(tp => pillSetTone(tp, tone)); grp = []; };
+    const flush = () => { if (!grp.length) return;
+      const ids = grp.map(tp => (tp.querySelector(".tab-wrapper[id^='tab-']")?.id || "").slice(4));
+      const act = grp.find(tp => tp.querySelector(".tab.active")), w = winOf(ids[0]);
+      const front = act ? ids[grp.indexOf(act)] : (w && splitFocus.get(w)) || null;
+      const tone = pillToneOf(ids, front); grp.forEach(tp => pillSetTone(tp, tone)); grp = []; };
     for (const tp of document.querySelectorAll("#tabs-container .tab-position[data-ft-pill]")) { grp.push(tp); if (tp.dataset.ftPill === "last") flush(); }
     flush();
   }
   const circlesSync = () => {                                        // (the tab's circle changes - a tint read, a look switched: they follow)
     tabPillTones();
-    for (const [, b] of pinBadges) if (b.hasAttribute("data-multi")) skinMulti(b, b.__vosIds);
-    if (wctl?.hasAttribute("data-on")) { const ic = wctl.querySelector(".vos-wctl-ic[data-multi]"); if (ic) skinMulti(ic, ic.__vosIds); }
-    if (fsctl?.hasAttribute("data-on")) { const ic = fsctl.querySelector(".vos-wctl-ic[data-multi]"); if (ic) skinMulti(ic, ic.__vosIds); }
+    for (const [w, b] of pinBadges) if (b.hasAttribute("data-multi")) skinMulti(b, b.__vosIds, splitFocus.get(w));
+    if (wctl?.hasAttribute("data-on")) { const ic = wctl.querySelector(".vos-wctl-ic[data-multi]"); if (ic) skinMulti(ic, ic.__vosIds, splitFocus.get(wctlFor)); }
+    if (fsctl?.hasAttribute("data-on")) { const ic = fsctl.querySelector(".vos-wctl-ic[data-multi]"); if (ic) skinMulti(ic, ic.__vosIds, fsctl.dataset.ftPage); }
     for (const [id, b] of pinBadges) { if (b.hasAttribute("data-multi")) continue; const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id; mirrorTab(b, b.querySelector(":scope > img"), t); }
     if (wctl && wctlFor && wctl.hasAttribute("data-on") && !wctl.querySelector(".vos-wctl-ic[data-multi]")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
   };
@@ -7208,7 +7232,7 @@ window.vosBeat = window.vosBeat || (() => {
           const x = imgs()[i]; if (v && x.getAttribute("src") !== v) x.src = v; x.style.visibility = v ? "" : "hidden"; });
         for (const a of ["data-plate", "data-tint", "data-vos-dim", "data-empty"]) ic.removeAttribute(a);
         for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
-        ic.__vosIds = mem; skinMulti(ic, mem);
+        ic.__vosIds = mem; skinMulti(ic, mem, id);
       } else { imgs()[0].style.visibility = ""; mirrorTab(ic, imgs()[0], id); } }
     if (!fsctl.hasAttribute("data-on")) { clearTimeout(fsctl.__outT); fsctl.removeAttribute("data-out"); void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
   }

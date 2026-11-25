@@ -2157,3 +2157,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#browser > .vos-wctl, .vos-fsctl) .vos-wctl-ic[data-multi] { gap: 0 !important; padding: 0 2px !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi][data-vos-pill-tone="light"] { background: #ffffff !important; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14) !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi][data-vos-pill-tone="dark"] { background: #000000 !important; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) !important; }
+
+/* 1.0.347: in a light or dark joined pill, an app with no tint of its own gets its look's circle (white / black) - not the
+   pill's colour showing through (each icon in its own app's look) */
+#browser#browser#browser#browser#browser#browser#browser.theme-dark #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone]:not([data-vos-look="light"]) .tab:not([data-vos-tint]):not([data-vos-plate]),
+#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone][data-vos-look="dark"] .tab:not([data-vos-tint]):not([data-vos-plate]) { background-color: #000000 !important; }
+#browser#browser#browser#browser#browser#browser#browser.theme-light #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone]:not([data-vos-look="dark"]) .tab:not([data-vos-tint]):not([data-vos-plate]),
+#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone][data-vos-look="light"] .tab:not([data-vos-tint]):not([data-vos-plate]) { background-color: #ffffff !important; }
+/* (a joined pill's pieces overlap by 1px: no hairline seam between its circles - it showed once a pill could be white) */
+#browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill="first"]::before, #browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill="mid"]::before { right: -7px !important; }
