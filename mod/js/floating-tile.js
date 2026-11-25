@@ -1758,7 +1758,7 @@ window.vosBeat = window.vosBeat || (() => {
     const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(pane) || viv, next = now === "dark" ? "light" : "dark";
     for (const p of panes) { if (next === viv) lookWins.delete(p); else lookWins.set(p, next); }   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
     lookSync(win); for (const p of panes) persist(p); if (!panes.includes(win) && floating.has(win)) persist(win); render();
-    setTimeout(circlesSync, 60); setTimeout(circlesSync, 400);          // (their icons' circles follow at once)
+    requestAnimationFrame(circlesSync); setTimeout(circlesSync, 300);   // (their icons' circles follow at once)
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { if (!lookWins.size) return; for (const w of floating) lookSync(w); for (const k of lookWins.keys()) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) lookSync(k); } });   // (1.0.347: a split full screen too)   // (a pane added to it, a restart)
   { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
@@ -7265,6 +7265,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (/google|bing|duckduckgo|ecosia|startpage|yahoo|qwant|brave|kagi|yandex|baidu/i.test(ph) && clean !== ph) i.setAttribute("placeholder", clean);
     }
   };
+  addEventListener("vos-tabicons", () => circlesSync());            // 1.0.355: the tab bar's icons redone - every circle of them in step
   setInterval(() => { if (document.hidden) return; circlesSync(); fsCtlSync(); hintSync(); }, 450);   // 1.0.332: one light beat for the three (none while not seen)
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look

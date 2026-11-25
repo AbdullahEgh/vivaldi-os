@@ -278,6 +278,7 @@
       if (!src) { tab.removeAttribute("data-vos-plate"); continue; }
       const tp = tab.closest(".tab-position"), look = tp?.getAttribute("data-vos-look") || (dark ? "dark" : "light");
       const v = seen.get(src + "|" + look);
+      { const other = look === "dark" ? "light" : "dark"; if (seen.get(src + "|" + other) === undefined && !tab.__vosWarm?.[other]) { (tab.__vosWarm ||= {})[other] = 1; brightness(src, other); } }   // 1.0.355: the other look read ahead - a switch shows its icons at once
       if (v === undefined) { brightness(src, look).then(x => { if (x !== undefined) soon(); }); continue; }
       if (tp) {                                      // 1.0.305: its window in the other look: the icon's own version for it
         const alt = hasMedia.has(src) ? variant.get(src + "|" + look) || "" : "";   // (1.0.306: whichever look - the tab and its window's circles the same picture)
@@ -286,7 +287,7 @@
       const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
-      const kind = v && typeof v === "object" && v.tile ? "tile" : "", col = kind === "tile" ? v.tile : "";   // 1.0.301 (1.0.354: no soft tint - a plain white / black circle; a square icon still fills its own)
+      const kind = "", col = "";   // 1.0.355: no tint at all - every app on a plain white (light) / black (dark) circle
       { const dim = !!(v && typeof v === "object" && dark && ((v.tile && hslL(v.tile) < 0.3) || want === "light"));   // 1.0.316: an icon too dim for the dark bar
         if (tab.hasAttribute("data-vos-dim") !== dim) tab.toggleAttribute("data-vos-dim", dim); }
       if ((tab.getAttribute("data-vos-tint") || "") !== kind) { if (kind) tab.setAttribute("data-vos-tint", kind); else tab.removeAttribute("data-vos-tint"); }
@@ -295,10 +296,11 @@
     }
   }
   const soon = () => { if (!t) t = setTimeout(check, 250); };
+  const now = () => { clearTimeout(t); t = 0; check(); dispatchEvent(new Event("vos-tabicons")); };   // 1.0.355: a look switched - its icons at once, the window's circles with them
   (function watch() {
     const tc = document.getElementById("tabs-container"), b = document.getElementById("browser");
     if (!tc || !b) return setTimeout(watch, 800);
-    new MutationObserver(soon).observe(tc, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "data-vos-look"] });   // (1.0.305: a window's own look too)
+    new MutationObserver(ms => ms.some(m => m.attributeName === "data-vos-look") ? requestAnimationFrame(now) : soon()).observe(tc, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "data-vos-look"] });   // (1.0.305: a window's own look too - 1.0.355: at once)
     new MutationObserver(soon).observe(b, { attributes: true, attributeFilter: ["class"] });
     soon();
   })();
