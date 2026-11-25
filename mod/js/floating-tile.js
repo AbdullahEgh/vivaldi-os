@@ -1443,7 +1443,7 @@ window.vosBeat = window.vosBeat || (() => {
      (and their order), and when it shows (a pinned app: always, the buttons on the circle's hover - a normal window: its
      top left corner) */
   const CTL = {
-    pin: { dir: "v", buttons: [["gray", "res", "Page size - hold: light / dark"], ["green", "unpin", "Back to its window"], ["yellow", "unpin", "Back to its window"], ["red", "close", "Close"]] },   // (1.0.326: green back; yellow its minus - both as full screen's: out of it)
+    pin: { dir: "v", buttons: [["gray", "res", "Page size - hold: light / dark"], ["yellow", "unpin", "Back to the canvas"], ["red", "close", "Close"]] },   // (1.0.333: no green; yellow an arrow toward the canvas)   // (1.0.326: green back; yellow its minus - both as full screen's: out of it)
     win: { dir: "h", buttons: [["red", "close", "Close"], ["yellow", "minimize", "Minimize"], ["green", "zoom", "Full screen"], ["gray", "res", ""]] },
   };
   const ctlHtml = type => `<div class="vos-pin-ctl" data-dir="${CTL[type].dir}">` + CTL[type].buttons.map(([c, a, t]) => type === "pin"
@@ -1511,7 +1511,9 @@ window.vosBeat = window.vosBeat || (() => {
     while (imgs().length > ids.length) imgs().pop().remove();
     srcs.forEach((src, i) => { const im = imgs()[i]; if (src && im.getAttribute("src") !== src) im.src = src; im.style.visibility = src ? "" : "hidden"; });
     if (ids.length === 1) mirrorTab(b, imgs()[0], ids[0]);           // 1.0.307: its tab's circle
-    const side = (pipCorner.get(id) || "bl")[1], plate = ids.length === 1 ? (document.getElementById("tab-" + ids[0])?.getAttribute("data-vos-plate") || "") : "";
+    const side = (pipCorner.get(id) || "bl")[1];
+    if (b.dataset.side !== side) b.dataset.side = side;              // 1.0.333: its yellow's arrow points toward the canvas
+    const plate = ids.length === 1 ? (document.getElementById("tab-" + ids[0])?.getAttribute("data-vos-plate") || "") : "";
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     { const tb = ids.length === 1 ? document.getElementById("tab-" + ids[0]) : null, k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
       if ((b.dataset.tint || "") !== k) { if (k) b.dataset.tint = k; else delete b.dataset.tint; }
