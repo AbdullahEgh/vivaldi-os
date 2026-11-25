@@ -1523,7 +1523,7 @@ window.vosBeat = window.vosBeat || (() => {
       if ((b.dataset.tint || "") !== k) { if (k) b.dataset.tint = k; else delete b.dataset.tint; }
       if (b.style.getPropertyValue("--vos-tint") !== c) { if (c) b.style.setProperty("--vos-tint", c); else b.style.removeProperty("--vos-tint"); }
       for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (b.style.getPropertyValue(v) !== x) { if (x) b.style.setProperty(v, x); else b.style.removeProperty(v); } } }
-    b.toggleAttribute("data-multi", ids.length > 1);
+    b.toggleAttribute("data-multi", ids.length > 1); b.__vosIds = ids;   // (1.0.346: its apps, for their circles and its tone)
     b.toggleAttribute("data-empty", !srcs.some(Boolean));
     const moving = pipDrag?.id === id || badgeHeld === id, dragging = false;   // 1.0.319: moved any way - it never hides, it goes with its app          // (1.0.292: held by its own circle: it stays, and goes with its app)
     b.toggleAttribute("data-drag", dragging);                          // 1.0.247: held and moved: gone at once (back where it lands)
@@ -2853,7 +2853,7 @@ window.vosBeat = window.vosBeat || (() => {
       const imgs = () => [...ic.querySelectorAll(":scope > img")];
       while (imgs().length < want) { const x = document.createElement("img"); x.alt = ""; ic.appendChild(x); }
       while (imgs().length > want) imgs().pop().remove();
-      ic.toggleAttribute("data-multi", multi);
+      ic.toggleAttribute("data-multi", multi); ic.__vosIds = multi ? mem : null;
       if (multi) mem.forEach((m, i) => { const v = iconOf(m), x = imgs()[i]; if (v && x.getAttribute("src") !== v) x.src = v; x.style.visibility = v ? "" : "hidden"; });
       else imgs()[0].style.visibility = ""; }
     const im = b.querySelector(".vos-wctl-ic img");
@@ -2863,7 +2863,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (b.querySelector(".vos-wctl-ic").hasAttribute("data-multi")) { const ic = b.querySelector(".vos-wctl-ic");
       for (const a of ["data-plate", "data-tint", "data-vos-dim"]) ic.removeAttribute(a);
       for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
-      ic.removeAttribute("data-empty"); }
+      ic.removeAttribute("data-empty"); skinMulti(ic, ic.__vosIds || []); }
     else { mirrorTab(b.querySelector(".vos-wctl-ic"), b.querySelector(".vos-wctl-ic img"), t);   // 1.0.307: its tab's circle
     { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; }
@@ -7139,7 +7139,39 @@ window.vosBeat = window.vosBeat || (() => {
     const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
     const dim = tab.hasAttribute("data-vos-dim"); if (el.hasAttribute("data-vos-dim") !== dim) el.toggleAttribute("data-vos-dim", dim);   // (1.0.316: its icon brightened as the tab's)
   }
+  /* 1.0.346: JOINED APPS (a split): each icon on its own app's circle - its colour, tint and look, as in its tab - and the
+     pill they share light or dark by most of them (a tie: as it was) - in the tab bar, a window's buttons, full screen's
+     buttons, a pinned split's circle */
+  function tabCircle(tid) { const w = document.getElementById("tab-" + tid); return w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); }
+  function circleLum(t) { const m = (getComputedStyle(t).backgroundColor.match(/[\d.]+/g) || []).map(Number); return m.length < 3 || (m.length > 3 && m[3] < 0.5) ? null : (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; }
+  function pillToneOf(ids) {
+    let l = 0, d = 0;
+    for (const id of ids || []) { const t = tabCircle(id); const L = t ? circleLum(t) : null; if (L == null) continue; if (L > 0.5) l++; else d++; }
+    return l > d ? "light" : d > l ? "dark" : "";
+  }
+  function pillSetTone(el, tone) { if ((el.getAttribute("data-vos-pill-tone") || "") !== tone) { if (tone) el.setAttribute("data-vos-pill-tone", tone); else el.removeAttribute("data-vos-pill-tone"); } }
+  function skinMulti(ic, ids) {
+    if (!ic || !ids?.length) return;
+    const imgs = [...ic.querySelectorAll(":scope > img")];
+    ids.forEach((id, i) => {
+      const im = imgs[i], t = tabCircle(id); if (!im) return;
+      const bg = t ? getComputedStyle(t).backgroundColor : "", clear = !bg || /rgba\(0, 0, 0, 0\)|transparent/.test(bg);
+      if (im.__vosBg !== bg) { im.__vosBg = bg; if (clear) im.style.removeProperty("background-color"); else im.style.setProperty("background-color", bg, "important"); }
+      const dim = !!t?.hasAttribute("data-vos-dim"); if (im.hasAttribute("data-vos-dim") !== dim) im.toggleAttribute("data-vos-dim", dim);
+    });
+    pillSetTone(ic, pillToneOf(ids));
+  }
+  function tabPillTones() {
+    let grp = [];
+    const flush = () => { if (!grp.length) return; const tone = pillToneOf(grp.map(tp => (tp.querySelector(".tab-wrapper[id^='tab-']")?.id || "").slice(4))); grp.forEach(tp => pillSetTone(tp, tone)); grp = []; };
+    for (const tp of document.querySelectorAll("#tabs-container .tab-position[data-ft-pill]")) { grp.push(tp); if (tp.dataset.ftPill === "last") flush(); }
+    flush();
+  }
   const circlesSync = () => {                                        // (the tab's circle changes - a tint read, a look switched: they follow)
+    tabPillTones();
+    for (const [, b] of pinBadges) if (b.hasAttribute("data-multi")) skinMulti(b, b.__vosIds);
+    if (wctl?.hasAttribute("data-on")) { const ic = wctl.querySelector(".vos-wctl-ic[data-multi]"); if (ic) skinMulti(ic, ic.__vosIds); }
+    if (fsctl?.hasAttribute("data-on")) { const ic = fsctl.querySelector(".vos-wctl-ic[data-multi]"); if (ic) skinMulti(ic, ic.__vosIds); }
     for (const [id, b] of pinBadges) { if (b.hasAttribute("data-multi")) continue; const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id; mirrorTab(b, b.querySelector(":scope > img"), t); }
     if (wctl && wctlFor && wctl.hasAttribute("data-on") && !wctl.querySelector(".vos-wctl-ic[data-multi]")) { const t = groupFloat.has(wctlFor) ? (splitFocus.get(wctlFor) || wctlFor) : wctlFor; mirrorTab(wctl.querySelector(".vos-wctl-ic"), wctl.querySelector(".vos-wctl-ic img"), t); }
   };
@@ -7176,6 +7208,7 @@ window.vosBeat = window.vosBeat || (() => {
           const x = imgs()[i]; if (v && x.getAttribute("src") !== v) x.src = v; x.style.visibility = v ? "" : "hidden"; });
         for (const a of ["data-plate", "data-tint", "data-vos-dim", "data-empty"]) ic.removeAttribute(a);
         for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
+        ic.__vosIds = mem; skinMulti(ic, mem);
       } else { imgs()[0].style.visibility = ""; mirrorTab(ic, imgs()[0], id); } }
     if (!fsctl.hasAttribute("data-on")) { clearTimeout(fsctl.__outT); fsctl.removeAttribute("data-out"); void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
   }

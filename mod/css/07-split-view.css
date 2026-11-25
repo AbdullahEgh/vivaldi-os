@@ -2142,3 +2142,18 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.12s !important; }
+
+/* 1.0.346: JOINED APPS - the pill light or dark by most of its apps' circles (floating-tile.js: data-vos-pill-tone), each
+   icon on its own app's circle (its tab's colour, tint, look); the colours glide with the look change (0.45s) */
+#browser#browser#browser #tabs-container .tab-position[data-ft-pill]::before { transition: background-color 0.45s ease !important; }
+#browser#browser#browser #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone="light"]::before { background: #ffffff !important; }
+#browser#browser#browser #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone="dark"]::before { background: #000000 !important; }
+/* the floating ones: a pinned split, a split window's buttons, a split full screen */
+#browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi] > img {
+  width: 14px !important; height: 14px !important; padding: 3px !important; box-sizing: content-box !important; border-radius: 50% !important;
+  object-fit: contain !important; transition: background-color 0.45s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi] > img[data-vos-dim] { filter: brightness(1.45) saturate(1.15) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-multi] { padding: 2px 0 !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser :is(#browser > .vos-wctl, .vos-fsctl) .vos-wctl-ic[data-multi] { gap: 0 !important; padding: 0 2px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi][data-vos-pill-tone="light"] { background: #ffffff !important; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser > .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi][data-vos-pill-tone="dark"] { background: #000000 !important; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) !important; }
