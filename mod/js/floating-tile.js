@@ -1754,14 +1754,15 @@ window.vosBeat = window.vosBeat || (() => {
   const vivLook = () => browserEl()?.classList.contains("theme-dark") ? "dark" : "light";
   const appTone = id => { const k = String(id), t = pageOf(k)?.dataset.vosTone; return t === "dark" || t === "light" ? t : (lookWins.get(k) || vivLook()); };
   const appToneAttr = id => { const t = appTone(id); return t !== vivLook() || lookWins.has(String(id)) ? t : ""; };
-  const lookOfWin = w => w == null ? "" : appToneAttr(lookPane(w));
+  const splitTone = ids => { let l = 0, d = 0; for (const i of ids) appTone(i) === "light" ? l++ : d++; return l !== d ? (l > d ? "light" : "dark") : appTone(ids[0]); };   // 1.0.363: most of its apps (a tie: its first) - not the one in front or under the pointer
+  const lookOfWin = w => { if (w == null) return ""; const mem = groupFloat.has(w) ? membersOf(pageOf(w)) : []; return mem.length > 1 ? splitTone(mem) : appToneAttr(lookPane(w)); };
   function fullPage(id) { const pg = pageOf(id); return !!pg && !floating.has(id) && !isTiled(pg) && !isStart(pg); }   // (1.0.324: a page full screen)
   function toggleDark(win) {                                          // (the grey button held)
     const pg0 = pageOf(win), splitFull = !!pg0 && isTiled(pg0) && membersOf(pg0).every(m => !floating.has(m) && !winOf(m));   // 1.0.357: a split full screen too
     if (!floating.has(win) && !fullPage(win) && !splitFull) return;
     const pane = lookPane(win), pg = pageOf(win);                       // 1.0.353: a split - every app in it changes together (by the one in front)
     const all = pg && isTiled(pg) ? membersOf(pg) : [], panes = all.length > 1 ? all : [pane];
-    const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(pane) || viv, next = now === "dark" ? "light" : "dark";
+    const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = panes.length > 1 ? splitTone(panes) : appTone(pane), next = now === "dark" ? "light" : "dark";   // (1.0.363: what it shows - a split: as a whole)
     for (const p of panes) { if (next === viv) lookWins.delete(p); else lookWins.set(p, next); }   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
     for (const p of panes) { const pg = pageOf(p); if (pg) { pg.dataset.vosTone = next; const wv = pg.querySelector("webview"); if (wv) { toneRead.delete(wv); wv.__vosToneN = 0; setTimeout(() => readTone(pg), 700); } } }   // 1.0.361: its page will show that look (read again to confirm)
     lookSync(win); for (const p of panes) { if (p !== win) lookSync(p); persist(p); } if (!panes.includes(win) && floating.has(win)) persist(win); render();
@@ -7200,7 +7201,7 @@ window.vosBeat = window.vosBeat || (() => {
     let l = 0, d = 0;
     for (const id of ids || []) { if (circleOf(id).L > 0.5) l++; else d++; }
     if (l !== d) return l > d ? "light" : "dark";
-    const f = front && ids.includes(String(front)) ? front : ids?.[0];
+    const f = ids?.[0];                                                 // (1.0.363: a tie - its first app, whichever is in front or hovered)
     return f == null ? "" : circleOf(f).L > 0.5 ? "light" : "dark";
   }
   function pillSetTone(el, tone) { if ((el.getAttribute("data-vos-pill-tone") || "") !== tone) { if (tone) el.setAttribute("data-vos-pill-tone", tone); else el.removeAttribute("data-vos-pill-tone"); } }
@@ -7251,7 +7252,7 @@ window.vosBeat = window.vosBeat || (() => {
         [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Light / dark - hold: page size"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
     }
     if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
-    { const lk = appToneAttr(id); if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
+    { const lk = mem.length > 1 ? splitTone(mem) : appToneAttr(id); if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
     const key = mem.length > 1 ? "split:" + [...mem].sort().join(",") : id;   // (another app of the same split in front: the same buttons, not again)
     fsctl.dataset.ftPage = id;
     if (fsctl.dataset.ftKey !== key) { fsctl.dataset.ftKey = key; fsctl.removeAttribute("data-on"); }
