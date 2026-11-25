@@ -298,7 +298,8 @@
       const id = Number((tab.closest(".tab-wrapper")?.id || tab.querySelector(".tab-wrapper")?.id || tab.closest(".tab-position")?.querySelector(".tab-wrapper")?.id || "").slice(4));
       const src = favOf.get(id) || "";
       if (id && !favAsked.has(id)) { favAsked.add(id); try { chrome.tabs.get(id, x => { void chrome.runtime.lastError; const f = x?.favIconUrl || ""; if (/^(https?:|data:image)/.test(f) && favOf.get(id) !== f) { favOf.set(id, f); soon(); } }); } catch (e) { favAsked.delete(id); } }
-      if (!src) { tab.removeAttribute("data-vos-plate"); continue; }
+      if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");   // (1.0.365: no plate - the circle is always its page's look)
+      if (!src) { tab.removeAttribute("data-vos-ink"); continue; }
       const tp = tab.closest(".tab-position"), look = tp?.getAttribute("data-vos-look") || (dark ? "dark" : "light");
       const own = siteIcon(id, look), shown = own || src;   // 1.0.356: the site's own icon for this look, if it has one
       const v = seen.get(shown + "|" + look);
@@ -309,8 +310,10 @@
         if ((tp.dataset.vosFavUrl || "") !== alt) { if (alt) { tp.dataset.vosFavUrl = alt; tp.style.setProperty("--vos-fav", `url("${alt}")`); } else { delete tp.dataset.vosFavUrl; tp.style.removeProperty("--vos-fav"); } }
       }
       const dk = look === "dark", want = !v || typeof v !== "object" ? null : dk && v.hi < 0.08 ? "light" : !dk && v.lo < 0.08 ? "dark" : null;   // 1.0.357: by its own look, not Vivaldi's
-      if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
-      else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
+      /* 1.0.365: an icon all in one colour that would vanish on its circle (a black logo on black): the icon flipped (white),
+         never the circle changed - a tile (Claude's cream square) is whole on any circle: left as it is */
+      const ink = !!want && !(v && typeof v === "object" && v.tile);
+      if (tab.hasAttribute("data-vos-ink") !== ink) tab.toggleAttribute("data-vos-ink", ink);
       const kind = "", col = "";   // 1.0.355: no tint at all - every app on a plain white (light) / black (dark) circle
       if (tab.hasAttribute("data-vos-tile")) tab.removeAttribute("data-vos-tile");   // (1.0.360: no own-disc colour - the look decides)
       { const dim = !!(v && typeof v === "object" && dk && ((v.tile && hslL(v.tile) < 0.3) || want === "light"));   // 1.0.316: an icon too dim for the dark bar

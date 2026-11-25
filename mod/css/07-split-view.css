@@ -2213,3 +2213,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab-position[data-ft-pill] .tab {
   padding: 3px !important; box-sizing: border-box !important; background-clip: content-box !important;
 }
+
+/* ===== 1.0.365: the circle is always the page's look (no plate); a one-colour icon that would vanish on it is flipped - the
+   tab's, a window's buttons', a pinned app's, full screen's, a joined pill's ===== */
+#browser #tabs-container .tab[data-vos-ink] :is(.favicon, .site-icon) img,
+#browser :is(.vos-wctl-ic, #webpage-stack > .vos-pin-badge)[data-vos-ink] > img,
+#browser :is(.vos-wctl-ic, #webpage-stack > .vos-pin-badge)[data-multi] > img[data-vos-ink] { filter: invert(1) !important; }

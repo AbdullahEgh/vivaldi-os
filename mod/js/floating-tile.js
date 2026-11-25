@@ -1521,7 +1521,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (ids.length === 1) mirrorTab(b, imgs()[0], ids[0]);           // 1.0.307: its tab's circle
     const side = (pipCorner.get(id) || "bl")[1];
     if (b.dataset.side !== side) b.dataset.side = side;              // 1.0.333: its yellow's arrow points toward the canvas
-    const plate = ids.length === 1 ? (document.getElementById("tab-" + ids[0])?.getAttribute("data-vos-plate") || "") : "";
+    const plate = "";                                                // (1.0.365: no plate - its page's look)
     if ((b.dataset.plate || "") !== plate) { if (plate) b.dataset.plate = plate; else delete b.dataset.plate; }
     { const tb = ids.length === 1 ? document.getElementById("tab-" + ids[0]) : null, k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
       if ((b.dataset.tint || "") !== k) { if (k) b.dataset.tint = k; else delete b.dataset.tint; }
@@ -2894,7 +2894,7 @@ window.vosBeat = window.vosBeat || (() => {
       for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
       ic.removeAttribute("data-empty"); skinMulti(ic, ic.__vosIds || [], splitFocus.get(id)); }
     else { mirrorTab(b.querySelector(".vos-wctl-ic"), b.querySelector(".vos-wctl-ic img"), t);   // 1.0.307: its tab's circle
-    { const plate = document.getElementById("tab-" + t)?.getAttribute("data-vos-plate") || "", ic = b.querySelector(".vos-wctl-ic");   // (its tab's plate, as a pinned app's)
+    { const plate = "", ic = b.querySelector(".vos-wctl-ic");         // (1.0.365: no plate - its page's look)
       if ((ic.dataset.plate || "") !== plate) { if (plate) ic.dataset.plate = plate; else delete ic.dataset.plate; }
       const tb = document.getElementById("tab-" + t), k = tb?.getAttribute("data-vos-tint") || "", c = tb?.style.getPropertyValue("--vos-tint") || "";   // 1.0.301: its tab's tint
       if ((ic.dataset.tint || "") !== k) { if (k) ic.dataset.tint = k; else delete ic.dataset.tint; }
@@ -7183,7 +7183,8 @@ window.vosBeat = window.vosBeat || (() => {
     const bg = circleOf(tid).bg;                                       // 1.0.357: its circle worked out (white / black), as the tab's will end
     if (el.__vosBg !== bg) { el.__vosBg = bg; el.style.setProperty("background", bg, "important"); }
     const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
-    const dim = tab.hasAttribute("data-vos-dim"); if (el.hasAttribute("data-vos-dim") !== dim) el.toggleAttribute("data-vos-dim", dim);   // (1.0.316: its icon brightened as the tab's)
+    const dim = tab.hasAttribute("data-vos-dim"); if (el.hasAttribute("data-vos-dim") !== dim) el.toggleAttribute("data-vos-dim", dim);
+    const ink = tab.hasAttribute("data-vos-ink"); if (el.hasAttribute("data-vos-ink") !== ink) el.toggleAttribute("data-vos-ink", ink);   // 1.0.365: a one-colour icon flipped, as its tab's   // (1.0.316: its icon brightened as the tab's)
   }
   /* 1.0.346: JOINED APPS (a split): each icon on its own app's circle - its colour, tint and look, as in its tab - and the
      pill they share light or dark by most of them (a tie: as it was) - in the tab bar, a window's buttons, full screen's
@@ -7192,7 +7193,7 @@ window.vosBeat = window.vosBeat || (() => {
   function circleOf(id) {                                              // 1.0.347: an app's circle colour - its tab's, or (no tint: see-through) its look's
     /* 1.0.357: no tints - white or black, by its look (an icon that would vanish on it: its plate), worked out, never read
        from the tab mid-change (that left circles and icons out of step) */
-    const t = tabCircle(id), plate = t?.getAttribute("data-vos-plate") || "";   // (1.0.360: its look decides - an icon's own disc never does)
+    const t = tabCircle(id), plate = "";                              // (1.0.365: its page's look alone - no plate, no own disc)
     const look = plate || appTone(id);                                // (1.0.361: as its page shows)
     return { bg: look === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)", L: look === "light" ? 1 : 0, own: !!plate };
   }
@@ -7213,6 +7214,7 @@ window.vosBeat = window.vosBeat || (() => {
       const bg = circleOf(id).bg;                                         // (1.0.347: no tint - its look's circle)
       if (im.__vosBg !== bg) { im.__vosBg = bg; im.style.setProperty("background-color", bg, "important"); }
       const dim = !!t?.hasAttribute("data-vos-dim"); if (im.hasAttribute("data-vos-dim") !== dim) im.toggleAttribute("data-vos-dim", dim);
+      const ink = !!t?.hasAttribute("data-vos-ink"); if (im.hasAttribute("data-vos-ink") !== ink) im.toggleAttribute("data-vos-ink", ink);
     });
     pillSetTone(ic, pillToneOf(ids, front));
   }
