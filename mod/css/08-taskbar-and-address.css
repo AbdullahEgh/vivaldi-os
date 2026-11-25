@@ -425,3 +425,12 @@
 /* 1.0.338: the panel bar on the right: the tab bar's right end (widgets, side-menu button) moves right, so the side-menu
    button stands over the panel bar's icons, centred on the same line (its 40px column: centre 20px from the edge) */
 #browser:is(.tabs-top, .tabs-bottom):has(#panels-container.right:not(.hidden)) #tabs-container > .toolbar-tabbar-after { position: relative !important; left: 9px !important; }
+
+/* 1.0.350: the very last step of a tight bar (no clock either and still no room): the apps' strip gives way - it narrows and
+   cuts off at its end, so the right area never slides under the window buttons */
+#browser[data-vos-tight3]:is(.tabs-top, .tabs-bottom) #tabs-container > .resize {
+  flex: 0 1 auto !important;
+  min-width: 36px !important;
+  overflow: hidden !important;
+}
+#browser[data-vos-tight3]:is(.tabs-top, .tabs-bottom) #tabs-container > .toolbar-tabbar-after { flex: 1 0 auto !important; }

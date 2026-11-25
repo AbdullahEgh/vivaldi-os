@@ -884,10 +884,10 @@ window.vosBeat = window.vosBeat || (() => {
   const coverBeside = () => pip.some(p => p !== cover && floating.has(p) && !minimized.has(p) && !awayWs(p));
   function pxRect(id, s = stackRect()) {
     if (bentoDrag?.id === id) return bentoDrag.rect;              // Bento: being dragged
-    if (cover === id) return coverBeside() ? bArea(s) : { x: -s.left, y: -s.top, w: innerWidth, h: innerHeight };   // the whole Vivaldi window (1.0.256: pinned apps here - the room beside them, as one app in Bento)
+    if (cover === id) return coverBeside() ? bArea(s, true) : { x: -s.left, y: -s.top, w: innerWidth, h: innerHeight };   // the whole Vivaldi window (1.0.256: pinned apps here - the room beside them, as one app in Bento)
     if (pipDrag?.id === id) return pipDrag.r;                       // a pinned window being dragged: where (and how big) it shows
     if (pip.includes(id)) return pipRect(id, s);                    // the corner stack
-    if (roomOn.has(id) && !bento.on && pinsLive(id)) return bArea(s);   // 1.0.259: filling the room beside the pinned apps
+    if (roomOn.has(id) && !bento.on && pinsLive(id)) return bArea(s, true);   // 1.0.259: filling the room beside the pinned apps
     if (bento.rects.has(id)) return bento.rects.get(id);           // Bento: its slot
     if (!frac[id]) {                                                    // cascade new windows
       const n = floating.size % 6;
@@ -2182,8 +2182,7 @@ window.vosBeat = window.vosBeat || (() => {
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
         : cover === id && !mission && !coverBeside() ? "90000"                         // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts); Mission Control: a window like the others
-        : pip.includes(id) && focusSet.size && !lifted ? String(500 + pip.indexOf(id))   // focus mode: a pinned window not in it is under the veil too (blurred)
-        : pip.includes(id) ? String((cover && !coverBeside() ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too)
+        : pip.includes(id) ? String((cover && !coverBeside() ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too - 1.0.350: and sharp over the focus blur)
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       if (vs) {
         for (const mp of vs.pages) if (mp !== el) setStyle(mp, "z-index", el.style.getPropertyValue("z-index"));
@@ -2467,7 +2466,7 @@ window.vosBeat = window.vosBeat || (() => {
       const win = winOf(id);
       if (win && pip.includes(win)) return holdAct("minimize", win);   // held small: back as it was
       if (win && floating.has(win) && !bento.on && pinsLive(win)) {   // 1.0.258: pinned apps here - not a real full screen: the window
-        const ss = stackRect(), a = bArea(ss), inRoom = roomOn.has(win);   // just grows to fill the room beside them (the wallpaper stays);
+        const ss = stackRect(), a = bArea(ss, true), inRoom = roomOn.has(win);   // just grows to fill the room beside them (the wallpaper stays);
         // again: back
         const wEl = targetOf(pageOf(win));
         raise(win); activate(id);
@@ -2842,9 +2841,10 @@ window.vosBeat = window.vosBeat || (() => {
     const el = targetOf(pageOf(wctlFor));
     if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || el.hasAttribute("data-ft-cover")) return false;
     const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
-    let lx = w.left + (up ? 0 : 6); const ty0 = up ? w.top - H - 6 : w.top + 6;
+    const R = Math.max(up ? 0 : 6, wctlRadius(el));                   // 1.0.350: past its rounded corner - the corner itself stays free to resize from
+    let lx = w.left + R; const ty0 = up ? w.top - H - 6 : w.top + 6;
     if (wctlSide === "r") {                                           // 1.0.349: from its top-right corner - mirrored, ending at its right edge
-      lx = w.right - (up ? 0 : 6) - wctlW;
+      lx = w.right - R - wctlW;
       if (winLights() && ty0 < 44 && lx + wctlW > innerWidth - 150) lx = innerWidth - 150 - wctlW;   // (not under Vivaldi's own buttons on Windows)
     }
     else if (macLights() && ty0 < 44 && lx < 84) lx = 84;             // 1.0.320: not under Vivaldi's own buttons - just past them
@@ -2854,6 +2854,8 @@ window.vosBeat = window.vosBeat || (() => {
     return true;
   };
   let wctlSide = "l", wctlW = 0;
+  const wctlRadius = el => { const v = parseFloat(getComputedStyle(el).borderTopLeftRadius); return v >= 0 && v < 60 ? v : 17; };
+  const WCTL_REACH = 200;                                           // 1.0.350: how far along its top strip, from a corner, the pointer brings them (was 120)
   function wctlShow(id, side = "l") {
     if (Date.now() < wctlMute) return;
     const b = wctlEl(); if (!b) return;
@@ -2904,7 +2906,7 @@ window.vosBeat = window.vosBeat || (() => {
   }
   function inCorner(id) {                                            // 1.0.348: the pointer at the window's top-left corner (where they came from) - not further along
     const el = targetOf(pageOf(id)), p = wctlXY; if (!el || !p) return false;
-    const w = el.getBoundingClientRect(), reach = (macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + 120 : 120) + 40;
+    const w = el.getBoundingClientRect(), reach = (macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + WCTL_REACH : WCTL_REACH) + 40;
     if (p[1] <= w.top - 50 || p[1] >= w.top + 44) return false;
     if (wctlSide === "r") return p[0] < w.right + 30 && w.right - p[0] < Math.max(reach, wctlW + 40);   // 1.0.349: its top-right corner
     return p[0] > w.left - 30 && p[0] - w.left < reach;
@@ -2925,9 +2927,9 @@ window.vosBeat = window.vosBeat || (() => {
       if (near) pinShow(id, bar);
       return;
     }
-    const reach = macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + 120 : 120;   // 1.0.320: part of its corner under Vivaldi's own buttons: the strip reaches past them
+    const reach = Math.min(macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + WCTL_REACH : WCTL_REACH, w.width / 2);   // 1.0.320: part of its corner under Vivaldi's own buttons: the strip reaches past them (1.0.350: at most half of it)
     if (wctlOk(id, el) && ev.clientX - w.left < reach) { cornerH = bar; wctlShow(id); }
-    else if (wctlOk(id, el) && w.right - ev.clientX < 120 && w.width > 300) { cornerH = bar; wctlShow(id, "r"); }   // 1.0.349: its top-right corner - the same, mirrored
+    else if (wctlOk(id, el) && w.right - ev.clientX < Math.min(WCTL_REACH, w.width / 2) && w.width > 300) { cornerH = bar; wctlShow(id, "r"); }   // 1.0.349: its top-right corner - the same, mirrored
   }, { capture: true, passive: true });
   let pinShown = null, pinShowT = 0;
   function pinShow(id, bar) {                                        // a pinned app's circle and buttons, brought from inside its corner
@@ -3533,15 +3535,16 @@ window.vosBeat = window.vosBeat || (() => {
     bentoSettle();
     els.forEach((e, i) => slideFrom(e, first[i]));
   }
-  const bArea = (s = stackRect()) => {                     // the corner stack's side stays free (Bento never under it)
+  const bArea = (s = stackRect(), keep = false) => {       // the corner stack's side stays free (Bento never under it)
     let l = MARGIN, r = MARGIN;
     for (const p of pip) {
       if (!floating.has(p) || minimized.has(p) || awayWs(p)) continue;
       const w = MARGIN + pipRect(p, s).w + BGAP;
       if ((pipCorner.get(p) || "bl")[1] === "r") r = Math.max(r, w); else l = Math.max(l, w);
     }
-    if (s.width - l - r < 2 * MIN_W) l = r = MARGIN;                 // no room left beside it: as before
-    return { x: l, y: MARGIN, w: Math.round(s.width - l - r), h: Math.round(s.height - 2 * MARGIN) };
+    if (!keep && s.width - l - r < 2 * MIN_W) l = r = MARGIN;        // no room left beside it: as before
+    // 1.0.350 (keep: full screen, or one app filling the room): beside the pinned apps however narrow - never under them
+    return { x: l, y: MARGIN, w: Math.max(Math.round(s.width - l - r), Math.min(120, Math.round(s.width - 2 * MARGIN))), h: Math.round(s.height - 2 * MARGIN) };
   };
   // front first; only windows that are really there: a tab Vivaldi has not loaded yet (after a
   // restart or an update) has no page to show, and would leave an empty slot until it loads
@@ -5116,7 +5119,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!host) return;
     const ss = stackRect(), a = bArea(ss), half = Math.round((a.w - BGAP) / 2);
     const room = zone === "full" && !bento.on && pinsLive(fromEl?.dataset?.ftFloat);   // (pinned apps here: the room beside them - a window's corners)
-    const r = zone === "full" ? (room ? bArea(ss) : { x: 0, y: 0, w: ss.width, h: ss.height })
+    const r = zone === "full" ? (room ? bArea(ss, true) : { x: 0, y: 0, w: ss.width, h: ss.height })
             : zone === "left" ? { x: a.x, y: a.y, w: half, h: a.h } : { x: a.x + a.w - half, y: a.y, w: half, h: a.h };
     const el = document.createElement("div");
     el.className = "ft-snap-preview";

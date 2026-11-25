@@ -65,14 +65,28 @@
     else b.style.removeProperty("--vos-bar-h");
   }
 
-  // free room in the bar: the after-toolbar's Flexible Space takes whatever is
-  // left between the dock and the right area
+  // the least room kept between the dock and the right area
   const GAP = 8;
-  function spare(tc) {
-    const sp = $(":scope > .toolbar-tabbar-after > ." + SPACER, tc);
-    return sp ? sp.getBoundingClientRect().width : null;
-  }
   const overflowing = tc => tc.scrollWidth > tc.clientWidth + 1;
+  /* 1.0.350: where the right area begins when it sits packed at the far right - worked out from the toolbar's end and the
+     right items' own span, never from the space left over (that space already holds the dock's last margin: measuring
+     it made each pass answer the last one, and near the edge the dock kept jumping between two places) */
+  function rightLimit(tc) {
+    const after = $(":scope > .toolbar-tabbar-after", tc);
+    const cs = el => getComputedStyle(el), px = v => parseFloat(v) || 0;
+    const tcr = tc.getBoundingClientRect(), tcs = cs(tc);
+    let end = tcr.right - px(tcs.paddingRight) - px(tcs.borderRightWidth);
+    if (!after) return end;
+    const ar = after.getBoundingClientRect(), as = cs(after);
+    end = Math.min(end, ar.right) - px(as.paddingRight) - px(as.borderRightWidth);
+    const kids = [...after.children], si = kids.findIndex(c => c.classList.contains(SPACER));
+    if (si < 0) return end;                                       // (no right area: the whole toolbar is the dock's)
+    const rest = kids.slice(si + 1).filter(shown);
+    if (!rest.length) return end;
+    const rr = rest.map(el => el.getBoundingClientRect());
+    const span = Math.max(...rr.map(r => r.right)) - Math.min(...rr.map(r => r.left));
+    return end - px(cs(rest[rest.length - 1]).marginRight) - span - px(cs(rest[0]).marginLeft);
+  }
 
   /* a tight tab bar, step by step (CSS section 10): the date shortens first (floating-tile.js), then a short
      address field, then no timer ring, and only at the very end no clock */
@@ -90,27 +104,24 @@
     const rects = items.map(el => el.getBoundingClientRect());
     const left = Math.min(...rects.map(r => r.left)), right = Math.max(...rects.map(r => r.right));
     const bar = (tc.closest("#tabs-tabbar-container") || tc).getBoundingClientRect();
-    // centered in the window when it fits; otherwise only as far right as the
-    // free room allows, so the dock never runs into the right area / the buttons
-    const dx = (bar.left + bar.right) / 2 - (left + right) / 2;
-    let m = Math.max(0, Math.round(marginOf(first) + dx));
-    const free = spare(tc);
-    if (free != null) m = Math.min(m, Math.max(0, Math.round(marginOf(first) + free - GAP)));
+    // the same answer on every pass: the dock's place with no margin, its width and the right area's start
+    const rz = $(":scope > .resize", tc), cut = rz ? Math.max(0, rz.scrollWidth - rz.clientWidth) : 0;   // (the apps' strip at its full width, even when cut short)
+    const cur = marginOf(first), L0 = left - cur, dockW = right - left + cut, lim = rightLimit(tc);
+    let m = Math.max(0, Math.round((bar.left + bar.right) / 2 - dockW / 2 - L0));   // centered in the window...
+    m = Math.min(m, Math.max(0, Math.floor(lim - GAP - dockW - L0)));              // ...or as far right as the room allows
+    const deficit = L0 + dockW + GAP - lim;                                          // > 0: no room even at the far left
     if (!first.hasAttribute("data-ft-dock")) first.setAttribute("data-ft-dock", "");
-    if (Math.abs(m - marginOf(first)) >= 1) first.style.setProperty("margin-left", m + "px", "important");
-    if (m > 0 && !(free != null && free > GAP) && overflowing(tc)) {   // the spacer was already 0: pull back by the overflow (with room in the spacer nothing can overflow: not measured again)
-      m = Math.max(0, m - (tc.scrollWidth - tc.clientWidth) - GAP);
-      first.style.setProperty("margin-left", m + "px", "important");
-    }
+    if (Math.abs(m - cur) >= 2) first.style.setProperty("margin-left", m + "px", "important");   // (a pixel off is no reason to move: rounding never walks it)
 
     // still no room with the dock at its leftmost: a tight bar (CSS section 10)
     const lv = TIGHT.filter(a => b.hasAttribute(a)).length;
-    if (m > 0 && lv === 0) return;                                  // (room to spare and not tight: nothing more to measure)
+    const over = deficit > 0.5 || (m === 0 && overflowing(tc));
+    if (!over && lv === 0) return;                                  // (room to spare and not tight: nothing more to measure)
     const width = tc.clientWidth;
-    if (m === 0 && overflowing(tc) && lv < TIGHT.length) {
+    if (over && lv < TIGHT.length) {
       if (lv === 0 && window.vosFitDate?.()) { queue(); return; }  // the date got shorter: measured again
-      tightNeed[lv] = tc.scrollWidth; b.setAttribute(TIGHT[lv], ""); queue();
-    } else if (lv > 0 && width > tightNeed[lv - 1] + 16) {
+      tightNeed[lv] = width + Math.max(deficit, tc.scrollWidth - tc.clientWidth, 1); b.setAttribute(TIGHT[lv], ""); queue();
+    } else if (!over && lv > 0 && width > (tightNeed[lv - 1] || 0) + 16) {
       b.removeAttribute(TIGHT[lv - 1]);
       queue();
     }
