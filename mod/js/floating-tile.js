@@ -4397,9 +4397,6 @@ window.vosBeat = window.vosBeat || (() => {
       if (out !== leaving) { leaving = out; if (out) { splitOff(); spT = null; spAt = null; } out ? dragOutStart(id, el, ev) : dragOutCancel(); }   // (no split here: it goes to the other window)
       if (out) { dragOutMove(ev.screenX, ev.screenY); return; }
       flingAt.push([ev.timeStamp, px, py]); while (flingAt.length > 2 && ev.timeStamp - flingAt[0][0] > 110) flingAt.shift();   // (its last moments: how fast)
-      snapCheck(px, py);
-      deskCheck(px, py);
-      splitCheck(px, py);
       if (how === "move" && shake(px, ev.timeStamp) && ev.timeStamp - shook > 2000) {   // shaken (again and again in one hold - 2 s apart):
         shook = ev.timeStamp;                                        // Bento on: Bento off; else the others pinned to the corners / back
         if (bento.on) bentoToggle(false); else shakeWindows(id);
@@ -4426,6 +4423,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (frame) return;                                            // at most one update per frame
       frame = requestAnimationFrame(() => {
         frame = 0;
+        if (!leaving) { snapCheck(px, py); deskCheck(px, py); splitCheck(px, py); }   // 1.0.341: once a frame (reads first, then the move's writes) - not on every raw move
         if (mission && inMission && how === "move") {                // Mission Control: the small window follows the pointer
           const cur = pxRect(id, ss);
           const d = { x: last.clientX - ss.left - gOff.x, y: last.clientY - ss.top - gOff.y, w: cur.w, h: cur.h };
@@ -4806,7 +4804,7 @@ window.vosBeat = window.vosBeat || (() => {
   /* which snap zone the pointer is in: AT the top edge of the desktop, or on the tab bar
      above it (full screen); AT the left / right edge (that half) */
   function snapZone(x, y) {
-    const r = stack()?.getBoundingClientRect();
+    const r = stack() ? stackRect() : null;                           // (1.0.341: the kept size - no layout read per move)
     if (!r) return null;
     if (y <= r.top + 1) return "full";                               // at the top edge, or on the tab bar above it
     if (x <= r.left + 1 || x <= 1) return "left";                    // at the left edge

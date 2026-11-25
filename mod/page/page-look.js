@@ -281,6 +281,29 @@
     [/\[data-mode=["']?dark/i, "attr", "data-mode"], [/\[data-color-scheme=["']?dark/i, "attr", "data-color-scheme"], [/(^|[\s,(])(html|:root)?\.dark(?![\w-])/i, "class", "dark"],
     [/\.dark-mode(?![\w-])/i, "class", "dark-mode"], [/\.theme-dark(?![\w-])/i, "class", "theme-dark"], [/\.dark-theme(?![\w-])/i, "class", "dark-theme"]];
   var siteSw = null, swTried = false;
+  /* 1.0.341: A SITE WITH ITS OWN DARK THEME (a web app's own setting - Asana's theme--darkMode, a "follow the system" mode
+     written for the browser's dark question): it is the site's choice - never forced. Counted in its style rules: dark
+     theme selectors of its own (not a framework's generic switch above) and its own rules for the dark question */
+  var THEMEISH = /(theme|mode|scheme|appearance|skin)[\w-]*(dark|night)|(dark|night)[\w-]*(theme|mode|scheme|appearance|skin)/i;
+  var ownSig = "", ownVal = false;
+  function ownDark() {
+    var D = document, wait = false;
+    var sig = [].map.call(D.styleSheets, function (x) { var n = 0; try { n = x.cssRules.length; } catch (e) {
+      if (x.href && far[x.href] === undefined) sheet(x, []);           // (another site's sheet: read once, then judged again)
+      if (x.href && far[x.href] === null) wait = true;
+      n = far[x.href] ? far[x.href].cssRules.length : 0; } return n; }).join(",");
+    if (wait) { soon(700); return true; }                            // (not all read yet: nothing forced meanwhile)
+    if (sig === ownSig) return ownVal; ownSig = sig;
+    var themed = 0, media = 0, n = 0;
+    var walk = function (list, inDark) { for (var i = 0; i < list.length && n < 60000; i++) { var r = list[i]; n++;
+      var dk = inDark || !!(r.media && /prefers-color-scheme\s*:\s*dark/i.test(r.media.mediaText || ""));
+      var sel = r.selectorText;
+      if (sel) { if (dk) media++;
+        else if (THEMEISH.test(sel)) { var fw = false; for (var k = 0; k < SWITCHES.length; k++) if (SWITCHES[k][0].test(sel)) { fw = true; break; } if (!fw) themed++; } }
+      if (r.cssRules) walk(r.cssRules, dk); } };
+    for (var i = 0; i < D.styleSheets.length; i++) { var sh = D.styleSheets[i], l = null; try { l = sh.cssRules; } catch (e) { l = far[sh.href] && far[sh.href].cssRules; } if (l) walk(l, false); }
+    return (ownVal = themed >= 12 || media >= 12);
+  }
   function findSwitch() {
     var found = null, n = 0;
     var look = function (list) { for (var i = 0; i < list.length && !found && n < 30000; i++) { var r = list[i]; n++;
@@ -320,17 +343,14 @@
     if (!siteSw || gen || swScrollT) return;
     swScrollT = setTimeout(function () { swScrollT = 0; if (siteSw && !gen && want() && lightShare() > 0.2) genOn(); }, 900);
   }, { passive: true, capture: true });
-  var judgeLater = false;
   function judge() {
     clearTimeout(genT); genT = 0;
     if (!/html/i.test(document.contentType || "")) return;
     if (W !== W.top && (innerWidth < 200 || innerHeight < 120)) return;   // 1.0.340: a tiny frame (an ad, a tracker): nothing to judge
-    if (document.hidden && want()) {                                 // (a tab in the background: judged once it is seen)
-      if (!judgeLater) { judgeLater = true; document.addEventListener("visibilitychange", function v() { if (document.hidden) return; document.removeEventListener("visibilitychange", v); judgeLater = false; soon(150); }); }
-      return; }
     if (!want()) { swOff(); swTried = false; return genOff(); }
     if (siteSw && gen) return;
     if (siteSw) return;                                            // (the site's own dark design is on - with written dark for what it leaves light)
+    if (ownDark()) { if (gen) genOff(); return; }                    // 1.0.341: its own dark theme - its own setting decides
     if (swept.length || inl.length) { if (gen) return; }
     var L = pageLum(); if (L === null) return;
     if (gen) { if (L < 110) genOff(); return; }                  // (it turned dark by itself)
