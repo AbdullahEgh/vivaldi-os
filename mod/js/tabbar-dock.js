@@ -312,7 +312,12 @@
       const dk = look === "dark", want = !v || typeof v !== "object" ? null : dk && v.hi < 0.08 ? "light" : !dk && v.lo < 0.08 ? "dark" : null;   // 1.0.357: by its own look, not Vivaldi's
       /* 1.0.365: an icon all in one colour that would vanish on its circle (a black logo on black): the icon flipped (white),
          never the circle changed - a tile (Claude's cream square) is whole on any circle: left as it is */
-      const ink = !!want && !(v && typeof v === "object" && v.tile);
+      let ink = !!want && !(v && typeof v === "object" && v.tile);
+      /* 1.0.373: a look just switched - many sites swap their own icon a moment later (ChatGPT: its dark logo for its white
+         one): flipping the old one meanwhile flashed it inverted and back. Right after a switch an icon is flipped only once
+         it has stayed the same 1.5s (taking a flip away is at once) - one change, never a flash */
+      if (tab.__vosLk !== look) { tab.__vosLkAt = tab.__vosLk === undefined ? 0 : Date.now(); tab.__vosLk = look; }
+      { const since = Date.now() - (tab.__vosLkAt || 0); if (ink && !tab.hasAttribute("data-vos-ink") && since < 1500) { ink = false; setTimeout(soon, 1550 - since); } }
       if (tab.hasAttribute("data-vos-ink") !== ink) tab.toggleAttribute("data-vos-ink", ink);
       const kind = "", col = "";   // 1.0.355: no tint at all - every app on a plain white (light) / black (dark) circle
       if (tab.hasAttribute("data-vos-tile")) tab.removeAttribute("data-vos-tile");   // (1.0.360: no own-disc colour - the look decides)
