@@ -8119,13 +8119,14 @@ window.vosBeat = window.vosBeat || (() => {
     const s = sheets.get(tab); if (!s) return;
     clearTimeout(s.__out); s.removeAttribute("data-out"); place(s);
     if (!s.hasAttribute("data-on")) { s.style.display = ""; void s.offsetWidth; s.setAttribute("data-on", ""); }
-    shownFor = tab;
+    shownFor = tab; markBtn();
   }
   function hide(s) {
     if (!s.hasAttribute("data-on")) return;
     s.removeAttribute("data-on"); s.setAttribute("data-out", "");
     s.__out = setTimeout(() => { s.removeAttribute("data-out"); s.style.display = "none"; }, 220);
     if (shownFor === Number(s.dataset.tab)) shownFor = null;
+    markBtn();
   }
   function drop(tab) {
     const s = sheets.get(tab); if (!s) return; sheets.delete(tab); hide(s); setTimeout(() => s.remove(), 240);
@@ -8143,9 +8144,28 @@ window.vosBeat = window.vosBeat || (() => {
     const wv = pc && [...pc.querySelectorAll("webview")].find(w => (w.getAttribute("src") || "").startsWith(`chrome-extension://${ext}/`));
     if (!wv || !pc.classList.contains("expanded") || !wv.offsetWidth) return false;
     const btn = [...document.querySelectorAll("#switch button[title]")].find(b => b.title.includes(`chrome-extension://${ext}/`));
+    passThru = true;
     if (btn) for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"])   // (its button takes a whole press, not a click alone)
       btn.dispatchEvent(new (t.startsWith("pointer") ? PointerEvent : MouseEvent)(t, { bubbles: true, cancelable: true, button: 0, pointerType: "mouse" }));
+    passThru = false;
     return true;
+  }
+  /* 1.0.336: ITS ICON IN THE PANEL BAR (right edge) opens and closes the same sheet - Vivaldi's own panel for it is never opened */
+  let passThru = false;
+  const barBtn = t => { const b = t?.closest?.('#switch button[data-name^="EXT_PANEL_"]'); const ext = b?.dataset.name.slice(10); return b && HOSTED[ext] ? { b, ext } : null; };
+  for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) addEventListener(type, ev => {
+    if (passThru || ev.button !== 0) return;
+    const hit = barBtn(ev.target); if (!hit) return;
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    if (type !== "click") return;
+    chrome.windows.getCurrent(w => { if (!chrome.runtime.lastError && w) chrome.tabs.query({ active: true, windowId: w.id }, tabs => {
+      const t = tabs?.[0]; if (!chrome.runtime.lastError && t) asked({ ext: hit.ext, page: HOSTED[hit.ext], tab: t.id }); }); });
+  }, true);
+  function markBtn() {                                                // (its icon in the panel bar lit while its sheet shows)
+    for (const b of document.querySelectorAll('#switch button[data-name^="EXT_PANEL_"]')) {
+      const on = !!HOSTED[b.dataset.name.slice(10)] && shownFor != null;
+      if (b.hasAttribute("data-vos-on") !== on) b.toggleAttribute("data-vos-on", on);
+    }
   }
   let askT = 0;
   function onAsk(ext, action, winId) {

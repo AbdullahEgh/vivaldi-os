@@ -2129,3 +2129,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser > .vos-sheet[data-sizing] > webview { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { #browser > .vos-sheet[data-on], #browser > .vos-sheet[data-out] { animation-duration: 0.01s; } }
 #browser #panels-container .panel-group:has(.webpanel.visible webview[src^="chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/"]) { visibility: hidden !important; }   /* (Vivaldi's own, closed again at once: never seen) */
+#browser #switch button[data-vos-on] { background: color-mix(in srgb, var(--colorFg, #fff) 14%, transparent) !important; border-radius: 8px !important; }   /* (1.0.336: its sheet open) */
+/* 1.0.336: THE PANEL BAR (right edge): one even strip with a clean edge. Vivaldi blurs its 40px button column but shades
+   only 35px under it, so the blur smeared the wallpaper into the dark - a gradient. Now the shade covers the whole column
+   and carries the blur itself */
+#browser#browser #panels-container.right.icons { width: 40px !important; min-width: 40px !important; backdrop-filter: blur(24px) saturate(1.5) !important; }
+#browser #panels-container.right #switch { backdrop-filter: none !important; }
