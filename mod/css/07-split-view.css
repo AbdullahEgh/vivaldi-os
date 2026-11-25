@@ -2202,3 +2202,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser .lp-menu.vos-ws-menu { z-index: 2147483400 !important; }
 #browser#browser#browser .vos-ws-winghost { z-index: 2147483401 !important; }
 #browser#browser#browser:has(#webpage-stack .webpageview[data-vos-mc-held]) .vos-mc-icons { z-index: 94000 !important; }
+
+/* ===== 1.0.362: a page full screen - its buttons in the toolbar without a background too (the lights alone) ===== */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl .vos-pin-ctl::after {
+  background: transparent !important; box-shadow: none !important; border: 0 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
