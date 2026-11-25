@@ -1542,7 +1542,8 @@ window.vosBeat = window.vosBeat || (() => {
     b.__vosWasDrag = dragging;
     if (moving) badgeFollow(b, id);
     if (!moving && !b.__vosFollow) place(b, { x: Math.max(2, Math.min(s.width - S - 2, x)), y: Math.max(2, r.y), w: S, h: H }, s, o);
-    setStyle(b, "z-index", "2147483000");                            // 1.0.309: over everything, always (never under a window)
+    // 1.0.309: over everything, always (never under a window) - 1.0.351: focus mode: under the blur with its app (unless its app is in focus)
+    setStyle(b, "z-index", focusSet.size && !focusSet.has(id) && !focusLeave.has(id) ? "998" : "2147483000");
   }
   addEventListener("pointerdown", e => {                          // 1.0.249: the circle is a handle - pressed, its app moves as if held itself
     const b = e.button === 0 && e.target?.closest?.("#webpage-stack > .vos-pin-badge"), id = b?.dataset.for;
@@ -2182,7 +2183,8 @@ window.vosBeat = window.vosBeat || (() => {
       const lifted = focusSet.has(id) || focusLeave.has(id) || (!focusSet.size && focusLift.has(id));   // above the blur
       setStyle(el, "z-index", bentoDrag?.id === id ? "2000"          // Bento: the dragged window rides above the drop preview
         : cover === id && !mission && !coverBeside() ? "90000"                         // full view: over the tab bar and Vivaldi's buttons (under the Launchpad and alerts); Mission Control: a window like the others
-        : pip.includes(id) ? String((cover && !coverBeside() ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too - 1.0.350: and sharp over the focus blur)
+        : pip.includes(id) && focusSet.size && !lifted ? String(500 + pip.indexOf(id))   // focus mode: a pinned app not in it is under the blur, its icon too (1.0.351)
+        : pip.includes(id) ? String((cover && !coverBeside() ? 90100 : 1900) + (id === front ? 50 : pip.indexOf(id)))   // the corner stack: always on top (over a window in full view too)
         : String((lifted ? 1000 : 100) + zOrder.indexOf(id)));
       if (vs) {
         for (const mp of vs.pages) if (mp !== el) setStyle(mp, "z-index", el.style.getPropertyValue("z-index"));
