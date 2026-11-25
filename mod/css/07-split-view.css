@@ -2219,3 +2219,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #tabs-container .tab[data-vos-ink] :is(.favicon, .site-icon) img,
 #browser :is(.vos-wctl-ic, #webpage-stack > .vos-pin-badge)[data-vos-ink] > img,
 #browser :is(.vos-wctl-ic, #webpage-stack > .vos-pin-badge)[data-multi] > img[data-vos-ink] { filter: invert(1) !important; }
+
+/* ===== 1.0.368: A FLOATING SPLIT'S FRAME in its look, dissolving with its icons - the split's own frame (and its stand-in
+   while it moves between desktops) fades in the same 0.4s as the circles, the pill and the buttons; the stand-in takes the
+   split's look, not Vivaldi's (it showed Vivaldi's dark, then the split's light) ===== */
+#browser#browser #webpage-stack > .vos-vsplit-shell[data-vos-look="light"] { --colorBg: #ffffff; --colorFg: #000000; }
+#browser#browser #webpage-stack > .vos-vsplit-shell[data-vos-look="dark"] { --colorBg: #1c1c1e; --colorFg: #ffffff; }
+#browser .tiled[data-ft-float]:not(.webpageview), #browser #webpage-stack > .vos-vsplit-shell { transition: background-color 0.4s ease, background 0.4s ease !important; }

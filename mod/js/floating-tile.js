@@ -2289,8 +2289,8 @@ window.vosBeat = window.vosBeat || (() => {
       for (const o of $$(".tab-position[data-vos-look]")) if (!want.has(o)) o.toggleAttribute("data-vos-look", false);
       for (const [tp, look] of want) if (tp.getAttribute("data-vos-look") !== look) tp.setAttribute("data-vos-look", look);
       const parts = new Map();                                       // 1.0.293: the window itself, its pinned circle and buttons - all that look
-      for (const w of floating) { const look = lookOfWin(w); if (!look) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); }
-      for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
+      for (const w of floating) { const look = lookOfWin(w); if (!look) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); const sh = vsShells.get(w); if (sh) parts.set(sh, look); }   // (1.0.368: a split's stand-in frame too)
+      for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look], #webpage-stack > .vos-vsplit-shell[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
       for (const [o, look] of parts) if (o.getAttribute("data-vos-look") !== look) o.setAttribute("data-vos-look", look);
       if (wctl && wctlFor) { const lk = lookOfWin(wctlFor); if ((wctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) wctl.setAttribute("data-vos-look", lk); else wctl.removeAttribute("data-vos-look"); } }
     }
