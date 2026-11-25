@@ -7188,8 +7188,22 @@ window.vosBeat = window.vosBeat || (() => {
   setInterval(() => { if (document.hidden) return; circlesSync(); fsCtlSync(); hintSync(); }, 450);   // 1.0.332: one light beat for the three (none while not seen)
   function tabIcon(id) {
     const alt = document.getElementById("tab-" + id)?.closest(".tab-position")?.dataset.vosFavUrl; if (alt) return alt;   // 1.0.305: its icon's own version for its window's look
-    const im = document.getElementById("tab-" + id)?.querySelector("img");
-    return im?.currentSrc || im?.src || "";
+    const tab = document.getElementById("tab-" + id), im = tab?.querySelector("img");
+    const src = im?.currentSrc || im?.src || "";
+    if (src || !tab) return src;
+    /* 1.0.344: Vivaldi's own pages (Settings, Downloads...) draw their tab icon as a drawing, not a picture: that drawing,
+       in the colour it shows in */
+    const svg = tab.querySelector(".favicon svg, .site-icon svg, svg"); if (!svg) return "";
+    const ink = getComputedStyle(svg).color || "#888", key = svg.outerHTML.length + "|" + ink;
+    if (svg.__vosIc?.key === key) return svg.__vosIc.url;
+    try {
+      const c = svg.cloneNode(true);
+      if (!c.getAttribute("xmlns")) c.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      if (!c.getAttribute("viewBox")) { const w = svg.getAttribute("width") || 16, h = svg.getAttribute("height") || 16; c.setAttribute("viewBox", `0 0 ${w} ${h}`); }
+      c.setAttribute("width", "16"); c.setAttribute("height", "16"); c.setAttribute("color", ink); c.style.color = ink;
+      const url = "data:image/svg+xml," + encodeURIComponent(new XMLSerializer().serializeToString(c).replace(/currentColor/g, ink));
+      svg.__vosIc = { key, url }; return url;
+    } catch (e) { return ""; }
   }
   function tileGesture(e, strip, win) {
     const page = strip.closest(".webpageview[data-id]"), id = page?.dataset.id;
@@ -8043,7 +8057,8 @@ window.vosBeat = window.vosBeat || (() => {
       const id = String(tab.id);
       floatOnLoad.add(id); floatOnLoadAt.set(id, Date.now());
       const fromPage = tab.openerTabId != null && !/^chrome:\/\/vivaldi-webui\/startpage/.test(tab.pendingUrl || tab.url || "");   // a link opened from an app
-      if (fromPage || /^https?:/.test(tab.pendingUrl || tab.url || "")) siteReady.add(id);   // (a site: a floating window from its first frame - never full size first)
+      const u0 = tab.pendingUrl || tab.url || "";                       // 1.0.344: Vivaldi's own pages too (Settings...) - a window from its first frame
+      if (fromPage || (u0 && !/^chrome:\/\/vivaldi-webui\/startpage|^about:blank|^chrome:\/\/newtab/i.test(u0))) siteReady.add(id);   // (a site: a floating window from its first frame - never full size first)
       else if (/^chrome:\/\/vivaldi-webui\/startpage/.test(tab.pendingUrl || tab.url || "") || !(tab.pendingUrl || tab.url)) startBorn.set(id, Date.now());
       droppedHere(tab);
       render();                                                     // float before it is ever drawn
