@@ -3037,7 +3037,7 @@
   }
   async function checkUpdate(manual) {
     if (!window.vosRepo || !window.vosVersion) return;
-    if (manual && tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, true); return; }   // known: Update Now at once (inside the click)
+    if (manual && tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, false); return; }   // 1.0.364: known - its popup only (Update Now is yours to press)
     try {
       lastCheck = Date.now();
       const tag = await latestTag();
@@ -3275,12 +3275,12 @@
       tagEl.addEventListener("click", async ev => {                // checks GitHub now, then installs the newest
         ev.stopPropagation();
         if (tagEl.dataset.busy) return;
-        // a newer version is known: Update Now at once, still inside your click (opening the updater needs the click)
-        if (tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, true); return; }
+        // 1.0.364: a newer version is known - its popup only; nothing runs until you press Update Now in it
+        if (tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, false); return; }
         tagEl.dataset.busy = "1"; tagEl.textContent = "Checking…";
         const t = await latestTag();
         delete tagEl.dataset.busy;
-        if (t && newer(t, window.vosVersion)) { updTag(t); updateNotice(t, null, null, true); }
+        if (t && newer(t, window.vosVersion)) { updTag(t); updateNotice(t, null, null, false); }   // (1.0.364: the popup only)
         else if (t) {                                                // nothing newer after all: up to date, no button
           tagFor = null; tagEl.remove();
           updateNotice(null, "Bento OS is up to date", "Version " + window.vosVersion);
@@ -3288,7 +3288,7 @@
       });
     }
     tagEl.textContent = "New Update";
-    tagEl.title = `Install Bento OS ${tag} (you have ${window.vosVersion})`;
+    tagEl.title = `Bento OS ${tag} is ready (you have ${window.vosVersion}) - click to see it`;
     lookLikeField();
     const after = spot;
     if (after ? after.nextSibling !== tagEl : bar.firstChild !== tagEl) bar.insertBefore(tagEl, after ? after.nextSibling : bar.firstChild);
