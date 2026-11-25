@@ -7143,7 +7143,9 @@ window.vosBeat = window.vosBeat || (() => {
   let fsctl = null;
   function fsCtlSync() {
     const pg = activePage(), id = pg?.dataset.id;
-    const full = !!pg && !!id && !floating.has(id) && !isTiled(pg) && !isStart(pg) && !winOf(id) && !mission && !lpOn();
+    const mem = pg && isTiled(pg) ? membersOf(pg) : [];             // 1.0.339: a split full screen too (none of its apps a window)
+    const full = !!pg && !!id && !isStart(pg) && !mission && !lpOn() &&
+      (mem.length ? mem.every(m => !floating.has(m) && !winOf(m)) : (!floating.has(id) && !isTiled(pg) && !winOf(id)));
     const desk = document.querySelector("#browser .vos-chain-vosmission");
     if (!full || !desk) {                                            // 1.0.321: going as the hover ones go - its entrance backwards
       if (fsctl?.hasAttribute("data-on")) { const f = fsctl; f.removeAttribute("data-on"); f.setAttribute("data-out", ""); clearTimeout(f.__outT); f.__outT = setTimeout(() => f.removeAttribute("data-out"), 380); }
@@ -7154,8 +7156,21 @@ window.vosBeat = window.vosBeat || (() => {
         [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Page size - hold: light / dark"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
     }
     if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
-    if (fsctl.dataset.ftPage !== id) { fsctl.dataset.ftPage = id; fsctl.removeAttribute("data-on"); }
-    mirrorTab(fsctl.querySelector(".vos-wctl-ic"), fsctl.querySelector(".vos-wctl-ic img"), id);
+    const key = mem.length > 1 ? "split:" + [...mem].sort().join(",") : id;   // (another app of the same split in front: the same buttons, not again)
+    fsctl.dataset.ftPage = id;
+    if (fsctl.dataset.ftKey !== key) { fsctl.dataset.ftKey = key; fsctl.removeAttribute("data-on"); }
+    const ic = fsctl.querySelector(".vos-wctl-ic"), multi = mem.length > 1;
+    { const imgs = () => [...ic.querySelectorAll(":scope > img")], want = multi ? mem.length : 1;   // (a split: its apps' icons side by side in one pill)
+      while (imgs().length < want) { const x = document.createElement("img"); x.alt = ""; ic.appendChild(x); }
+      while (imgs().length > want) imgs().pop().remove();
+      if (ic.hasAttribute("data-multi") !== multi) ic.toggleAttribute("data-multi", multi);
+      if (fsctl.hasAttribute("data-split") !== multi) fsctl.toggleAttribute("data-split", multi);
+      if (multi) {
+        mem.forEach((m, i) => { let v = tabIcon(m); if (!v) { const u = pageOf(m)?.querySelector("webview")?.getAttribute("src") || ""; if (/^https?:/.test(u)) try { v = favicon(u); } catch (e) {} }
+          const x = imgs()[i]; if (v && x.getAttribute("src") !== v) x.src = v; x.style.visibility = v ? "" : "hidden"; });
+        for (const a of ["data-plate", "data-tint", "data-vos-dim", "data-empty"]) ic.removeAttribute(a);
+        for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
+      } else { imgs()[0].style.visibility = ""; mirrorTab(ic, imgs()[0], id); } }
     if (!fsctl.hasAttribute("data-on")) { clearTimeout(fsctl.__outT); fsctl.removeAttribute("data-out"); void fsctl.offsetWidth; fsctl.setAttribute("data-on", ""); }
   }
   const hintSync = () => {                                           // 1.0.328: the address field's hint without the search engine's name
@@ -7959,6 +7974,13 @@ window.vosBeat = window.vosBeat || (() => {
       if (btnHeldAt && Date.now() - btnHeldAt < 1500 && btn.matches('[data-act="zoom"], [data-act="minimize"], [data-act="res"]')) { btnHeldAt = 0; return; }   // it was held
       const barId = btn.closest(".ft-titlebar")?.dataset.ftPage;
       const page = barId ? pageOf(barId) : btn.closest(".webpageview");
+      if (page && btn.closest(".vos-fsctl[data-split]") && /^(zoom|minimize)$/.test(btn.dataset.act) && isTiled(page)) {   // 1.0.339: a split full screen - yellow / green: the whole split a window again
+        const id = page.dataset.id, mem = [...groupMemory].find(([w, ids]) => ids.has(id) && pageOf(w) && rootOf(pageOf(w)) === rootOf(page));
+        const w = mem ? mem[0] : id; if (mem) groupMemory.delete(w);
+        activate(id);
+        flip([rootOf(page)], () => { groupFloat.add(w); floatNow(w, pageOf(w)); origin.set(w, { tiled: true, group: groupOf(page) }); render(); });
+        return;
+      }
       if (page) act(btn.dataset.act, page);
     }, true);
     document.addEventListener("pointerdown", onPointerDown, true);

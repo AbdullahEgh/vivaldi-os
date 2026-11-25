@@ -2130,3 +2130,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.338: a window holding a split: its apps' icons side by side in one pill (a pinned split's pill, lying down) */
 #browser#browser#browser > .vos-wctl .vos-wctl-ic[data-multi] { width: auto !important; flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center !important;
   gap: 6px !important; padding: 0 5px !important; border-radius: 12px !important; }
+
+/* 1.0.339: a split full screen: its buttons in the toolbar too, its apps' icons side by side in one pill; no grey (a split's
+   page size is set per app, in its own window) */
+#browser#browser#browser .vos-fsctl .vos-wctl-ic[data-multi] { width: auto !important; flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center !important;
+  gap: 6px !important; padding: 0 5px !important; border-radius: 12px !important; }
+#browser#browser#browser .vos-fsctl[data-split] .vos-pc-gray { display: none !important; }

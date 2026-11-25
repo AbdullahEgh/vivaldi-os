@@ -92,9 +92,11 @@
       }
     ],
     "vivaldi.panels.position": 1,
-    "vivaldi.panels.window_defaults.barVisible": true,
-    "vivaldi.panels.window_defaults.contentVisible": false,
-    "vivaldi.panels.window_defaults.width": 463,
+    "vivaldi.panels.window_defaults": {
+      "barVisible": false,
+      "contentVisible": false,
+      "width": 463
+    },
     "vivaldi.startpage": {
       "navigation": 2,
       "speed_dial": {
