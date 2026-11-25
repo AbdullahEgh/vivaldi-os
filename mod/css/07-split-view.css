@@ -2091,7 +2091,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    page size is set per app, in its own window) */
 #browser#browser#browser .vos-fsctl .vos-wctl-ic[data-multi] { width: auto !important; flex: 0 0 auto !important; display: flex !important; flex-direction: row !important; align-items: center !important;
   gap: 6px !important; padding: 0 5px !important; border-radius: 12px !important; }
-#browser#browser#browser .vos-fsctl[data-split] .vos-pc-gray { display: none !important; }
+/* (1.0.357: a split full screen shows the grey one too - light / dark for all its apps) */
 
 /* ===== 1.0.340: OVERALL QA ===== */
 /* one family: the full-screen buttons' circle as a window's and a pinned app's - its tab's tint, plate and look, the same

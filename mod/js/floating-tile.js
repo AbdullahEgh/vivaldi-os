@@ -1752,12 +1752,13 @@ window.vosBeat = window.vosBeat || (() => {
   const lookOfWin = w => w == null ? "" : (lookWins.get(lookPane(w)) || "");
   function fullPage(id) { const pg = pageOf(id); return !!pg && !floating.has(id) && !isTiled(pg) && !isStart(pg); }   // (1.0.324: a page full screen)
   function toggleDark(win) {                                          // (the grey button held)
-    if (!floating.has(win) && !fullPage(win)) return;
+    const pg0 = pageOf(win), splitFull = !!pg0 && isTiled(pg0) && membersOf(pg0).every(m => !floating.has(m) && !winOf(m));   // 1.0.357: a split full screen too
+    if (!floating.has(win) && !fullPage(win) && !splitFull) return;
     const pane = lookPane(win), pg = pageOf(win);                       // 1.0.353: a split - every app in it changes together (by the one in front)
     const all = pg && isTiled(pg) ? membersOf(pg) : [], panes = all.length > 1 ? all : [pane];
     const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(pane) || viv, next = now === "dark" ? "light" : "dark";
     for (const p of panes) { if (next === viv) lookWins.delete(p); else lookWins.set(p, next); }   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
-    lookSync(win); for (const p of panes) persist(p); if (!panes.includes(win) && floating.has(win)) persist(win); render();
+    lookSync(win); for (const p of panes) { if (p !== win) lookSync(p); persist(p); } if (!panes.includes(win) && floating.has(win)) persist(win); render();
     requestAnimationFrame(circlesSync); setTimeout(circlesSync, 300);   // (their icons' circles follow at once)
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { if (!lookWins.size) return; for (const w of floating) lookSync(w); for (const k of lookWins.keys()) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) lookSync(k); } });   // (1.0.347: a split full screen too)   // (a pane added to it, a restart)
@@ -7166,8 +7167,8 @@ window.vosBeat = window.vosBeat || (() => {
      the very colour it has (its tile, its tint, its plate, its look) - copied from the tab, and kept so */
   function mirrorTab(el, im, tid) {
     const w = document.getElementById("tab-" + tid), tab = w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); if (!tab || !el) return;   // (the circle itself, not its wrapper)
-    const bg = getComputedStyle(tab).backgroundColor, clear = /rgba\(0, 0, 0, 0\)|transparent/.test(bg);
-    if (el.__vosBg !== bg) { el.__vosBg = bg; if (clear) el.style.removeProperty("background"); else el.style.setProperty("background", bg, "important"); }
+    const bg = circleOf(tid).bg;                                       // 1.0.357: its circle worked out (white / black), as the tab's will end
+    if (el.__vosBg !== bg) { el.__vosBg = bg; el.style.setProperty("background", bg, "important"); }
     const src = tabIcon(tid); if (im && src && im.getAttribute("src") !== src) im.src = src;
     const dim = tab.hasAttribute("data-vos-dim"); if (el.hasAttribute("data-vos-dim") !== dim) el.toggleAttribute("data-vos-dim", dim);   // (1.0.316: its icon brightened as the tab's)
   }
@@ -7176,13 +7177,11 @@ window.vosBeat = window.vosBeat || (() => {
      buttons, a pinned split's circle */
   function tabCircle(tid) { const w = document.getElementById("tab-" + tid); return w && (w.classList.contains("tab") ? w : (w.querySelector(".tab") || w.closest(".tab"))); }
   function circleOf(id) {                                              // 1.0.347: an app's circle colour - its tab's, or (no tint: see-through) its look's
-    const t = tabCircle(id); let bg = t ? getComputedStyle(t).backgroundColor : "";
-    const m = (bg.match(/[\d.]+/g) || []).map(Number);
-    if (!t || m.length < 3 || (m.length > 3 && m[3] < 0.5)) {
-      const look = lookWins.get(String(id)) || (browserEl()?.classList.contains("theme-dark") ? "dark" : "light");
-      return { bg: look === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)", L: look === "light" ? 1 : 0, own: false };
-    }
-    return { bg, L: (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255, own: true };
+    /* 1.0.357: no tints - white or black, by its look (an icon that would vanish on it: its plate), worked out, never read
+       from the tab mid-change (that left circles and icons out of step) */
+    const t = tabCircle(id), plate = t?.getAttribute("data-vos-plate") || "";
+    const look = plate || lookWins.get(String(id)) || (browserEl()?.classList.contains("theme-dark") ? "dark" : "light");
+    return { bg: look === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)", L: look === "light" ? 1 : 0, own: !!plate };
   }
   function circleLum(t) { const m = (getComputedStyle(t).backgroundColor.match(/[\d.]+/g) || []).map(Number); return m.length < 3 || (m.length > 3 && m[3] < 0.5) ? null : (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; }
   function pillToneOf(ids, front) {                                    // most of its apps; a tie: the app in front

@@ -308,11 +308,11 @@
         const alt = own || (hasMedia.has(src) ? variant.get(src + "|" + look) || "" : "");   // (1.0.306: whichever look - the tab and its window's circles the same picture)
         if ((tp.dataset.vosFavUrl || "") !== alt) { if (alt) { tp.dataset.vosFavUrl = alt; tp.style.setProperty("--vos-fav", `url("${alt}")`); } else { delete tp.dataset.vosFavUrl; tp.style.removeProperty("--vos-fav"); } }
       }
-      const want = !v || typeof v !== "object" ? null : dark && v.hi < 0.08 ? "light" : !dark && v.lo < 0.08 ? "dark" : null;
+      const dk = look === "dark", want = !v || typeof v !== "object" ? null : dk && v.hi < 0.08 ? "light" : !dk && v.lo < 0.08 ? "dark" : null;   // 1.0.357: by its own look, not Vivaldi's
       if (want) { if (tab.getAttribute("data-vos-plate") !== want) tab.setAttribute("data-vos-plate", want); }
       else if (tab.hasAttribute("data-vos-plate")) tab.removeAttribute("data-vos-plate");
       const kind = "", col = "";   // 1.0.355: no tint at all - every app on a plain white (light) / black (dark) circle
-      { const dim = !!(v && typeof v === "object" && dark && ((v.tile && hslL(v.tile) < 0.3) || want === "light"));   // 1.0.316: an icon too dim for the dark bar
+      { const dim = !!(v && typeof v === "object" && dk && ((v.tile && hslL(v.tile) < 0.3) || want === "light"));   // 1.0.316: an icon too dim for the dark bar
         if (tab.hasAttribute("data-vos-dim") !== dim) tab.toggleAttribute("data-vos-dim", dim); }
       if ((tab.getAttribute("data-vos-tint") || "") !== kind) { if (kind) tab.setAttribute("data-vos-tint", kind); else tab.removeAttribute("data-vos-tint"); }
       if (col) { if (tab.style.getPropertyValue("--vos-tint") !== `rgb(${col})`) { tab.style.setProperty("--vos-tint", `rgb(${col})`); tileCol = kind === "tile"; const lv = levels(col); tab.style.setProperty("--vos-tint-d", lv[0]); tab.style.setProperty("--vos-tint-l", lv[1]); } }
