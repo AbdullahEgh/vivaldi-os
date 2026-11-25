@@ -1759,7 +1759,7 @@ window.vosBeat = window.vosBeat || (() => {
     const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(pane) || viv, next = now === "dark" ? "light" : "dark";
     for (const p of panes) { if (next === viv) lookWins.delete(p); else lookWins.set(p, next); }   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
     lookSync(win); for (const p of panes) { if (p !== win) lookSync(p); persist(p); } if (!panes.includes(win) && floating.has(win)) persist(win); render();
-    requestAnimationFrame(circlesSync); setTimeout(circlesSync, 300);   // (their icons' circles follow at once)
+    circlesSync(); requestAnimationFrame(circlesSync); setTimeout(circlesSync, 300);   // (1.0.358: every icon's circle in the same moment - the buttons' too)
   }
   (window.vosBeat || (f => setInterval(f, 2500)))(() => { if (!lookWins.size) return; for (const w of floating) lookSync(w); for (const k of lookWins.keys()) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) lookSync(k); } });   // (1.0.347: a split full screen too)   // (a pane added to it, a restart)
   { let themeWas = null;                                              // 1.0.275: Vivaldi changed light <-> dark: every window follows it again
@@ -2905,7 +2905,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (wctlFor !== id) return clearInterval(wctlTick);
       if (wctlHeld || wctl.matches(":hover")) return;
       if (cornerH?.matches(":hover") && inCorner(id)) return;           // 1.0.348: on its top strip - but only at its corner (further right along it: gone)
-      if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:is(.ft-tl, .ft-l, .ft-t):hover`) && inCorner(id)) return;   // (1.0.311: on its edge, between the strip and them)
+      if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:is(.ft-tl, .ft-l, .ft-t, .ft-tr, .ft-r):hover`) && inCorner(id)) return;   // (1.0.358: its top-right corner too)   // (1.0.311: on its edge, between the strip and them)
       wctlOff();
     }, 200);
   }
@@ -2924,7 +2924,12 @@ window.vosBeat = window.vosBeat || (() => {
     if (mission || lpOn()) return;
     /* 1.0.311: FROM INSIDE ONLY - the strip along the window's own top, at its corner (a window: its left end; a pinned app:
        the end its circle is at). Not from outside it */
-    const bar = t?.closest?.("[data-ft-float][data-ft-notitle] > .ft-titlebar"), el = bar?.parentElement, id = bar?.dataset.ftPage && winOf(bar.dataset.ftPage);
+    let bar = t?.closest?.("[data-ft-float][data-ft-notitle] > .ft-titlebar"), el = bar?.parentElement, id = bar?.dataset.ftPage && winOf(bar.dataset.ftPage);
+    if (!bar) {                                                       // 1.0.358: from its very corners too (its top corners and edge - they still resize when dragged)
+      const h = t?.closest?.(".ft-frame > .ft-resize"), fid = h && /^(tl|t|tr)$/.test(h.dataset.edge || "") ? h.parentElement?.dataset.ftFor : null;
+      const pe = fid && floating.has(fid) ? targetOf(pageOf(fid)) : null;
+      if (pe?.matches?.("[data-ft-float][data-ft-notitle]")) { el = pe; id = fid; bar = pe.querySelector(":scope > .ft-titlebar"); }
+    }
     if (!bar || !el || !id) return;
     const w = el.getBoundingClientRect();
     if (el.hasAttribute("data-ft-pip")) {
