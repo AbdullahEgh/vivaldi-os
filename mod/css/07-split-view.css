@@ -2112,3 +2112,33 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* editing the desktop: the shaking icons' delete buttons without their own blur (one blur per icon, every frame) */
 #browser#browser .lp-layer[data-editing] :is(.lp-del, .lp-tile.lp-folder) { backdrop-filter: none !important; }
 #browser#browser .lp-layer[data-editing] .lp-del { background: rgba(142, 142, 147, 0.95) !important; }
+
+/* 1.0.342: THE CONTROLS COME QUICKER - for real work: all in sight in about a quarter of a second (was over half). The same
+   order and feel - the circle, its pill out of it, the buttons one by one - only tighter. Windows, pinned apps, full screen */
+#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on] .vos-wctl-ic { animation-duration: 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on] > .vos-pin-ctl,
+#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on] > .vos-pin-ctl::after { animation-duration: 0.18s !important; animation-delay: 0.03s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on] .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.06s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.12s !important; }
+/* a pinned app's */
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl::after { animation-duration: 0.18s !important; animation-delay: 0s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.03s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.05s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.07s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.09s !important; }
+/* (its circle hidden: the circle first, as a window's) */
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] { transition: opacity 0.12s ease, transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl::after { animation-delay: 0.03s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc::before { animation-delay: 0.06s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.12s !important; }
+/* full screen's, in the toolbar */
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-wctl-ic { animation-duration: 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pin-ctl::after { animation-duration: 0.18s !important; animation-delay: 0.03s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.06s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.12s !important; }
