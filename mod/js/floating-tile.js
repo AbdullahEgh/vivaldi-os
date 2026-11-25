@@ -1749,7 +1749,12 @@ window.vosBeat = window.vosBeat || (() => {
     for (const wv of webviewsOf(id)) { const pid = wv.closest(".webpageview[data-id]")?.dataset.id || id, t = lookWins.get(pid) || ""; if ((wv.__vosLookAt ?? "") !== t) lookApply(wv, t); }
   }
   const lookPane = w => groupFloat.has(w) ? (splitFocus.get(w) || w) : w;   // (a split: the app in front)
-  const lookOfWin = w => w == null ? "" : (lookWins.get(lookPane(w)) || "");
+  /* 1.0.361: an app's look = what its page really shows (read from the page), else its own look, else Vivaldi's - its circle,
+     its tab's circle, its buttons and pinned circle all follow the page as it is */
+  const vivLook = () => browserEl()?.classList.contains("theme-dark") ? "dark" : "light";
+  const appTone = id => { const k = String(id), t = pageOf(k)?.dataset.vosTone; return t === "dark" || t === "light" ? t : (lookWins.get(k) || vivLook()); };
+  const appToneAttr = id => { const t = appTone(id); return t !== vivLook() || lookWins.has(String(id)) ? t : ""; };
+  const lookOfWin = w => w == null ? "" : appToneAttr(lookPane(w));
   function fullPage(id) { const pg = pageOf(id); return !!pg && !floating.has(id) && !isTiled(pg) && !isStart(pg); }   // (1.0.324: a page full screen)
   function toggleDark(win) {                                          // (the grey button held)
     const pg0 = pageOf(win), splitFull = !!pg0 && isTiled(pg0) && membersOf(pg0).every(m => !floating.has(m) && !winOf(m));   // 1.0.357: a split full screen too
@@ -1758,6 +1763,7 @@ window.vosBeat = window.vosBeat || (() => {
     const all = pg && isTiled(pg) ? membersOf(pg) : [], panes = all.length > 1 ? all : [pane];
     const viv = browserEl()?.classList.contains("theme-dark") ? "dark" : "light", now = lookWins.get(pane) || viv, next = now === "dark" ? "light" : "dark";
     for (const p of panes) { if (next === viv) lookWins.delete(p); else lookWins.set(p, next); }   // 1.0.317: always the other look than the one it shows (a saved look equal to Vivaldi's no longer makes a hold do nothing)
+    for (const p of panes) { const pg = pageOf(p); if (pg) { pg.dataset.vosTone = next; const wv = pg.querySelector("webview"); if (wv) { toneRead.delete(wv); wv.__vosToneN = 0; setTimeout(() => readTone(pg), 700); } } }   // 1.0.361: its page will show that look (read again to confirm)
     lookSync(win); for (const p of panes) { if (p !== win) lookSync(p); persist(p); } if (!panes.includes(win) && floating.has(win)) persist(win); render();
     circlesSync(); requestAnimationFrame(circlesSync); setTimeout(circlesSync, 300);   // (1.0.358: every icon's circle in the same moment - the buttons' too)
   }
@@ -2273,15 +2279,16 @@ window.vosBeat = window.vosBeat || (() => {
     }
     {                                                                // 1.0.279: a window in its own look: its circle in the tab bar too
       const want = new Map();
-      if (lookWins.size) {                                             // 1.0.347: each app its own (a split's apps each theirs)
+      {                                                                // 1.0.347: each app its own (a split's apps each theirs) - 1.0.361: as its page shows
         const tpOf = t => document.getElementById("tab-" + t)?.closest(".tab-position");
-        for (const w of floating) for (const t of (groupFloat.has(w) ? membersOf(pageOf(w)) : [w])) { const look = lookWins.get(t), tp = look && tpOf(t); if (tp) want.set(tp, look); }
-        for (const [k, look] of lookWins) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) { const tp = tpOf(k); if (tp) want.set(tp, look); } }
+        for (const w of floating) for (const t of (groupFloat.has(w) ? membersOf(pageOf(w)) : [w])) { const look = appToneAttr(t), tp = look && tpOf(t); if (tp) want.set(tp, look); }
+        const toned = [...document.querySelectorAll("#webpage-stack .webpageview[data-id][data-vos-tone]")].map(e => e.dataset.id);
+        for (const k of new Set([...lookWins.keys(), ...toned])) { const pg = pageOf(k); if (fullPage(k) || (pg && isTiled(pg) && !winOf(k))) { const look = appToneAttr(k), tp = look && tpOf(k); if (tp) want.set(tp, look); } }
       }
       for (const o of $$(".tab-position[data-vos-look]")) if (!want.has(o)) o.toggleAttribute("data-vos-look", false);
       for (const [tp, look] of want) if (tp.getAttribute("data-vos-look") !== look) tp.setAttribute("data-vos-look", look);
       const parts = new Map();                                       // 1.0.293: the window itself, its pinned circle and buttons - all that look
-      if (lookWins.size) for (const w of floating) { const look = lookOfWin(w); if (!look) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); }
+      for (const w of floating) { const look = lookOfWin(w); if (!look) continue; const el = targetOf(pageOf(w)); if (el) parts.set(el, look); const pb = pinBadges.get(w); if (pb) parts.set(pb, look); }
       for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
       for (const [o, look] of parts) if (o.getAttribute("data-vos-look") !== look) o.setAttribute("data-vos-look", look);
       if (wctl && wctlFor) { const lk = lookOfWin(wctlFor); if ((wctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) wctl.setAttribute("data-vos-look", lk); else wctl.removeAttribute("data-vos-look"); } }
@@ -7185,7 +7192,7 @@ window.vosBeat = window.vosBeat || (() => {
     /* 1.0.357: no tints - white or black, by its look (an icon that would vanish on it: its plate), worked out, never read
        from the tab mid-change (that left circles and icons out of step) */
     const t = tabCircle(id), plate = t?.getAttribute("data-vos-plate") || "";   // (1.0.360: its look decides - an icon's own disc never does)
-    const look = plate || lookWins.get(String(id)) || (browserEl()?.classList.contains("theme-dark") ? "dark" : "light");
+    const look = plate || appTone(id);                                // (1.0.361: as its page shows)
     return { bg: look === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)", L: look === "light" ? 1 : 0, own: !!plate };
   }
   function circleLum(t) { const m = (getComputedStyle(t).backgroundColor.match(/[\d.]+/g) || []).map(Number); return m.length < 3 || (m.length > 3 && m[3] < 0.5) ? null : (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; }
@@ -7244,7 +7251,7 @@ window.vosBeat = window.vosBeat || (() => {
         [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Light / dark - hold: page size"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
     }
     if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
-    { const lk = lookWins.get(id) || ""; if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
+    { const lk = appToneAttr(id); if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
     const key = mem.length > 1 ? "split:" + [...mem].sort().join(",") : id;   // (another app of the same split in front: the same buttons, not again)
     fsctl.dataset.ftPage = id;
     if (fsctl.dataset.ftKey !== key) { fsctl.dataset.ftKey = key; fsctl.removeAttribute("data-on"); }
@@ -7591,7 +7598,7 @@ window.vosBeat = window.vosBeat || (() => {
         const v = Array.isArray(x) ? x[0] : x, [bg, fg, scheme] = Array.isArray(v) ? v : [v];
         const lum = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c || ""); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : null; };
         const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
-        if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); }
+        if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); queueRender(); requestAnimationFrame(() => circlesSync()); }   // (1.0.361: its icons follow the page)
       });
     } catch (e) {}
   }
