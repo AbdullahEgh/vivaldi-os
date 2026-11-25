@@ -7184,7 +7184,7 @@ window.vosBeat = window.vosBeat || (() => {
   function circleOf(id) {                                              // 1.0.347: an app's circle colour - its tab's, or (no tint: see-through) its look's
     /* 1.0.357: no tints - white or black, by its look (an icon that would vanish on it: its plate), worked out, never read
        from the tab mid-change (that left circles and icons out of step) */
-    const t = tabCircle(id), plate = t?.getAttribute("data-vos-plate") || "";
+    const t = tabCircle(id), plate = t?.getAttribute("data-vos-plate") || t?.getAttribute("data-vos-tile") || "";   // (1.0.359: its own disc's colour)
     const look = plate || lookWins.get(String(id)) || (browserEl()?.classList.contains("theme-dark") ? "dark" : "light");
     return { bg: look === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)", L: look === "light" ? 1 : 0, own: !!plate };
   }
