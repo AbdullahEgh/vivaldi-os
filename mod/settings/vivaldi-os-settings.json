@@ -95,8 +95,7 @@
     "vivaldi.panels.window_defaults": {
       "barVisible": false,
       "contentVisible": false,
-      "selectedPanel": "PanelDownloads",
-      "width": 360
+      "width": 463
     },
     "vivaldi.startpage": {
       "navigation": 2,
@@ -126,8 +125,11 @@
       "double_click": 2,
       "never_close_last": true,
       "stacking": {
-        "mode": 1,
-        "open_accordions": []
+        "mode": 0,
+        "open_accordions": [
+          "d40e2732-0d6c-40d5-ba12-a962c92f2c74",
+          "45332440-7607-4522-ae2b-808f0e784a1f"
+        ]
       },
       "visible": true
     },

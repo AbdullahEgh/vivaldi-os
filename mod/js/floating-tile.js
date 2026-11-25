@@ -8080,3 +8080,90 @@ window.vosBeat = window.vosBeat || (() => {
   }
   start();
 })();
+
+/* 1.0.335: EXTENSION SIDE PANELS THAT REFUSE VIVALDI'S PANEL (Claude in Chrome). Vivaldi shows an extension's side panel in
+   a hidden tab; Claude's panel asks "am I in a tab?" and, being in one, says it is not available on this page. Bento OS
+   shows it itself instead: in its own sheet at the right edge (a frame, not a tab - as Chrome's side panel), one per app
+   window, as Chrome keeps one per tab - shown with its window in front, hidden with it. Its button (or its shortcut) opens
+   and closes it; Vivaldi's own panel for it is closed again at once. The extension itself is left as it is */
+(() => {
+  const HOSTED = { fcoeoabgfenejglbffodgkkbkcdhcgfn: "sidepanel.html" };
+  const sheets = new Map();                                           // app tab id -> its sheet
+  let shownFor = null, sheetW = 400;
+  try { const w = Number(localStorage.getItem("vosSheetW")); if (w >= 320 && w <= 720) sheetW = w; } catch (e) {}
+  const browser = () => document.getElementById("browser");
+  function place(s) {
+    const main = document.getElementById("main"), r = main ? main.getBoundingClientRect() : { top: 40, bottom: innerHeight };
+    s.style.top = Math.round(r.top + 8) + "px"; s.style.height = Math.max(200, Math.round(r.bottom - r.top - 16)) + "px"; s.style.width = sheetW + "px";
+  }
+  function make(info) {
+    const s = document.createElement("div"); s.className = "vos-sheet"; s.dataset.tab = info.tab;
+    s.innerHTML = `<div class="vos-sheet-grip" title="Drag to resize"></div>`;
+    const wv = document.createElement("webview");
+    wv.setAttribute("src", `chrome-extension://${info.ext}/${info.page}?tabId=${info.tab}`);
+    wv.addEventListener("close", () => drop(info.tab));                // (its own close: window.close() in it)
+    wv.addEventListener("newwindow", e => { try { chrome.tabs.create({ url: e.targetUrl, openerTabId: info.tab }); } catch (x) {} });
+    wv.addEventListener("permissionrequest", e => { if (e.permission === "media" || e.permission === "fullscreen") e.request.allow(); });
+    s.appendChild(wv);
+    s.querySelector(".vos-sheet-grip").addEventListener("pointerdown", ev => {
+      ev.preventDefault(); const x0 = ev.clientX, w0 = sheetW; s.setAttribute("data-sizing", "");
+      const mv = e => { sheetW = Math.max(320, Math.min(720, w0 + (x0 - e.clientX))); for (const k of sheets.values()) k.style.width = sheetW + "px"; };
+      const up = () => { removeEventListener("pointermove", mv, true); removeEventListener("pointerup", up, true); s.removeAttribute("data-sizing"); try { localStorage.setItem("vosSheetW", String(sheetW)); } catch (e) {} };
+      addEventListener("pointermove", mv, true); addEventListener("pointerup", up, true);
+    });
+    browser().appendChild(s); place(s); sheets.set(info.tab, s);
+    return s;
+  }
+  function show(tab) {
+    for (const [t, s] of sheets) if (t !== tab && s.hasAttribute("data-on")) hide(s);
+    const s = sheets.get(tab); if (!s) return;
+    clearTimeout(s.__out); s.removeAttribute("data-out"); place(s);
+    if (!s.hasAttribute("data-on")) { s.style.display = ""; void s.offsetWidth; s.setAttribute("data-on", ""); }
+    shownFor = tab;
+  }
+  function hide(s) {
+    if (!s.hasAttribute("data-on")) return;
+    s.removeAttribute("data-on"); s.setAttribute("data-out", "");
+    s.__out = setTimeout(() => { s.removeAttribute("data-out"); s.style.display = "none"; }, 220);
+    if (shownFor === Number(s.dataset.tab)) shownFor = null;
+  }
+  function drop(tab) {
+    const s = sheets.get(tab); if (!s) return; sheets.delete(tab); hide(s); setTimeout(() => s.remove(), 240);
+  }
+  function asked(info) {                                              // its button / shortcut: open it for that window, or close it
+    const s = sheets.get(info.tab);
+    if (s && s.hasAttribute("data-on")) return drop(info.tab);
+    if (!s) make(info);
+    show(info.tab);
+  }
+  /* its button or shortcut: Vivaldi says so (the extension asks for its panel in that window) - Bento OS's sheet answers
+     for the window in front there; Vivaldi's own panel for it (that would only say "not available") is closed again */
+  function closeVivaldis(ext) {
+    const pc = document.getElementById("panels-container");
+    const wv = pc && [...pc.querySelectorAll("webview")].find(w => (w.getAttribute("src") || "").startsWith(`chrome-extension://${ext}/`));
+    if (!wv || !pc.classList.contains("expanded") || !wv.offsetWidth) return false;
+    const btn = [...document.querySelectorAll("#switch button[title]")].find(b => b.title.includes(`chrome-extension://${ext}/`));
+    if (btn) for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"])   // (its button takes a whole press, not a click alone)
+      btn.dispatchEvent(new (t.startsWith("pointer") ? PointerEvent : MouseEvent)(t, { bubbles: true, cancelable: true, button: 0, pointerType: "mouse" }));
+    return true;
+  }
+  let askT = 0;
+  function onAsk(ext, action, winId) {
+    if (!HOSTED[ext] || action !== "show" || askT) return;
+    askT = setTimeout(() => { askT = 0; }, 400);                      // (one press, told more than once)
+    chrome.tabs.query({ active: true, windowId: winId }, tabs => {
+      const t = tabs?.[0]; if (chrome.runtime.lastError || !t) return;
+      asked({ ext, page: HOSTED[ext], tab: t.id });
+    });
+    let n = 0; const tryClose = () => { if (!closeVivaldis(ext) && ++n < 12) setTimeout(tryClose, 120); };
+    setTimeout(tryClose, 150);
+  }
+  function start() {
+    if (!browser()) return setTimeout(start, 1000);
+    try { vivaldi.extensionActionUtils.onSidePanelActionRequested.addListener(onAsk); } catch (e) { return; }
+    chrome.tabs.onActivated.addListener(({ tabId }) => { if (sheets.has(tabId)) show(tabId); else if (shownFor != null) hide(sheets.get(shownFor)); });
+    chrome.tabs.onRemoved.addListener(tabId => drop(tabId));
+    addEventListener("resize", () => { for (const s of sheets.values()) place(s); });
+  }
+  start();
+})();
