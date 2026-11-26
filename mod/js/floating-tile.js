@@ -2831,7 +2831,11 @@ window.vosBeat = window.vosBeat || (() => {
     if (wctl && wctl.parentElement === host) return wctl;
     wctl?.remove();
     wctl = document.createElement("div"); wctl.className = "vos-wctl ft-titlebar";
-    wctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span>` + ctlHtml("win");   // (1.0.285: the shared component, side by side)
+    /* 1.0.375: A TITLE BAR, REVEALED - the corner no longer brings a floating icon: the window's own title bar slides down
+       over its top (its buttons at the left, its app's icon and title in the middle), and goes back up once the pointer
+       leaves it */
+    wctl.setAttribute("data-bar", "");
+    wctl.innerHTML = ctlHtml("win") + `<div class="vos-tb-mid"><span class="vos-wctl-ic"><img alt=""></span><span class="vos-tb-title"></span></div>`;
     host.appendChild(wctl);
     return wctl;
   };
@@ -2858,6 +2862,16 @@ window.vosBeat = window.vosBeat || (() => {
     if (!wctl || !wctlFor) return false;
     const el = targetOf(pageOf(wctlFor));
     if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || el.hasAttribute("data-ft-cover")) return false;
+    if (wctl.hasAttribute("data-bar")) {                              // 1.0.375: the title bar - over the window's top, its width
+      if (el.checkVisibility?.({ visibilityProperty: true }) === false) return false;   // (its window hidden: the bar goes too)
+      const w = el.getBoundingClientRect(), R = wctlRadius(el);
+      const pl = macLights() && w.top < 40 && w.left < 84 ? Math.round(84 - w.left) : 0;   // (not under Vivaldi's own buttons)
+      const pr = winLights() && w.top < 40 && w.right > innerWidth - 150 ? Math.round(w.right - (innerWidth - 150)) : 0;
+      const st = wctl.style, set = (k, v) => { if (st.getPropertyValue(k) !== v) st.setProperty(k, v); };
+      set("left", Math.round(w.left) + "px"); set("top", Math.round(w.top) + "px"); set("width", Math.round(w.width) + "px");
+      set("--vos-tb-r", Math.round(R) + "px"); set("--vos-tb-pl", pl + "px"); set("--vos-tb-pr", pr + "px");
+      return true;
+    }
     const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
     const R = Math.max(up ? 0 : 6, Math.round(wctlRadius(el) / 2));   // 1.0.350: in from its rounded corner - the corner itself stays free to resize from (1.0.352: half of it)
     let lx = w.left + R; const ty0 = up ? w.top - H - 6 : w.top + 6;
@@ -2877,7 +2891,7 @@ window.vosBeat = window.vosBeat || (() => {
   function wctlShow(id, side = "l") {
     if (Date.now() < wctlMute) return;
     const b = wctlEl(); if (!b) return;
-    if (wctlFor === id && b.hasAttribute("data-on") && wctlSide === side) return;
+    if (wctlFor === id && b.hasAttribute("data-on") && (wctlSide === side || b.hasAttribute("data-bar"))) { wctlSide = side; return; }   // (1.0.375: the title bar: one for both corners)
     wctlFor = id; b.dataset.ftPage = id; wctlSide = side; b.toggleAttribute("data-side-r", side === "r");
     clearTimeout(wctlBtnT); b.removeAttribute("data-btns"); b.removeAttribute("data-btns-out");   // 1.0.369: the icon alone at first
     const t = groupFloat.has(id) ? (splitFocus.get(id) || id) : id;
@@ -2906,6 +2920,7 @@ window.vosBeat = window.vosBeat || (() => {
       if ((ic.dataset.tint || "") !== k) { if (k) ic.dataset.tint = k; else delete ic.dataset.tint; }
       if (ic.style.getPropertyValue("--vos-tint") !== c) { if (c) ic.style.setProperty("--vos-tint", c); else ic.style.removeProperty("--vos-tint"); }
       for (const v of ["--vos-tint-d", "--vos-tint-l"]) { const x = tb?.style.getPropertyValue(v) || ""; if (ic.style.getPropertyValue(v) !== x) { if (x) ic.style.setProperty(v, x); else ic.style.removeProperty(v); } } } }
+    wctlTitle(t);
     const g = b.querySelector('[data-act="res"]'), pct = Math.round((zoomOf[id] || 1) * 100), tip = `Light / dark - hold: page size (${pct}%)`;
     if (g.title !== tip) g.title = tip;
     wctlW = b.offsetWidth || 120;                                      // (its width, once - for the right corner)
@@ -2917,6 +2932,7 @@ window.vosBeat = window.vosBeat || (() => {
     clearInterval(wctlTick);
     wctlTick = setInterval(() => {                                   // (over the page the browser hears no moves: checked here)
       if (wctlFor !== id) return clearInterval(wctlTick);
+      wctlTitle(groupFloat.has(id) ? (splitFocus.get(id) || id) : id);   // (1.0.375: kept up to date - a page loading, a split's other app)
       if (!wctlHeld && !wctl.matches(":hover")) wctlBtnsOff();         // 1.0.369: off the icon and its buttons: they roll back in
       if (wctlHeld || wctl.matches(":hover")) return;
       if (cornerH?.matches(":hover") && inCorner(id)) return;           // 1.0.348: on its top strip - but only at its corner (further right along it: gone)
@@ -2926,6 +2942,13 @@ window.vosBeat = window.vosBeat || (() => {
           if (p[1] >= r.top - 36 && p[1] <= r.top + 2 && (wctlSide === "r" ? p[0] <= r.right + 24 && p[0] > r.right - WCTL_REACH : p[0] >= r.left - 24 && p[0] < r.left + WCTL_REACH)) return; } }
       wctlOff();
     }, 200);
+  }
+  function wctlTitle(t) {                                            // 1.0.375: the title bar's text - its app's page title
+    const el = wctl?.querySelector(".vos-tb-title"); if (!el) return;
+    fetchTitle(t);
+    const tb = document.getElementById("tab-" + t), raw = tb?.querySelector(".title")?.textContent || titles.get(t) || "";
+    const v = /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw.trim();
+    if (el.textContent !== v) el.textContent = v;
   }
   function inCorner(id) {                                            // 1.0.348: the pointer at the window's top-left corner (where they came from) - not further along
     const el = targetOf(pageOf(id)), p = wctlXY; if (!el || !p) return false;
@@ -2991,8 +3014,9 @@ window.vosBeat = window.vosBeat || (() => {
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
   }, true);
   addEventListener("pointerdown", e => {                          // 1.0.284: the circle is a handle, as a pinned app's - pressed, its window moves
-    if (e.button !== 0 || !wctl || !wctlFor || !e.target?.closest?.(".vos-wctl-ic") || !wctl.contains(e.target)) return;
+    if (e.button !== 0 || !wctl || !wctlFor || !wctl.contains(e.target) || e.target?.closest?.(".vos-pc") || (!wctl.hasAttribute("data-bar") && !e.target?.closest?.(".vos-wctl-ic"))) return;
     const id = wctlFor, el = targetOf(pageOf(id)); if (!el || mission || lpOn()) return;
+    if (wctl.hasAttribute("data-bar") && doublePress(e, id)) return;   // 1.0.375: twice on the title bar - as a title bar's
     wctlHeld = true;                                                 // 1.0.287: held: the circle and its buttons stay, moving with the window
     const up = ev => { if (ev.pointerId !== e.pointerId) return; wctlHeld = false; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); };
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
@@ -3001,7 +3025,7 @@ window.vosBeat = window.vosBeat || (() => {
   const pinBare = () => false;
   const winLights = () => { const b = browserEl(); return !!b && b.classList.contains("win") && !b.classList.contains("fullscreen"); };   // (1.0.349: Vivaldi's own buttons, top right, on Windows)
   const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
-  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id);   // their corner brings it, as a window's
+  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
     if (wctlXY[2]?.closest?.("webview") || document.querySelector("webview:hover")) return false;   // (in a page: gone)
