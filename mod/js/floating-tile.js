@@ -7293,6 +7293,11 @@ window.vosBeat = window.vosBeat || (() => {
       if (w && minimized.has(w)) {
         restoreGuard = { id: String(tabId), w, until: Date.now() + 900 };   // (Vivaldi's own click on the active tab may switch to the tab before it)
         setTimeout(() => restore(w), 0);
+      } else if (w && floating.has(w) && !awayWs(w)) {
+        /* 1.0.400: its tab may be active already (after a restart, a hover, another app of its split): Vivaldi then reports no
+           switch, and its window stayed behind - only the tab bar changed. A click on its tab brings its window up, always */
+        noRaise = null;
+        setTimeout(() => { if (floating.has(w) && !minimized.has(w) && zOrder[zOrder.length - 1] !== w) { raise(w); render(); } }, 0);
       }
       return;
     }
