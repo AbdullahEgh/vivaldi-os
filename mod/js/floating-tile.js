@@ -7773,7 +7773,6 @@ window.vosBeat = window.vosBeat || (() => {
     const lk = m ? ((0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light") : pg.dataset.vosTone === "dark" ? "dark" : "light";
     if (pg.style.getPropertyValue("--vos-strip-bg") !== c) { if (c) pg.style.setProperty("--vos-strip-bg", c); else pg.style.removeProperty("--vos-strip-bg"); }
     if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
-    const row = pg.__vosTopRow || "none"; if (tb.style.getPropertyValue("--vos-strip-row") !== row) tb.style.setProperty("--vos-strip-row", row);
     const v = pg.dataset.id ? appPic(pg.dataset.id) : "", ic = v ? `url("${v}")` : "none";
     if (tb.style.getPropertyValue("--vos-strip-icon") !== ic) tb.style.setProperty("--vos-strip-icon", ic);
   }
@@ -7791,15 +7790,15 @@ window.vosBeat = window.vosBeat || (() => {
         img.onload = () => {
           pg.__vosPxBusy = false;
           const W = img.naturalWidth; if (!W) return;
-          const cv = document.createElement("canvas"); cv.width = W; cv.height = 3; const cx = cv.getContext("2d", { willReadFrequently: true });
-          cx.drawImage(img, 0, 0); const d = cx.getImageData(0, 1, W, 1).data, n = {};
-          for (let i = 1; i < 16; i++) { const x = Math.floor(W * i / 16) * 4, k = [d[x], d[x + 1], d[x + 2]].map(v => Math.round(v / 3) * 3).join(","); n[k] = (n[k] || 0) + 1; }
+          /* 1.0.387: ONE SOLID COLOUR - the colour most of its top edge has (its first rows, across its width): a logo or
+             a button there doesn't count */
+          const cv = document.createElement("canvas"); cv.width = W; cv.height = 4; const cx = cv.getContext("2d", { willReadFrequently: true });
+          cx.drawImage(img, 0, 0); const n = {};
+          for (const y of [1, 3]) { const d = cx.getImageData(0, y, W, 1).data;
+            for (let i = 1; i < 40; i++) { const x = Math.floor(W * i / 40) * 4, k = [d[x], d[x + 1], d[x + 2]].join(","); n[k] = (n[k] || 0) + 1; } }
           const [k] = Object.entries(n).sort((a, b) => b[1] - a[1])[0] || [];
-          const c = k ? `rgb(${k.split(",").map(v => Math.min(255, +v)).join(", ")})` : "";
-          /* its top row itself, stretched down the strip: every colour along it (a sidebar, a header) carries on up */
-          const row = document.createElement("canvas"); row.width = W; row.height = 1; row.getContext("2d").putImageData(cx.getImageData(0, 1, W, 1), 0, 0);
-          const im = `url("${row.toDataURL("image/png")}")`;
-          if (pg.__vosTopPx !== c || pg.__vosTopRow !== im) { pg.__vosTopPx = c; pg.__vosTopRow = im; stripSync(pg); }
+          const c = k ? `rgb(${k.split(",").join(", ")})` : "";
+          if (pg.__vosTopPx !== c) { pg.__vosTopPx = c; stripSync(pg); }
         };
         img.onerror = () => { pg.__vosPxBusy = false; };
         img.src = url;
