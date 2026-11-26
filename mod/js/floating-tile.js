@@ -7825,7 +7825,7 @@ window.vosBeat = window.vosBeat || (() => {
         const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
         const hold = page.__vosToneHold; if (hold && Date.now() < hold.until && t !== hold.t) return;   // 1.0.367: just switched - the app still redrawing: its old colour not taken back (no flicker)
         if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); queueRender(); requestAnimationFrame(() => circlesSync()); }   // (1.0.361: its icons follow the page)
-        stripSync(page); stripPixels(page, wv);
+        stripSync(page);                                               // (1.0.388: its look only - no pixels read)
       });
     } catch (e) {}
   }
