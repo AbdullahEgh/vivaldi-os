@@ -2827,7 +2827,7 @@ window.vosBeat = window.vosBeat || (() => {
      above the window (inside its corner when there is no room), follows it, and goes once the pointer leaves both. */
   let wctl = null, wctlFor = null, cornerH = null, wctlTick = 0;
   const wctlEl = () => {
-    const host = browserEl(); if (!host) return null;
+    const host = stack(); if (!host) return null;                     // 1.0.377: among the windows - at its window's own level
     if (wctl && wctl.parentElement === host) return wctl;
     wctl?.remove();
     wctl = document.createElement("div"); wctl.className = "vos-wctl ft-titlebar";
@@ -2869,8 +2869,14 @@ window.vosBeat = window.vosBeat || (() => {
       const pr = winLights() && w.top < 40 && w.right > innerWidth - 150 ? Math.round(w.right - (innerWidth - 150)) : 0;
       const st = wctl.style, set = (k, v) => { if (st.getPropertyValue(k) !== v) st.setProperty(k, v); };
       /* 1.0.376: ABOVE the window, rising up from behind it (thin); inside its top only when there is no room above it */
-      const up = w.top >= 26 + 2; wctl.toggleAttribute("data-in", !up);
-      set("left", Math.round(w.left) + "px"); set("top", Math.round(up ? w.top - 26 : w.top) + "px"); set("width", Math.round(w.width) + "px");
+      /* 1.0.377: AT ITS WINDOW'S LEVEL - among the windows, with its window's z: a window over it covers it, as it covers
+         the window; the page area's coordinates */
+      const S = wctl.parentElement?.getBoundingClientRect() || { left: 0, top: 0 };
+      const up = w.top - 26 >= S.top; wctl.toggleAttribute("data-in", !up);
+      const z = el.style.getPropertyValue("z-index") || getComputedStyle(el).zIndex || "100";
+      if (st.getPropertyValue("z-index") !== z) st.setProperty("z-index", z, "important");
+      const P = (wctl.offsetParent || wctl.parentElement)?.getBoundingClientRect() || S;   // (absolute: from its positioned container)
+      set("left", Math.round(w.left - P.left) + "px"); set("top", Math.round((up ? w.top - 26 : w.top) - P.top) + "px"); set("width", Math.round(w.width) + "px");
       set("--vos-tb-r", Math.round(R) + "px"); set("--vos-tb-pl", pl + "px"); set("--vos-tb-pr", pr + "px");
       return true;
     }
