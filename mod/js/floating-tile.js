@@ -1264,12 +1264,16 @@ window.vosBeat = window.vosBeat || (() => {
     return { x: r.left, y: r.top };
   }
   const setStyle = (el, k, v) => { if (el.style.getPropertyValue(k) !== v) el.style.setProperty(k, v, "important"); };
+  /* 1.0.380: THE TITLE BAR MOVES WITH ITS WINDOW IN THE SAME STEP - whenever its window is placed (resized, moved), it is
+     placed right after, not on the next frame (that lag opened a gap between them) */
+  let wctlWin = null, wctlSyncFn = null;
   function place(el, r, s = stackRect(), o = fixedOrigin(el.parentElement)) {
     setStyle(el, "position", "fixed");
     setStyle(el, "left", Math.round(s.left + r.x - o.x) + "px");
     setStyle(el, "top", Math.round(s.top + r.y - o.y) + "px");
     setStyle(el, "width", Math.round(r.w) + "px");
     setStyle(el, "height", Math.round(r.h) + "px");
+    if (wctlWin && el === wctlWin) wctlSyncFn?.();
   }
   const unplace = el => ["position", "width", "height", "left", "top", "z-index"].forEach(k => el.style.removeProperty(k));
 
@@ -2859,8 +2863,8 @@ window.vosBeat = window.vosBeat || (() => {
     wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
   };
   const wctlPlace = () => {
-    if (!wctl || !wctlFor) return false;
-    const el = targetOf(pageOf(wctlFor));
+    if (!wctl || !wctlFor) { wctlWin = null; return false; }
+    const el = targetOf(pageOf(wctlFor)); wctlWin = el || null;
     if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || (el.hasAttribute("data-ft-cover") && !pinsHere())) return false;
     if (wctl.hasAttribute("data-bar")) {                              // 1.0.375: the title bar - over the window's top, its width
       if (el.checkVisibility?.({ visibilityProperty: true }) === false) return false;   // (its window hidden: the bar goes too)
@@ -2887,6 +2891,7 @@ window.vosBeat = window.vosBeat || (() => {
       const P = (wctl.offsetParent || wctl.parentElement)?.getBoundingClientRect() || S;   // (absolute: from its positioned container)
       set("left", Math.round(w.left - P.left) + "px"); set("top", Math.round((up ? w.top - 26 : w.top) - P.top) + "px"); set("width", Math.round(w.width) + "px");
       set("--vos-tb-r", Math.round(R) + "px"); set("--vos-tb-pl", pl + "px"); set("--vos-tb-pr", pr + "px");
+      set("--vos-tb-h", Math.round(w.height) + "px");                 // 1.0.380: it reaches down behind the whole window
       return true;
     }
     const w = el.getBoundingClientRect(), H = 24, up = w.top >= H + 8;   // 1.0.282: the app's circle (24px), as a pinned app's
@@ -2903,6 +2908,7 @@ window.vosBeat = window.vosBeat || (() => {
     return true;
   };
   let wctlSide = "l", wctlW = 0;
+  wctlSyncFn = () => { if (wctlFor && wctl?.hasAttribute("data-on")) wctlPlace(); };
   const wctlRadius = el => { const v = parseFloat(getComputedStyle(el).borderTopLeftRadius); return v >= 0 && v < 60 ? v : 17; };
   const WCTL_REACH = 200;                                           // 1.0.350: how far along its top strip, from a corner, the pointer brings them (was 120)
   function wctlShow(id, side = "l") {
@@ -2925,7 +2931,7 @@ window.vosBeat = window.vosBeat || (() => {
     const im = b.querySelector(".vos-wctl-ic img");
     if (src && !b.querySelector(".vos-wctl-ic[data-multi]") && im.getAttribute("src") !== src) im.src = src;   // 1.0.360: a joined pill: each slot its own app's picture (the front app's no longer written into the first)
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
-    { const lk = lookOfWin(id); if (lk) b.setAttribute("data-vos-look", lk); else b.removeAttribute("data-vos-look"); }   // (1.0.293: its window's own look - 1.0.347: a split's, the app in front)
+    wctlLook(id);   // (1.0.293: its window's own look - 1.0.347: a split's, the app in front)
     if (b.querySelector(".vos-wctl-ic").hasAttribute("data-multi")) { const ic = b.querySelector(".vos-wctl-ic");
       for (const a of ["data-plate", "data-tint", "data-vos-dim"]) ic.removeAttribute(a);
       for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
@@ -2962,11 +2968,17 @@ window.vosBeat = window.vosBeat || (() => {
   }
   const wctlTitleOf = t => { fetchTitle(t); const tb = document.getElementById("tab-" + t), raw = tb?.querySelector(".title")?.textContent || titles.get(t) || "";
     return /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw.trim(); };
+  /* 1.0.380: the title bar's colours = its window's look, always light or dark (solid - never see-through) */
+  function wctlLook(id) {
+    if (!wctl) return; const mem = groupFloat.has(id) ? membersOf(pageOf(id)) : [];
+    const lk = mem.length > 1 ? splitTone(mem) : appTone(lookPane(id));
+    if (wctl.getAttribute("data-vos-look") !== lk) wctl.setAttribute("data-vos-look", lk);
+  }
   function wctlTitle(t) {                                            // 1.0.375: the title bar's text - its app's page title
     const el = wctl?.querySelector(".vos-tb-title"); if (!el) return;
     const v = wctlTitleOf(t);
     if (el.textContent !== v) el.textContent = v;
-    if (wctlFor) wctlItems(wctlFor);
+    if (wctlFor) { wctlItems(wctlFor); wctlLook(wctlFor); }
   }
   /* 1.0.378: A SPLIT'S TITLE BAR - each app's own icon beside its own title, side by side (the app in front brighter);
      no joined pill */
@@ -4617,6 +4629,7 @@ window.vosBeat = window.vosBeat || (() => {
           const t = `${Math.round(r.x - liveMove.base.x)}px ${Math.round(r.y - liveMove.base.y)}px`;
           el.style.setProperty("translate", t, "important");
           frames.get(id)?.style.setProperty("translate", t, "important");
+          if (wctlWin && el === wctlWin) wctlSyncFn?.();               // (1.0.380: its title bar with it)
         } else { endLiveMove(); place(el, r, ss); placeFrame(id, el, r, ss); }
       });
     };

@@ -2363,9 +2363,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-tb-t:empty { display: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-wctl-ic { animation: none !important; }
 
-/* 1.0.379: its buttons are not on show with it - they come only with the pointer on them (their place, at its left) */
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-pin-ctl .vos-pc::before { transition: opacity 0.16s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-pin-ctl:not(:hover) .vos-pc::before { opacity: 0 !important; transform: scale(0.6) !important; }
+/* 1.0.380: the title bar always has its window buttons on it (1.0.379's hover-only buttons undone) */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-pin-ctl { min-height: 26px !important; padding-right: 6px !important; }
 /* 1.0.379: a split's titles all alike (none dimmed) */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item[data-front] { opacity: 1 !important; }
@@ -2386,3 +2384,31 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    bar) - their place still takes the pointer, so it brings it */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack:has(> [data-ft-pip]:not([data-ft-away])) > [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar :is(.ft-lights, .ft-right) .ft-light { opacity: 0 !important; pointer-events: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack:has(> [data-ft-pip]:not([data-ft-away])) > [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar .ft-lights::before { display: none !important; }
+
+/* 1.0.380: THE TITLE BAR IS SOLID - its window's look (white / near black), no blur, nothing seen through it; the parts
+   reaching round and under its window the same colour */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] { --vos-tb-bg: #ffffff; --colorFg: #000000; background: var(--vos-tb-bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-vos-look="dark"] { --vos-tb-bg: #1c1c1e; --colorFg: #ffffff; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]::before {
+  background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) left top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    radial-gradient(circle at 0 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) right top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])::before {
+  background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) left top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    radial-gradient(circle at 0 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) right top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    linear-gradient(var(--vos-tb-bg), var(--vos-tb-bg)) left var(--vos-tb-r, 12px) / 100% 48px no-repeat !important; }
+
+/* 1.0.380: its buttons go WITH it (1.0.375 forced them visible - they stayed on where the bar had been, with no bar) */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-pin-ctl { visibility: inherit !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-on]):not([data-out]):not([data-gone]), #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-on]):not([data-out]):not([data-gone]) * { visibility: hidden !important; pointer-events: none !important; }
+/* 1.0.380: BEHIND ITS WINDOW, IT REACHES DOWN UNDER ALL OF IT - nothing cut off below it, so no move or resize of the
+   window can open a gap between them */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])::before {
+  height: calc(var(--vos-tb-r, 12px) + var(--vos-tb-h, 48px)) !important;
+  background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) left top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    radial-gradient(circle at 0 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) right top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    linear-gradient(var(--vos-tb-bg), var(--vos-tb-bg)) left var(--vos-tb-r, 12px) / 100% var(--vos-tb-h, 48px) no-repeat !important; }
+@keyframes vos-tb-up-in { from { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } to { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px) - var(--vos-tb-h, 48px) - 40px) -20px); transform: none; } }
+@keyframes vos-tb-up-out { from { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px) - var(--vos-tb-h, 48px) - 40px) -20px); transform: none; } to { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } }
