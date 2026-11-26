@@ -3031,26 +3031,24 @@
   /* the latest release's version: where GitHub's "latest release" link points
      (…/tag/v1.2.3) - tiny and always current; GitHub's release API is the fallback.
      "" when GitHub can't be reached */
+  /* 1.0.394: ALWAYS THE NEWEST - GitHub's "latest" link and its release list asked together, the highest version of all taken
+     (either can be a few minutes stale right after a release) */
   async function latestTag() {
-    let tag = "";
-    try {
-      const r = await fetch(`https://github.com/${window.vosRepo}/releases/latest`, { method: "HEAD", cache: "no-store" });
-      tag = (/\/tag\/v?([\d.]+)/.exec(r.url) || [])[1] || "";
-    } catch (e) {}
-    if (!tag) {
-      try {
-        const r = await fetch(`https://api.github.com/repos/${window.vosRepo}/releases/latest`, { cache: "no-store" });
-        if (r.ok) tag = String((await r.json()).tag_name || "").replace(/^v/, "");
-      } catch (e) {}
-    }
-    return tag;
+    const got = [];
+    await Promise.all([
+      fetch(`https://github.com/${window.vosRepo}/releases/latest?t=${Date.now()}`, { method: "HEAD", cache: "no-store" })
+        .then(r => { const t = (/\/tag\/v?([\d.]+)/.exec(r.url) || [])[1]; if (t) got.push(t); }).catch(() => {}),
+      fetch(`https://api.github.com/repos/${window.vosRepo}/releases?per_page=10&t=${Date.now()}`, { cache: "no-store" })
+        .then(r => r.ok ? r.json() : []).then(l => { for (const x of Array.isArray(l) ? l : []) if (!x.draft && !x.prerelease) { const t = String(x.tag_name || "").replace(/^v/, ""); if (/^[\d.]+$/.test(t)) got.push(t); } }).catch(() => {})
+    ]);
+    return got.reduce((m, t) => (!m || newer(t, m) ? t : m), "");
   }
   async function checkUpdate(manual) {
     if (!window.vosRepo || !window.vosVersion) return;
-    if (manual && tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, false); return; }   // 1.0.364: known - its popup only (Update Now is yours to press)
     try {
       lastCheck = Date.now();
-      const tag = await latestTag();
+      let tag = await latestTag();                                    // 1.0.394: always asked (the first one found no longer sticks)
+      if (tagFor && (!tag || newer(tagFor, tag))) tag = tagFor;       // (GitHub a moment stale: the newer one already seen)
       if (!tag) { if (manual) updateNotice(null, "Couldn't reach GitHub", "Try again later."); return; }
       if (tag && newer(tag, window.vosVersion)) {
         updTag(tag);                                                  // the tag at the left of the tab bar stays
@@ -3101,12 +3099,17 @@
     } catch (e) { return false; }
   }
   /* Windows: the one-file installer, checked against its signature, then saved and opened (SmartScreen may ask once) */
-  async function winUpdate(b, msg) {
-    b.textContent = "Downloading…"; b.disabled = true;
+  async function winUpdate(b, msg, tag) {
+    b.textContent = "Checking…"; b.disabled = true;
     const fail = text => { b.textContent = "Update Now"; b.disabled = false; msg.textContent = text; };
+    const t = await latestTag(); if (t && (!tag || newer(t, tag))) { tag = t; updTag(t); const h = b.closest(".vos-upd")?.querySelector(".vos-upd-title"); if (h) h.textContent = `Bento OS ${t} is available`; }   // 1.0.394: the newest at this moment
+    b.textContent = "Downloading…";
     let data, sig;
     try {
-      const [r1, r2] = await Promise.all([fetch(relUrl() + "VivaldiOS-Windows.cmd", { cache: "no-store", credentials: "omit" }), fetch(relUrl() + "VivaldiOS-Windows.cmd.sig", { cache: "no-store", credentials: "omit" })]);
+      const base = tag ? `https://github.com/${window.vosRepo}/releases/download/v${tag}/` : relUrl();
+      const get = (u, f) => fetch(u + f + "?t=" + Date.now(), { cache: "no-store", credentials: "omit" });
+      let [r1, r2] = await Promise.all([get(base, "VivaldiOS-Windows.cmd"), get(base, "VivaldiOS-Windows.cmd.sig")]);
+      if ((!r1.ok || !r2.ok) && base !== relUrl()) [r1, r2] = await Promise.all([get(relUrl(), "VivaldiOS-Windows.cmd"), get(relUrl(), "VivaldiOS-Windows.cmd.sig")]);
       if (!r1.ok || !r2.ok) return fail("The download didn't work. Try again later.");
       data = new Uint8Array(await r1.arrayBuffer()); sig = await r2.text();
     } catch (e) { return fail("The download didn't work. Try again later."); }
@@ -3149,7 +3152,7 @@
     if (tag) {
       btn("Later", () => { vstore.set(UPD_KEY, tag); close(); });
       const auto = isMac || chrome.downloads?.download;
-      if (auto) btn("Update Now", b => (isMac ? macUpdate(b, p) : winUpdate(b, p)), "vos-upd-main");
+      if (auto) btn("Update Now", b => (isMac ? macUpdate(b, p) : winUpdate(b, p, tag)), "vos-upd-main");
       // copying the line: a row of its own, apart from Update Now
       const copyRow = document.createElement("div"); copyRow.className = "vos-upd-copy";
       const cap = document.createElement("span"); cap.className = "vos-upd-copy-cap";
@@ -3286,15 +3289,14 @@
         ev.stopPropagation();
         if (tagEl.dataset.busy) return;
         // 1.0.364: a newer version is known - its popup only; nothing runs until you press Update Now in it
-        if (tagFor && newer(tagFor, window.vosVersion)) { updateNotice(tagFor, null, null, false); return; }
-        tagEl.dataset.busy = "1"; tagEl.textContent = "Checking…";
+        tagEl.dataset.busy = "1"; tagEl.textContent = "Checking…";    // 1.0.394: always asks GitHub - the newest, not the one first found
         const t = await latestTag();
         delete tagEl.dataset.busy;
         if (t && newer(t, window.vosVersion)) { updTag(t); updateNotice(t, null, null, false); }   // (1.0.364: the popup only)
         else if (t) {                                                // nothing newer after all: up to date, no button
           tagFor = null; tagEl.remove();
           updateNotice(null, "Bento OS is up to date", "Version " + window.vosVersion);
-        } else { updTag(tagFor); updateNotice(null, "Couldn't reach GitHub", "Try again later."); }
+        } else { updTag(tagFor); if (tagFor && newer(tagFor, window.vosVersion)) updateNotice(tagFor, null, null, false); else updateNotice(null, "Couldn't reach GitHub", "Try again later."); }
       });
     }
     tagEl.textContent = "New Update";

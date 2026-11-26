@@ -3120,7 +3120,7 @@ window.vosBeat = window.vosBeat || (() => {
   const winLights = () => { const b = browserEl(); return !!b && b.classList.contains("win") && !b.classList.contains("fullscreen"); };   // (1.0.349: Vivaldi's own buttons, top right, on Windows)
   const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
   const pinsHere = () => pip.some(p => !awayWs(p) && !minimized.has(p));   // 1.0.379: pinned apps on show on this desktop
-  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && el.hasAttribute("data-ft-cover") && pinsHere() && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
+  const wctlOk = (id, el) => false && floating.has(id) &&   /* 1.0.394: a full screen window has its own title bar now */ el.hasAttribute("data-ft-notitle") && el.hasAttribute("data-ft-cover") && pinsHere() && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
     if (wctlXY[2]?.closest?.("webview") || document.querySelector("webview:hover")) return false;   // (in a page: gone)
@@ -7392,7 +7392,26 @@ window.vosBeat = window.vosBeat || (() => {
   };
   /* 1.0.320: A PAGE FULL SCREEN (no Bento, no pinned apps over it - the page alone): its window buttons, with its app's
      circle, sit in the toolbar right after the Desktops button - the same component as a window's, side by side */
-  let fsctl = null;
+  let fsctl = null, fsHot = null, fsBarT = 0;
+  /* 1.0.394: the full screen app's title bar - hidden above the page; the pointer resting at the page's very top (or coming up
+     into it) slides it down, as macOS; it goes again a moment after the pointer leaves it */
+  function fsBarHide(ms) { clearTimeout(fsBarT); fsBarT = setTimeout(() => { if (fsctl && !fsctl.matches(":hover") && !fsctl.querySelector("[data-ft-holding]")) fsctl.removeAttribute("data-reveal"); }, ms); }
+  function fsBarPlace(id) {
+    const st = document.getElementById("webpage-stack"), r = st?.getBoundingClientRect(); if (!r || !r.width) return;
+    const px = v => Math.round(v) + "px";
+    for (const [k, v] of [["--vos-fsb-l", px(r.left)], ["--vos-fsb-t", px(r.top)], ["--vos-fsb-w", px(r.width)]]) if (fsctl.style.getPropertyValue(k) !== v) fsctl.style.setProperty(k, v);   // (its place: the page's top)
+    const tt = fsctl.querySelector(".vos-fsbar-title"), v = wctlTitleOf(id); if (tt && tt.textContent !== v) tt.textContent = v;
+    if (!fsHot || !fsHot.isConnected) {
+      fsHot = document.createElement("div"); fsHot.className = "vos-fsbar-hot";
+      let at = 0, dwell = 0;
+      fsHot.addEventListener("pointerenter", ev => { at = ev.clientY; clearTimeout(dwell); clearTimeout(fsBarT);
+        dwell = setTimeout(() => fsctl?.setAttribute("data-reveal", ""), 160); });               // (resting there a moment: not just passing through)
+      fsHot.addEventListener("pointermove", ev => { if (ev.clientY < at - 1) { clearTimeout(dwell); fsctl?.setAttribute("data-reveal", ""); } });   // (pushing up: at once)
+      fsHot.addEventListener("pointerleave", ev => { clearTimeout(dwell); if (!fsctl?.contains(ev.relatedTarget)) fsBarHide(420); });
+    }
+    if (fsHot.parentElement !== fsctl.parentElement) fsctl.before(fsHot);
+    for (const [k, v] of [["left", px(r.left)], ["top", px(r.top)], ["width", px(r.width)]]) if (fsHot.style[k] !== v) fsHot.style[k] = v;
+  }
   function fsCtlSync() {
     const pg = activePage(), id = pg?.dataset.id;
     const mem = pg && isTiled(pg) ? membersOf(pg) : [];             // 1.0.339: a split full screen too (none of its apps a window)
@@ -7400,6 +7419,7 @@ window.vosBeat = window.vosBeat || (() => {
       (mem.length ? mem.every(m => !floating.has(m) && !winOf(m)) : (!floating.has(id) && !isTiled(pg) && !winOf(id)));
     const desk = document.querySelector("#browser .vos-chain-vosmission");
     if (!full || !desk) {                                            // 1.0.321: going as the hover ones go - its entrance backwards
+      fsHot?.remove(); if (fsctl?.hasAttribute("data-reveal")) fsctl.removeAttribute("data-reveal");
       if (fsctl?.hasAttribute("data-on")) { const f = fsctl; f.removeAttribute("data-on"); f.setAttribute("data-out", ""); clearTimeout(f.__outT); f.__outT = setTimeout(() => f.removeAttribute("data-out"), 380); }
       return; }
     if (!fsctl || !fsctl.isConnected) {
@@ -7407,7 +7427,16 @@ window.vosBeat = window.vosBeat || (() => {
       fsctl.innerHTML = `<span class="vos-wctl-ic"><img alt=""></span><div class="vos-pin-ctl" data-dir="h">` +
         [["red", "close", "Close"], ["yellow", "minimize", "Exit full screen"], ["green", "zoom", "Exit full screen"], ["gray", "res", "Light / dark - hold: page size"]].map(([c, a, t]) => `<button class="vos-pc vos-pc-${c} ft-light" data-act="${a}" title="${t}"></button>`).join("") + `</div>`;
     }
-    if (fsctl.previousElementSibling !== desk) desk.after(fsctl);
+    if (!fsctl.classList.contains("vos-fsbar")) {                   // 1.0.394: NOT IN THE TAB BAR - a macOS title bar, revealed at the page's top
+      fsctl.classList.add("vos-fsbar");
+      const mid = document.createElement("div"); mid.className = "vos-fsbar-mid";
+      const tt = document.createElement("span"); tt.className = "vos-fsbar-title";
+      mid.append(fsctl.querySelector(".vos-wctl-ic"), tt); fsctl.appendChild(mid);
+      fsctl.addEventListener("pointerleave", () => fsBarHide(420));
+      fsctl.addEventListener("pointerenter", () => clearTimeout(fsBarT));
+    }
+    { const host = browserEl() || document.body; if (fsctl.parentElement !== host) host.appendChild(fsctl); }
+    fsBarPlace(id);
     { const lk = mem.length > 1 ? splitTone(mem) : appToneAttr(id); if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
     const key = mem.length > 1 ? "split:" + [...mem].sort().join(",") : id;   // (another app of the same split in front: the same buttons, not again)
     fsctl.dataset.ftPage = id;
@@ -7768,7 +7797,7 @@ window.vosBeat = window.vosBeat || (() => {
   /* 1.0.384: EVERY WINDOW'S OWN TITLE STRIP - always there, part of the window (its page moved down under it): the page's
      top colour, its buttons at the left, its icon and title in the middle */
   /* 1.0.391: A macOS TITLE BAR - every window's own, in its look (light or dark, as its page shows); nothing read from the page */
-  const STRIP_SEL = ".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip])";
+  const STRIP_SEL = ".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-pip])";   // (1.0.394: a full screen window too)
   function stripSync(pg) {
     const tb = pg?.querySelector?.(":scope > .ft-titlebar"); if (!tb) return;
     const sid = pg.dataset.id || (pg.dataset.ftFloat && (splitFocus.get(pg.dataset.ftFloat) || pg.dataset.ftFloat));   // (1.0.392: a split window: the app in front)
