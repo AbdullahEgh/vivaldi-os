@@ -7771,10 +7771,11 @@ window.vosBeat = window.vosBeat || (() => {
   const STRIP_SEL = ".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip])";
   function stripSync(pg) {
     const tb = pg?.querySelector?.(":scope > .ft-titlebar"); if (!tb) return;
-    const t = pg.dataset.vosTone, lk = t === "dark" || t === "light" ? t : vivLook();
+    const sid = pg.dataset.id || (pg.dataset.ftFloat && (splitFocus.get(pg.dataset.ftFloat) || pg.dataset.ftFloat));   // (1.0.392: a split window: the app in front)
+    const t = pg.dataset.vosTone, lk = t === "dark" || t === "light" ? t : sid ? appTone(sid) : vivLook();
     for (const v of ["--vos-strip-img", "--vos-strip-bg"]) if (pg.style.getPropertyValue(v)) pg.style.removeProperty(v);
     if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
-    const v = pg.dataset.id ? appPic(pg.dataset.id) : "", ic = v ? `url("${v}")` : "none";
+    const v = sid ? appPic(sid) : "", ic = v ? `url("${v}")` : "none";
     if (tb.style.getPropertyValue("--vos-strip-icon") !== ic) tb.style.setProperty("--vos-strip-icon", ic);
   }
   function readTone(page) {
