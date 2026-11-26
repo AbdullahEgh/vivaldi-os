@@ -1560,11 +1560,30 @@ window.vosBeat = window.vosBeat || (() => {
     const el = targetOf(pageOf(id)); if (!el) return;
     badgeHeld = id; b.removeAttribute("data-drag"); b.setAttribute("data-held", ""); b.removeAttribute("data-show");   // 1.0.292: held: it stays in sight and goes with its app (1.0.315: only the circle - its buttons away)
     badgeFollow(b, id);
-    const up = ev => { if (ev.pointerId !== e.pointerId) return; badgeHeld = null; b.removeAttribute("data-held"); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); setTimeout(render, 0); };
+    const up = ev => { if (ev.pointerId !== e.pointerId) return; badgeHeld = null; b.removeAttribute("data-held"); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); setTimeout(render, 0);
+      const fat = e.pointerType === "touch" || e.pointerType === "pen";
+      if (ev.type === "pointerup" && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < (fat ? 12 : 5) && ev.timeStamp - e.timeStamp < 500) badgeTap(id, b, ev, fat); };   // 1.0.397: a tap, not a drag
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     pipGesture(e, el, id, "move");
   }, true);
   var badgeHeld = null;
+  /* 1.0.397: A PINNED APP'S CIRCLE TAPPED (a finger has no hover): its buttons come out and stay a few seconds (or until you
+     tap elsewhere); tapped twice: the app in focus (as a double click) */
+  let badgeTapAt = null, badgeTapT = 0;
+  function badgeTap(id, b, ev, fat) {
+    const lt = badgeTapAt; badgeTapAt = { id, t: ev.timeStamp };
+    clearTimeout(badgeTapT);
+    if (lt && lt.id === id && ev.timeStamp - lt.t < 500) { badgeTapAt = null; b.removeAttribute("data-show"); return toggleFocus(splitFocus.get(id) || id); }
+    setTimeout(() => {
+      if (!b.isConnected || badgeHeld || !pip.includes(id)) return;
+      if (pinShown && pinShown !== b) pinShown.removeAttribute("data-show");
+      clearInterval(pinShowT); pinShown = b; b.setAttribute("data-show", "");
+      const off = () => { b.removeAttribute("data-show"); if (pinShown === b) pinShown = null; removeEventListener("pointerdown", away, true); };
+      const away = e2 => { if (!b.contains(e2.target)) off(); };
+      const later = () => { badgeTapT = setTimeout(() => { if (!fat && b.matches(":hover")) return later(); off(); }, fat ? 5000 : 2500); };
+      addEventListener("pointerdown", away, true); later();
+    }, 40);
+  }
   /* 1.0.319: A PINNED APP MOVED - by its circle, its body or an edge: its circle stays in sight at its corner, going with it
      (where it is drawn this moment, its look while dragged included), its buttons rolled away (their own way out); let go,
      it is placed again - on the other side, it comes out from behind its app there; on the desktop, it goes in behind it */
@@ -2717,7 +2736,20 @@ window.vosBeat = window.vosBeat || (() => {
       }
       render();
     };
-    const onMove = ev => { if (ev.pointerId !== pid) return; last = ev; if (!frame) frame = requestAnimationFrame(apply); };
+    const shakeP = shaker();
+    const pinShakeOff = ev => {                                      // 1.0.397: shaken - every pin here back to a window; this one stays held
+      cancelAnimationFrame(frame); frame = 0; shield.remove();
+      removeEventListener("pointermove", onMove, true); removeEventListener("pointerup", onUp, true); removeEventListener("pointercancel", onUp, true);
+      slotShow(null); unlook(); pipDrag = null;
+      const live = pip.filter(p => p === id || (!awayWs(p) && !minimized.has(p))), els = live.map(p => targetOf(pageOf(p))).filter(e2 => e2 && e2 !== el);
+      flip(els, () => { for (const p of live) { pipOff(p); persist(p); } });
+      const s2 = stackRect(), n = frac[id] || { w: 0.5, h: 0.6 }, ww = n.w * s2.width, hh = n.h * s2.height;
+      setPx(id, clampRect({ x: ev.clientX - s2.left - ww / 2, y: Math.max(MARGIN, ev.clientY - s2.top - 14), w: ww, h: hh }, s2), s2);
+      render();
+      const w2 = targetOf(pageOf(id));
+      if (w2?.hasAttribute("data-ft-float") && !pip.includes(id)) startGesture(ev, w2, "move", ev.timeStamp);   // (its next shake counts 2 s from now)
+    };
+    const onMove = ev => { if (ev.pointerId !== pid) return; last = ev; if (how === "move" && shakeP(ev.clientX, ev.timeStamp)) return pinShakeOff(ev); if (!frame) frame = requestAnimationFrame(apply); };
     const onUp = ev => {
       if (ev.pointerId !== pid) return;
       cancelAnimationFrame(frame); frame = 0;
@@ -7225,7 +7257,8 @@ window.vosBeat = window.vosBeat || (() => {
   function doublePress(e, key) {
     const lp = lastPress;
     lastPress = { key, x: e.clientX, y: e.clientY, t: e.timeStamp };
-    if (!lp || lp.key !== key || e.timeStamp - lp.t > 450 || Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 8) return false;
+    const fat = e.pointerType === "touch" || e.pointerType === "pen";   // 1.0.397: a double tap - a finger's taps land further apart, a little slower
+    if (!lp || lp.key !== key || e.timeStamp - lp.t > (fat ? 500 : 450) || Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > (fat ? 24 : 8)) return false;
     lastPress = null;
     e.preventDefault(); e.stopPropagation();
     const w = winOf(key);

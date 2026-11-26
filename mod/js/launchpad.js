@@ -3194,7 +3194,12 @@
   /* the desktop's right-click menu also with floating windows on it: a right-click on
      the wallpaper between them (not on a window) shows it; Launchpad items open it first */
   let deskEl = null;
-  const closeDesk = () => { deskEl?.remove(); deskEl = null; removeEventListener("pointerdown", deskOut, true); removeEventListener("keydown", deskKey, true); };
+  const closeDesk = () => { deskEl?.remove(); deskEl = null; removeEventListener("pointerdown", deskOut, true); removeEventListener("keydown", deskKey, true);
+    removeEventListener("focusin", deskFocus, true); removeEventListener("blur", closeDesk); removeEventListener("wheel", deskOut, true); clearInterval(deskWatch); };
+  /* 1.0.397: a click in a page (a window's, a pinned app's) never reaches here - but the page takes the focus: that closes it too,
+     as does leaving Vivaldi or another tab coming up */
+  let deskWatch = 0;
+  const deskFocus = ev => { if (deskEl && !deskEl.contains(ev.target)) closeDesk(); };
   const deskOut = ev => { if (!deskEl?.contains(ev.target)) closeDesk(); };
   const deskKey = ev => { if (ev.key === "Escape" && deskEl) { ev.stopPropagation(); closeDesk(); } };
   function deskMenu(x, y) {
@@ -3226,7 +3231,13 @@
     m.style.left = Math.min(x, innerWidth - m.offsetWidth - 8) + "px";
     m.style.top = Math.min(y, innerHeight - m.offsetHeight - 8) + "px";
     deskEl = m;
-    setTimeout(() => { addEventListener("pointerdown", deskOut, true); addEventListener("keydown", deskKey, true); });
+    { const a = document.activeElement; if (a && a !== document.body && !m.contains(a)) try { a.blur(); } catch (e) {} }   // (a page that had the focus: a click back in it is heard)
+    setTimeout(() => {
+      if (deskEl !== m) return;
+      addEventListener("pointerdown", deskOut, true); addEventListener("keydown", deskKey, true);
+      addEventListener("focusin", deskFocus, true); addEventListener("blur", closeDesk); addEventListener("wheel", deskOut, true);
+      clearInterval(deskWatch); deskWatch = setInterval(() => { if (!deskEl) return clearInterval(deskWatch); if (document.activeElement?.tagName === "WEBVIEW" || !document.getElementById("browser")?.hasAttribute("data-ft-desktop")) closeDesk(); }, 200);
+    });
   }
   addEventListener("contextmenu", ev => {
     const b = document.getElementById("browser"), t = ev.target;
