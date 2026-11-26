@@ -2439,3 +2439,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 @keyframes vos-tb-behind-out { from { transform: none; } to { transform: translateY(26px); } }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-on] { animation: vos-tb-behind-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; clip-path: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-out] { animation: vos-tb-behind-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) both !important; clip-path: none !important; }
+
+/* 1.0.382: the panel behind its window reaches only just past its rounded top corners (not down the window) */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in]) { height: min(calc(34px + var(--vos-tb-r, 12px)), max(26px, calc(var(--vos-tb-h, 48px) - var(--vos-tb-r, 12px)))) !important; }
+/* 1.0.382: a full screen window beside pinned apps: its top strip hears the pointer (not the screen's drag strip), so its
+   corners bring its title bar */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack:has(> [data-ft-pip]:not([data-ft-away])) > [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar { -webkit-app-region: no-drag !important; app-region: no-drag !important; }

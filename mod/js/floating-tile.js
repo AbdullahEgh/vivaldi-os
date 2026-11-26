@@ -2910,7 +2910,7 @@ window.vosBeat = window.vosBeat || (() => {
   let wctlSide = "l", wctlW = 0;
   wctlSyncFn = () => { if (wctlFor && wctl?.hasAttribute("data-on")) wctlPlace(); };
   const wctlRadius = el => { const v = parseFloat(getComputedStyle(el).borderTopLeftRadius); return v >= 0 && v < 60 ? v : 17; };
-  const WCTL_REACH = 200;                                           // 1.0.350: how far along its top strip, from a corner, the pointer brings them (was 120)
+  const WCTL_REACH = 72;                                            // 1.0.350: how far along its top strip, from a corner, the pointer brings them (was 120)
   function wctlShow(id, side = "l") {
     if (Date.now() < wctlMute) return;
     const b = wctlEl(); if (!b) return;
@@ -2959,6 +2959,11 @@ window.vosBeat = window.vosBeat || (() => {
       wctlTitle(groupFloat.has(id) ? (splitFocus.get(id) || id) : id);   // (1.0.375: kept up to date - a page loading, a split's other app)
       if (!wctlHeld && !wctl.matches(":hover")) wctlBtnsOff();         // 1.0.369: off the icon and its buttons: they roll back in
       if (wctlHeld || wctl.matches(":hover")) return;
+      /* 1.0.382: ONCE ON SHOW, A WIDE MARGIN KEEPS IT - the pointer anywhere within 48px around its bar (beside it, above it,
+         and 40px down over its window's top edge - not in its page) */
+      if (wctl.hasAttribute("data-bar") && wctlXY && !document.querySelector("webview:hover")) {
+        const r = wctl.getBoundingClientRect(), [x, y] = wctlXY, top = r.top, bot = wctl.hasAttribute("data-in") ? r.bottom : r.top + 26;
+        if (x >= r.left - 48 && x <= r.right + 48 && y >= top - 48 && y <= bot + 40) return; }
       if (cornerH?.matches(":hover") && inCorner(id)) return;           // 1.0.348: on its top strip - but only at its corner (further right along it: gone)
       if (document.querySelector(`.ft-frame[data-ft-for="${CSS.escape(id)}"] > .ft-resize:is(.ft-tl, .ft-l, .ft-t, .ft-tr, .ft-r):hover`) && inCorner(id)) return;   // (1.0.358: its top-right corner too)   // (1.0.311: on its edge, between the strip and them)
       { const p = wctlXY, el = targetOf(pageOf(id));                   // 1.0.374: still just outside its top corner (over the desktop): it stays
@@ -3007,7 +3012,7 @@ window.vosBeat = window.vosBeat || (() => {
     const el = targetOf(pageOf(id)), p = wctlXY; if (!el || !p) return false;
     const w = el.getBoundingClientRect(), reach = (macLights() && w.top < 44 && w.left < 84 ? 84 - w.left + WCTL_REACH : WCTL_REACH) + 40;
     if (p[1] <= w.top - 50 || p[1] >= w.top + 44) return false;
-    if (wctlSide === "r") return p[0] < w.right + 30 && w.right - p[0] < Math.max(reach, wctlW + 40);   // 1.0.349: its top-right corner
+    if (wctlSide === "r") return p[0] < w.right + 30 && w.right - p[0] < (wctl?.hasAttribute("data-bar") ? reach : Math.max(reach, wctlW + 40));   // (1.0.382: the title bar: its corner only)   // 1.0.349: its top-right corner
     return p[0] > w.left - 30 && p[0] - w.left < reach;
   }
   addEventListener("pointermove", ev => {
@@ -3059,11 +3064,14 @@ window.vosBeat = window.vosBeat || (() => {
     }, 200);
   }
   let wctlXY = null, wctlHeld = false;
-  addEventListener("pointerdown", e => {                          // 1.0.297: its window resized (an edge or corner pressed): they stay, following it
-    const h = e.button === 0 && wctlFor && e.target?.closest?.(".ft-frame > .ft-resize");
-    if (!h || h.parentElement?.dataset.ftFor !== wctlFor) return;
-    wctlHeld = true;
-    const up = ev => { if (ev.pointerId !== e.pointerId) return; wctlHeld = false; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); };
+  /* 1.0.382: A WINDOW MOVED OR RESIZED BY ITSELF (its own top strip, its edges): no title bar - gone at once, and not
+     brought back until let go (only a press on the title bar itself moves or resizes with it on show) */
+  addEventListener("pointerdown", e => {
+    if (e.button !== 0 || (wctl && wctl.contains(e.target))) return;
+    const h = e.target?.closest?.(".ft-frame > .ft-resize, [data-ft-float] > .ft-titlebar"); if (!h) return;
+    if (wctl?.hasAttribute("data-on")) wctlOff();
+    wctlMute = Infinity;
+    const up = ev => { if (ev.pointerId !== e.pointerId) return; wctlMute = Date.now() + 250; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); };
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
   }, true);
   addEventListener("pointerdown", e => {                          // 1.0.284: the circle is a handle, as a pinned app's - pressed, its window moves
@@ -3080,10 +3088,9 @@ window.vosBeat = window.vosBeat || (() => {
      as the window's own edges (which it sits over) */
   function wctlEdge(ev) {
     if (!wctl?.hasAttribute("data-bar") || ev.target?.closest?.(".vos-pc")) return null;
-    const r = wctl.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, E = 5, C = 14;
-    const L = x < (y < C ? C : E), R = r.width - x < (y < C ? C : E);
-    if (y < E) return L ? "tl" : R ? "tr" : "t";
-    return L ? (y < C ? "tl" : "l") : R ? (y < C ? "tr" : "r") : null;
+    const r = wctl.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, C = 14;   // 1.0.382: its top corners only
+    if (y >= C) return null;
+    return x < C ? "tl" : r.width - x < C ? "tr" : null;
   }
   const WCTL_CUR = { t: "ns-resize", tl: "nwse-resize", tr: "nesw-resize", l: "ew-resize", r: "ew-resize" };
   function wctlCursor(ev) {
