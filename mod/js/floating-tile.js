@@ -2296,7 +2296,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (box && !box.hasAttribute("data-ft-float")) parts.set(box, splitTone(mem)); }
       for (const o of $$("#main [data-ft-float][data-vos-look], #webpage-stack > .vos-pin-badge[data-vos-look], #webpage-stack > .vos-vsplit-shell[data-vos-look], #webpage-stack .tiled:not([data-ft-float]):not(.webpageview)[data-vos-look]")) if (!parts.has(o)) o.removeAttribute("data-vos-look");
       for (const [o, look] of parts) if (o.getAttribute("data-vos-look") !== look) o.setAttribute("data-vos-look", look);
-      if (wctl && wctlFor) { const lk = lookOfWin(wctlFor); if ((wctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) wctl.setAttribute("data-vos-look", lk); else wctl.removeAttribute("data-vos-look"); } }
+      if (wctl && wctlFor) wctlLook(wctlFor);                          // 1.0.381: ONE place decides the title bar's look (two fought: it blinked dark/light)
     }
     if (selId !== lastSiteTab) { lastSiteTab = selId; updateSiteName(); }
     else if (siteFor != null) for (const f of $$(".UrlBar-AddressField .UrlField")) {   // a re-drawn field
@@ -2931,7 +2931,8 @@ window.vosBeat = window.vosBeat || (() => {
     const im = b.querySelector(".vos-wctl-ic img");
     if (src && !b.querySelector(".vos-wctl-ic[data-multi]") && im.getAttribute("src") !== src) im.src = src;   // 1.0.360: a joined pill: each slot its own app's picture (the front app's no longer written into the first)
     b.querySelector(".vos-wctl-ic").toggleAttribute("data-empty", !src);
-    wctlLook(id);   // (1.0.293: its window's own look - 1.0.347: a split's, the app in front)
+    wctl.removeAttribute("data-fade"); wctlLook(id);                   // 1.0.381: it comes in its look at once - no fade from the last window's
+    clearTimeout(wctlFadeT); wctlFadeT = setTimeout(() => { if (wctlFor === id) wctl?.setAttribute("data-fade", ""); }, 450);   // (1.0.293: its window's own look - 1.0.347: a split's, the app in front)
     if (b.querySelector(".vos-wctl-ic").hasAttribute("data-multi")) { const ic = b.querySelector(".vos-wctl-ic");
       for (const a of ["data-plate", "data-tint", "data-vos-dim"]) ic.removeAttribute(a);
       for (const v of ["--vos-tint", "--vos-tint-d", "--vos-tint-l"]) ic.style.removeProperty(v);
@@ -2969,6 +2970,7 @@ window.vosBeat = window.vosBeat || (() => {
   const wctlTitleOf = t => { fetchTitle(t); const tb = document.getElementById("tab-" + t), raw = tb?.querySelector(".title")?.textContent || titles.get(t) || "";
     return /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw.trim(); };
   /* 1.0.380: the title bar's colours = its window's look, always light or dark (solid - never see-through) */
+  let wctlFadeT = 0;
   function wctlLook(id) {
     if (!wctl) return; const mem = groupFloat.has(id) ? membersOf(pageOf(id)) : [];
     const lk = mem.length > 1 ? splitTone(mem) : appTone(lookPane(id));

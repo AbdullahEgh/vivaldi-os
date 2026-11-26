@@ -2412,3 +2412,30 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
     linear-gradient(var(--vos-tb-bg), var(--vos-tb-bg)) left var(--vos-tb-r, 12px) / 100% var(--vos-tb-h, 48px) no-repeat !important; }
 @keyframes vos-tb-up-in { from { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } to { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px) - var(--vos-tb-h, 48px) - 40px) -20px); transform: none; } }
 @keyframes vos-tb-up-out { from { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px) - var(--vos-tb-h, 48px) - 40px) -20px); transform: none; } to { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } }
+
+/* 1.0.381: no strip below the window - behind it, it stops a corner short of its bottom (its rounded bottom corners
+   stay clear) */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])::before {
+  height: calc(var(--vos-tb-h, 48px) - var(--vos-tb-r, 12px)) !important;
+  background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) left top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    radial-gradient(circle at 0 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), var(--vos-tb-bg) var(--vos-tb-r, 12px)) right top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    linear-gradient(var(--vos-tb-bg), var(--vos-tb-bg)) left var(--vos-tb-r, 12px) / 100% calc(var(--vos-tb-h, 48px) - 2 * var(--vos-tb-r, 12px)) no-repeat !important; }
+/* 1.0.381: its colour fades only when its window's look changes while it is shown - never as it appears */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar], #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]::before, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] * { transition-property: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade], #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade]::before { transition: background-color 0.4s ease, background 0.4s ease, color 0.4s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade] .vos-tb-title, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade] .vos-tb-t { transition: color 0.4s ease !important; }
+
+/* 1.0.381: ONE PANEL - the title bar itself is taller: from just above its window down behind it, past its rounded top
+   corners (so no notch, no gap, while it moves or resizes), ending well short of its bottom corners; its buttons, icon and
+   title in its top 26px. No second panel ("ears" / extension) */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]::before { display: none !important; content: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in]) { height: max(26px, calc(var(--vos-tb-h, 48px) - var(--vos-tb-r, 12px))) !important; align-items: flex-start !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in]) > .vos-pin-ctl { height: 26px !important; min-height: 26px !important; align-items: center !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in]) > .vos-tb-mid { bottom: auto !important; height: 26px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])::after { bottom: auto !important; height: 40px !important; }
+/* rising from behind its window: it slides up 26px out from under it (nothing to cut off - its window covers the rest) */
+@keyframes vos-tb-behind-in { from { transform: translateY(26px); } to { transform: none; } }
+@keyframes vos-tb-behind-out { from { transform: none; } to { transform: translateY(26px); } }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-on] { animation: vos-tb-behind-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; clip-path: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-out] { animation: vos-tb-behind-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) both !important; clip-path: none !important; }
