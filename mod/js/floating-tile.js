@@ -1842,7 +1842,7 @@ window.vosBeat = window.vosBeat || (() => {
   const GRAB = 0;                                     // (the grab is inside now: a long pill at the top centre)
   function placeFrame(id, el, r, s, o) {
     const f = frameFor(id, el);
-    const g = noTitle.has(id) && isSplitWindow(el);
+    const g = false;   // 1.0.396: a split has its title bar now - no grabber above it
     if (f.hasAttribute("data-ft-grab") !== g) f.toggleAttribute("data-ft-grab", g);
     place(f, { x: r.x - RING, y: r.y - RING, w: r.w + 2 * RING, h: r.h + 2 * RING }, s, o);
     setStyle(f, "z-index", el.style.getPropertyValue("z-index") || "100");
@@ -7265,6 +7265,7 @@ window.vosBeat = window.vosBeat || (() => {
       return;
     }
     if (t.closest?.(".ft-max-grab")) return startMaxDrag(e);        // a full-screen page: drag it out
+    if (t.closest?.(".vos-fsctl.vos-fsbar") && !t.closest(".vos-pc")) { fsctl?.removeAttribute("data-reveal"); return startMaxDrag(e); }   // 1.0.396: its title bar dragged: out of full screen, under the pointer
     { const cb = t.closest?.("[data-ft-float] > .ft-titlebar .ft-lights, [data-ft-float] > .ft-titlebar .ft-right, .webpageview > .ft-lights, .tiled[data-ft-float] .webpageview > .ft-inner");   // the window buttons: dragged out of the window, they are put away
       if (cb && !mission) return ctrlDrag(e, cb); }                    // (from a button, or the gaps between them)
     if (t.closest?.(".ft-lights, .ft-right, .ft-inner")) return;
@@ -7803,8 +7804,41 @@ window.vosBeat = window.vosBeat || (() => {
      top colour, its buttons at the left, its icon and title in the middle */
   /* 1.0.391: A macOS TITLE BAR - every window's own, in its look (light or dark, as its page shows); nothing read from the page */
   const STRIP_SEL = ".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-pip])";   // (1.0.394: a full screen window too)
+  /* 1.0.396: A SPLIT'S TITLE BAR - each app's icon and title, over its own column (the apps under it beside it); its look:
+     dark if any app along its top is dark, light only if all of them are - never which app the pointer is over */
+  function splitStrip(pg, tb) {
+    const rr = pg.getBoundingClientRect(), panes = $$(".webpageview[data-id]", pg).map(p => ({ p, id: p.dataset.id, r: p.getBoundingClientRect() })).filter(x => x.r.width > 4);
+    if (!panes.length || !rr.width) return false;
+    const top = panes.filter(x => x.r.top - rr.top < 40).sort((a, b) => a.r.left - b.r.left);
+    const lk = (top.length ? top : panes).some(x => (x.p.dataset.vosTone === "dark" || x.p.dataset.vosTone === "light" ? x.p.dataset.vosTone : appTone(x.id)) === "dark") ? "dark" : "light";
+    if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
+    if (!tb.hasAttribute("data-vos-split")) tb.setAttribute("data-vos-split", "");
+    const cols = top.map(c => ({ c, apps: panes.filter(x => { const cx = x.r.left + x.r.width / 2; return cx >= c.r.left && cx <= c.r.right; }).sort((a, b) => a.r.top - b.r.top) }));
+    for (const x of panes) if (!cols.some(k => k.apps.includes(x))) cols[0]?.apps.push(x);   // (none left out)
+    const W = rr.width, L0 = 92, R0 = 36;
+    const segs = cols.map(k => { const l = Math.max(L0, Math.round(k.c.r.left - rr.left) + 6), r = Math.min(W - R0, Math.round(k.c.r.right - rr.left) - 6);
+      return { l, w: Math.max(0, r - l), apps: k.apps.map(x => { fetchTitle(x.id); const raw = titles.get(x.id) || ""; return { id: x.id, t: /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw, pic: appPic(x.id) || "" }; }) }; });
+    const key = JSON.stringify(segs);
+    if (tb.__vosSplitKey === key) return true;
+    tb.__vosSplitKey = key;
+    let box = tb.querySelector(":scope > .vos-st-row");
+    if (!box) { box = document.createElement("div"); box.className = "vos-st-row"; tb.appendChild(box); }
+    box.replaceChildren(...segs.map(sg => {
+      const d = document.createElement("div"); d.className = "vos-st"; d.style.left = sg.l + "px"; d.style.width = sg.w + "px";
+      for (const a of sg.apps) {
+        const e = document.createElement("span"); e.className = "vos-st-app"; e.dataset.id = a.id;
+        const i = document.createElement("i"); if (a.pic) i.style.backgroundImage = `url("${a.pic}")`;
+        const b = document.createElement("b"); b.textContent = a.t;
+        e.append(i, b); d.appendChild(e);
+      }
+      return d;
+    }));
+    return true;
+  }
   function stripSync(pg) {
     const tb = pg?.querySelector?.(":scope > .ft-titlebar"); if (!tb) return;
+    if (!pg.classList.contains("webpageview") && pg.classList.contains("tiled") && splitStrip(pg, tb)) return;
+    if (tb.hasAttribute("data-vos-split")) { tb.removeAttribute("data-vos-split"); tb.querySelector(":scope > .vos-st-row")?.remove(); tb.__vosSplitKey = ""; }
     const sid = pg.dataset.id || (pg.dataset.ftFloat && (splitFocus.get(pg.dataset.ftFloat) || pg.dataset.ftFloat));   // (1.0.392: a split window: the app in front)
     const t = pg.dataset.vosTone, lk = t === "dark" || t === "light" ? t : sid ? appTone(sid) : vivLook();
     if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
