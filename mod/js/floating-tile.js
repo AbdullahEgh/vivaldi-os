@@ -2861,7 +2861,7 @@ window.vosBeat = window.vosBeat || (() => {
   const wctlPlace = () => {
     if (!wctl || !wctlFor) return false;
     const el = targetOf(pageOf(wctlFor));
-    if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || el.hasAttribute("data-ft-cover")) return false;
+    if (!el || !floating.has(wctlFor) || minimized.has(wctlFor) || (el.hasAttribute("data-ft-pip") && !pinBare()) || (el.hasAttribute("data-ft-cover") && !pinsHere())) return false;
     if (wctl.hasAttribute("data-bar")) {                              // 1.0.375: the title bar - over the window's top, its width
       if (el.checkVisibility?.({ visibilityProperty: true }) === false) return false;   // (its window hidden: the bar goes too)
       const w = el.getBoundingClientRect(), R = wctlRadius(el);
@@ -2872,9 +2872,17 @@ window.vosBeat = window.vosBeat || (() => {
       /* 1.0.377: AT ITS WINDOW'S LEVEL - among the windows, with its window's z: a window over it covers it, as it covers
          the window; the page area's coordinates */
       const S = wctl.parentElement?.getBoundingClientRect() || { left: 0, top: 0 };
-      const up = w.top - 26 >= S.top; if (!up) return false;          // 1.0.378: no room above (filling the screen): none - never inside it
-      wctl.removeAttribute("data-in");
-      const z = el.style.getPropertyValue("z-index") || getComputedStyle(el).zIndex || "100";
+      /* 1.0.379: full screen with pinned apps: down from the top of the screen over it (its only room); otherwise above it
+         only - no room above: none */
+      const cov = el.hasAttribute("data-ft-cover"), up = !cov && w.top - 26 >= S.top; if (!up && !cov) return false;   // 1.0.378: never inside a normal one
+      if (wctl.hasAttribute("data-in") !== !up) wctl.toggleAttribute("data-in", !up);
+      /* 1.0.379: BEHIND ITS WINDOW - its window's z, just before it among the windows (it rises from behind it; windows over
+         it cover it). In Bento (windows side by side) and full screen: over every window */
+      const over = cov || (bento.on && bento.rects.has(wctlFor));
+      if (wctl.hasAttribute("data-over") !== over) wctl.toggleAttribute("data-over", over);
+      const host = wctl.parentElement;
+      if (!over && el.parentElement === host && wctl.nextElementSibling !== el) host.insertBefore(wctl, el);
+      const z = over ? "2147482000" : (el.style.getPropertyValue("z-index") || getComputedStyle(el).zIndex || "100");
       if (st.getPropertyValue("z-index") !== z) st.setProperty("z-index", z, "important");
       const P = (wctl.offsetParent || wctl.parentElement)?.getBoundingClientRect() || S;   // (absolute: from its positioned container)
       set("left", Math.round(w.left - P.left) + "px"); set("top", Math.round((up ? w.top - 26 : w.top) - P.top) + "px"); set("width", Math.round(w.width) + "px");
@@ -3072,7 +3080,8 @@ window.vosBeat = window.vosBeat || (() => {
   const pinBare = () => false;
   const winLights = () => { const b = browserEl(); return !!b && b.classList.contains("win") && !b.classList.contains("fullscreen"); };   // (1.0.349: Vivaldi's own buttons, top right, on Windows)
   const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
-  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && !el.hasAttribute("data-ft-cover") && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
+  const pinsHere = () => pip.some(p => !awayWs(p) && !minimized.has(p));   // 1.0.379: pinned apps on show on this desktop
+  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && (!el.hasAttribute("data-ft-cover") || pinsHere()) && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
     if (wctlXY[2]?.closest?.("webview") || document.querySelector("webview:hover")) return false;   // (in a page: gone)

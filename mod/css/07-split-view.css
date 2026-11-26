@@ -2362,3 +2362,27 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-tb-t:empty { display: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-wctl-ic { animation: none !important; }
+
+/* 1.0.379: its buttons are not on show with it - they come only with the pointer on them (their place, at its left) */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-pin-ctl .vos-pc::before { transition: opacity 0.16s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-pin-ctl:not(:hover) .vos-pc::before { opacity: 0 !important; transform: scale(0.6) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-pin-ctl { min-height: 26px !important; padding-right: 6px !important; }
+/* 1.0.379: a split's titles all alike (none dimmed) */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item[data-front] { opacity: 1 !important; }
+/* 1.0.379: behind its window, it reaches down under it (unseen) - while the window is resized no gap opens between them */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])::before {
+  height: calc(var(--vos-tb-r, 12px) + 48px) !important;
+  background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent) var(--vos-tb-r, 12px)) left top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    radial-gradient(circle at 0 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent) var(--vos-tb-r, 12px)) right top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    linear-gradient(color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent), color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent)) left var(--vos-tb-r, 12px) / 100% 48px no-repeat !important;
+}
+@keyframes vos-tb-up-in { from { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } to { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px) - 48px) -20px); transform: none; } }
+@keyframes vos-tb-up-out { from { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px) - 48px) -20px); transform: none; } to { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } }
+/* full screen (over its top): no ears; it takes the mouse there (not the screen's drag strip) */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-in]::before { display: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] { -webkit-app-region: no-drag !important; app-region: no-drag !important; }
+/* 1.0.379: a full screen window beside pinned apps: its own corner buttons never on show (its corner reveals the title
+   bar) - their place still takes the pointer, so it brings it */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack:has(> [data-ft-pip]:not([data-ft-away])) > [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar :is(.ft-lights, .ft-right) .ft-light { opacity: 0 !important; pointer-events: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack:has(> [data-ft-pip]:not([data-ft-away])) > [data-ft-float][data-ft-cover][data-ft-notitle] > .ft-titlebar .ft-lights::before { display: none !important; }
