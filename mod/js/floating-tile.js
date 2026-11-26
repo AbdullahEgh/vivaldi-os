@@ -2858,7 +2858,10 @@ window.vosBeat = window.vosBeat || (() => {
   let wctlBtnT = 0;
   const wctlBtnsOn = () => { if (!wctl?.hasAttribute("data-on") || wctl.hasAttribute("data-btns")) return; clearTimeout(wctlBtnT); wctl.removeAttribute("data-btns-out"); wctl.setAttribute("data-btns", ""); };
   const wctlBtnsOff = () => { if (!wctl?.hasAttribute("data-btns")) return; const b = wctl; b.removeAttribute("data-btns"); b.setAttribute("data-btns-out", ""); clearTimeout(wctlBtnT); wctlBtnT = setTimeout(() => b.removeAttribute("data-btns-out"), 220); };
-  const wctlOff = () => {                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
+  let wctlJoined = null, wctlJoinT = 0;
+  const wctlJoin = el => { clearTimeout(wctlJoinT); if (wctlJoined === el) return; wctlJoined?.removeAttribute("data-vos-tbon"); wctlJoined = el; el?.setAttribute("data-vos-tbon", ""); };
+  const wctlOff = () => {
+    clearTimeout(wctlJoinT); wctlJoinT = setTimeout(() => wctlJoin(null), 230);   // (1.0.383: its corners round again once the strip is back down)                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
     if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => { b.removeAttribute("data-out"); b.removeAttribute("data-btns"); b.removeAttribute("data-btns-out"); }, 380); }
     wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
   };
@@ -2880,6 +2883,7 @@ window.vosBeat = window.vosBeat || (() => {
          only - no room above: none */
       const cov = el.hasAttribute("data-ft-cover"), up = !cov && w.top - 26 >= S.top; if (!up && !cov) return false;   // 1.0.378: never inside a normal one
       if (wctl.hasAttribute("data-in") !== !up) wctl.toggleAttribute("data-in", !up);
+      wctlJoin(up && !(bento.on && bento.rects.has(wctlFor)) ? el : null);   // 1.0.383: one with its window (no corners between them)
       /* 1.0.379: BEHIND ITS WINDOW - its window's z, just before it among the windows (it rises from behind it; windows over
          it cover it). In Bento (windows side by side) and full screen: over every window */
       const over = cov || (bento.on && bento.rects.has(wctlFor));
@@ -2980,6 +2984,9 @@ window.vosBeat = window.vosBeat || (() => {
     if (!wctl) return; const mem = groupFloat.has(id) ? membersOf(pageOf(id)) : [];
     const lk = mem.length > 1 ? splitTone(mem) : appTone(lookPane(id));
     if (wctl.getAttribute("data-vos-look") !== lk) wctl.setAttribute("data-vos-look", lk);
+    /* 1.0.383: THE WINDOW'S OWN TOP - its strip in its page's top colour (a split: the app in front) */
+    const pg = pageOf(mem.length > 1 ? (splitFocus.get(id) || mem[0]) : id), c = pg?.__vosTopBg || "";
+    if (wctl.style.getPropertyValue("--vos-tb-bg") !== c) { if (c) wctl.style.setProperty("--vos-tb-bg", c); else wctl.style.removeProperty("--vos-tb-bg"); }
   }
   function wctlTitle(t) {                                            // 1.0.375: the title bar's text - its app's page title
     const el = wctl?.querySelector(".vos-tb-title"); if (!el) return;
@@ -7762,6 +7769,7 @@ window.vosBeat = window.vosBeat || (() => {
       wv.executeScript({ code: TONE_CODE }, x => {
         void chrome.runtime.lastError;
         const v = Array.isArray(x) ? x[0] : x, [bg, fg, scheme] = Array.isArray(v) ? v : [v];
+        if (page.__vosTopBg !== (bg || "")) { page.__vosTopBg = bg || ""; if (wctlFor) wctlLook(wctlFor); }   // 1.0.383: its top colour (its title strip's)
         const lum = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c || ""); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : null; };
         const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
         const hold = page.__vosToneHold; if (hold && Date.now() < hold.until && t !== hold.t) return;   // 1.0.367: just switched - the app still redrawing: its old colour not taken back (no flicker)
