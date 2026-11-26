@@ -7767,43 +7767,29 @@ window.vosBeat = window.vosBeat || (() => {
   const toneOf = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.2)) return "light"; return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light"; };
   /* 1.0.384: EVERY WINDOW'S OWN TITLE STRIP - always there, part of the window (its page moved down under it): the page's
      top colour, its buttons at the left, its icon and title in the middle */
+  /* 1.0.389: THE PAGE'S OWN BACKGROUND OVER IT - the page view moved down 26px, and the space above takes the colour the page
+     itself paints behind everything (its <html>/<body> background - what it would show there were it moved down itself), so
+     page and space are one. Its fixed bars and full-height layouts are untouched (the page just has 26px less height).
+     A dark look laid over it by its grey button: that colour as the look draws it */
+  const STRIP_SEL = ".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip])";
+  const CANVAS_CODE = "(() => { const solid = c => { const m = /rgba?\\(([\\d.]+), ([\\d.]+), ([\\d.]+)(?:, ([\\d.]+))?/.exec(c || ''); return m && (m[4] == null || +m[4] >= 0.5) ? [+m[1], +m[2], +m[3]] : null; };"
+    + " let c = solid(getComputedStyle(document.documentElement).backgroundColor) || (document.body && solid(getComputedStyle(document.body).backgroundColor)) || [255, 255, 255];"
+    + " if (document.getElementById('vos-dark')) { const v = c.map(x => 234.6 - 0.84 * x), [r, g, b] = v; c = [-0.574 * r + 1.43 * g + 0.144 * b, 0.426 * r + 0.43 * g + 0.144 * b, 0.426 * r + 1.43 * g - 0.856 * b]; }"
+    + " return 'rgb(' + c.map(x => Math.max(0, Math.min(255, Math.round(x)))).join(', ') + ')'; })()";
+  function stripCanvas(pg, wv) {
+    if (!pg.matches?.(STRIP_SEL) || typeof wv?.executeScript !== "function") return;
+    try { wv.executeScript({ code: CANVAS_CODE }, r => { void chrome.runtime.lastError; const c = Array.isArray(r) ? r[0] : null;
+      if (typeof c === "string" && pg.__vosCanvas !== c) { pg.__vosCanvas = c; stripSync(pg); } }); } catch (e) {}
+  }
   function stripSync(pg) {
     const tb = pg?.querySelector?.(":scope > .ft-titlebar"); if (!tb) return;
-    const c = pg.__vosTopPx || pg.__vosTopBg || "", m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c);
+    if (pg.__vosCanvas == null && !pg.__vosCanvasAsk) { pg.__vosCanvasAsk = true; setTimeout(() => { pg.__vosCanvasAsk = false; }, 3000); stripCanvas(pg, pg.querySelector("webview")); }   // (its colour at once - not only on its desktop)
+    const c = pg.__vosCanvas || "", m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c);
     const lk = m ? ((0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light") : pg.dataset.vosTone === "dark" ? "dark" : "light";
     if (pg.style.getPropertyValue("--vos-strip-bg") !== c) { if (c) pg.style.setProperty("--vos-strip-bg", c); else pg.style.removeProperty("--vos-strip-bg"); }
     if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
     const v = pg.dataset.id ? appPic(pg.dataset.id) : "", ic = v ? `url("${v}")` : "none";
     if (tb.style.getPropertyValue("--vos-strip-icon") !== ic) tb.style.setProperty("--vos-strip-icon", ic);
-  }
-  /* 1.0.385: THE STRIP IN THE PAGE'S TRUE TOP COLOUR - read from the page as drawn (its own top row of pixels: a see-through
-     header, a dark filter all counted), so strip and page meet with no edge. (Its styles' colour only while that can't be read) */
-  function stripPixels(pg, wv) {
-    if (!pg.matches?.(".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]):not([data-ft-away])") || typeof wv?.captureVisibleRegion !== "function") return;
-    if (Date.now() - (pg.__vosPxAt || 0) < 3000 || pg.__vosPxBusy) return;
-    pg.__vosPxAt = Date.now(); pg.__vosPxBusy = true;
-    try {
-      wv.captureVisibleRegion({ format: "png" }, url => {
-        void chrome.runtime.lastError;
-        if (!url) { pg.__vosPxBusy = false; return; }
-        const img = new Image();
-        img.onload = () => {
-          pg.__vosPxBusy = false;
-          const W = img.naturalWidth; if (!W) return;
-          /* 1.0.387: ONE SOLID COLOUR - the colour most of its top edge has (its first rows, across its width): a logo or
-             a button there doesn't count */
-          const cv = document.createElement("canvas"); cv.width = W; cv.height = 4; const cx = cv.getContext("2d", { willReadFrequently: true });
-          cx.drawImage(img, 0, 0); const n = {};
-          for (const y of [1, 3]) { const d = cx.getImageData(0, y, W, 1).data;
-            for (let i = 1; i < 40; i++) { const x = Math.floor(W * i / 40) * 4, k = [d[x], d[x + 1], d[x + 2]].join(","); n[k] = (n[k] || 0) + 1; } }
-          const [k] = Object.entries(n).sort((a, b) => b[1] - a[1])[0] || [];
-          const c = k ? `rgb(${k.split(",").join(", ")})` : "";
-          if (pg.__vosTopPx !== c) { pg.__vosTopPx = c; stripSync(pg); }
-        };
-        img.onerror = () => { pg.__vosPxBusy = false; };
-        img.src = url;
-      });
-    } catch (e) { pg.__vosPxBusy = false; }
   }
   function readTone(page) {
     const wv = page?.querySelector("webview");
@@ -7825,7 +7811,7 @@ window.vosBeat = window.vosBeat || (() => {
         const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
         const hold = page.__vosToneHold; if (hold && Date.now() < hold.until && t !== hold.t) return;   // 1.0.367: just switched - the app still redrawing: its old colour not taken back (no flicker)
         if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); queueRender(); requestAnimationFrame(() => circlesSync()); }   // (1.0.361: its icons follow the page)
-        stripSync(page);                                               // (1.0.388: its look only - no pixels read)
+        stripSync(page); stripCanvas(page, wv);                         // (1.0.389: the colour it paints behind itself)
       });
     } catch (e) {}
   }
