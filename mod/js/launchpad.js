@@ -1,3 +1,13 @@
+/* 1.0.386: NOT IN A POPUP WINDOW - a site's own popup window (an email opened, a sign-in) stays a plain Vivaldi window:
+   none of the mod runs there, and its look (the CSS mods) is switched off there, so its page is square and whole */
+(function (vosRun) {
+  const go = () => {
+    const b = document.getElementById("browser"); if (!b) return setTimeout(go, 30);
+    if (b.classList.contains("popup")) { document.querySelectorAll('link[href*="css-mods"]').forEach(l => { l.disabled = true; }); return; }
+    vosRun();
+  };
+  go();
+})(function () {
 /* ==========================================================================
    Vivaldi as an OS — Launchpad (the + button)
    The Bookmark Bar as a Launchpad, like macOS. The + button in the tab bar
@@ -3373,3 +3383,5 @@
     clearTimeout(hideT); hideT = setTimeout(() => bars.forEach(b => b.className = ""), 900);
   }, { capture: true, passive: true });
 })();
+
+});
