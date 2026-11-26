@@ -7772,20 +7772,39 @@ window.vosBeat = window.vosBeat || (() => {
      page and space are one. Its fixed bars and full-height layouts are untouched (the page just has 26px less height).
      A dark look laid over it by its grey button: that colour as the look draws it */
   const STRIP_SEL = ".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip])";
-  const CANVAS_CODE = "(() => { const solid = c => { const m = /rgba?\\(([\\d.]+), ([\\d.]+), ([\\d.]+)(?:, ([\\d.]+))?/.exec(c || ''); return m && (m[4] == null || +m[4] >= 0.5) ? [+m[1], +m[2], +m[3]] : null; };"
-    + " let c = solid(getComputedStyle(document.documentElement).backgroundColor) || (document.body && solid(getComputedStyle(document.body).backgroundColor)) || [255, 255, 255];"
-    + " if (document.getElementById('vos-dark')) { const v = c.map(x => 234.6 - 0.84 * x), [r, g, b] = v; c = [-0.574 * r + 1.43 * g + 0.144 * b, 0.426 * r + 0.43 * g + 0.144 * b, 0.426 * r + 1.43 * g - 0.856 * b]; }"
-    + " return 'rgb(' + c.map(x => Math.max(0, Math.min(255, Math.round(x)))).join(', ') + ')'; })()";
+  /* 1.0.390: THE COLOUR AT ITS TOP EDGE, AS THE PAGE LAYS IT OUT - seven points along its first row: the element there, and
+     every see-through layer under it blended down to the page's own background (a header, a translucent bar, a sidebar);
+     the colour most of the row has. Asked of the page's layout (no pixels, no screenshot) */
+  const CANVAS_CODE = `(() => { const P = c => { const m = /rgba?\\(([\\d.]+), ([\\d.]+), ([\\d.]+)(?:, ([\\d.]+))?/.exec(c || ""); return m ? [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]] : null; };
+    const bgOf = e => P(getComputedStyle(e).backgroundColor);
+    const root = (() => { const h = bgOf(document.documentElement), b = document.body && bgOf(document.body); const c = [h, b].find(c => c && c[3] >= 0.99); return c ? c.slice(0, 3) : [255, 255, 255]; })();
+    const dark = !!document.getElementById("vos-dark");
+    const fin = c => { if (dark) { const [r, g, b] = c.map(x => 234.6 - 0.84 * x); c = [-0.574 * r + 1.43 * g + 0.144 * b, 0.426 * r + 0.43 * g + 0.144 * b, 0.426 * r + 1.43 * g - 0.856 * b]; }
+      return "rgb(" + c.map(x => Math.max(0, Math.min(255, Math.round(x)))).join(", ") + ")"; };
+    const at = x => { const layers = []; let edge = innerWidth;
+      for (let e = document.elementFromPoint(x, 1); e; e = e.parentElement) { const c = bgOf(e); if (c && c[3] > 0.02) { layers.push(c); if (c[3] >= 0.99) { edge = e.getBoundingClientRect().right; break; } } }
+      let base = layers.length && layers[layers.length - 1][3] >= 0.99 ? layers.pop().slice(0, 3) : root;
+      for (let i = layers.length - 1; i >= 0; i--) { const [r, g, b, a] = layers[i]; base = [r * a + base[0] * (1 - a), g * a + base[1] * (1 - a), b * a + base[2] * (1 - a)]; }
+      return { c: fin(base), edge }; };
+    const W = innerWidth, runs = [], n = {};
+    for (let x = 2; x < W; x += 16) { const s = at(Math.min(x, W - 2)); n[s.c] = (n[s.c] || 0) + 1;
+      const last = runs[runs.length - 1]; if (last && last.c === s.c) last.edge = s.edge; else { if (last) last.to = Math.max(last.from, Math.min(x, last.edge)); runs.push({ c: s.c, from: last ? last.to : 0, edge: s.edge }); } }
+    const main = Object.entries(n).sort((a, b) => b[1] - a[1])[0][0];
+    const pct = v => (v / W * 100).toFixed(2) + "%";
+    const grad = runs.length > 1 ? "linear-gradient(to right, " + runs.map((r, i) => r.c + " " + pct(r.from) + " " + pct(i < runs.length - 1 ? r.to : W)).join(", ") + ")" : "";
+    return JSON.stringify({ c: main, g: grad }); })()`;
   function stripCanvas(pg, wv) {
     if (!pg.matches?.(STRIP_SEL) || typeof wv?.executeScript !== "function") return;
     try { wv.executeScript({ code: CANVAS_CODE }, r => { void chrome.runtime.lastError; const c = Array.isArray(r) ? r[0] : null;
-      if (typeof c === "string" && pg.__vosCanvas !== c) { pg.__vosCanvas = c; stripSync(pg); } }); } catch (e) {}
+      let v = null; try { v = JSON.parse(c); } catch (e) {} if (!v) return;
+      if (pg.__vosCanvas !== v.c || pg.__vosCanvasG !== v.g) { pg.__vosCanvas = v.c; pg.__vosCanvasG = v.g; stripSync(pg); } }); } catch (e) {}
   }
   function stripSync(pg) {
     const tb = pg?.querySelector?.(":scope > .ft-titlebar"); if (!tb) return;
     if (pg.__vosCanvas == null && !pg.__vosCanvasAsk) { pg.__vosCanvasAsk = true; setTimeout(() => { pg.__vosCanvasAsk = false; }, 3000); stripCanvas(pg, pg.querySelector("webview")); }   // (its colour at once - not only on its desktop)
     const c = pg.__vosCanvas || "", m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c);
     const lk = m ? ((0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light") : pg.dataset.vosTone === "dark" ? "dark" : "light";
+    { const g = pg.__vosCanvasG || "none"; if (pg.style.getPropertyValue("--vos-strip-img") !== g) pg.style.setProperty("--vos-strip-img", g); }   // (1.0.390: its colours across its width)
     if (pg.style.getPropertyValue("--vos-strip-bg") !== c) { if (c) pg.style.setProperty("--vos-strip-bg", c); else pg.style.removeProperty("--vos-strip-bg"); }
     if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
     const v = pg.dataset.id ? appPic(pg.dataset.id) : "", ic = v ? `url("${v}")` : "none";
