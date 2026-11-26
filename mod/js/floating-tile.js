@@ -2123,6 +2123,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (noTitle.has(id) || cover === id) mark(el, "data-ft-notitle");   // full view: its title bar moves the Vivaldi window
       if (cover === id && !coverBeside()) mark(el, "data-ft-cover");   // (beside pinned apps: a window, not over the whole Vivaldi window)
       if (pip.includes(id)) mark(el, "data-ft-pip");
+      stripSync(el); if (vs) for (const mp of vs.pages) if (mp !== el) stripSync(mp);   // 1.0.384: its title strip
       if (awayWs(id)) mark(el, "data-ft-away");                     // another workspace: not on this desktop
       if (focusSet.has(id)) mark(el, "data-ft-focused");
       for (let p = el.parentElement; p && p.id !== "webpage-stack"; p = p.parentElement) mark(p, "data-ft-chain");
@@ -3109,7 +3110,7 @@ window.vosBeat = window.vosBeat || (() => {
   const winLights = () => { const b = browserEl(); return !!b && b.classList.contains("win") && !b.classList.contains("fullscreen"); };   // (1.0.349: Vivaldi's own buttons, top right, on Windows)
   const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
   const pinsHere = () => pip.some(p => !awayWs(p) && !minimized.has(p));   // 1.0.379: pinned apps on show on this desktop
-  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && (!el.hasAttribute("data-ft-cover") || pinsHere()) && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
+  const wctlOk = (id, el) => floating.has(id) && el.hasAttribute("data-ft-notitle") && el.hasAttribute("data-ft-cover") && pinsHere() && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
     if (wctlXY[2]?.closest?.("webview") || document.querySelector("webview:hover")) return false;   // (in a page: gone)
@@ -7754,6 +7755,16 @@ window.vosBeat = window.vosBeat || (() => {
   let toneRead = new WeakMap();
   addEventListener("vos-appearance", () => { toneRead = new WeakMap(); setTimeout(queueRender, 400); setTimeout(queueRender, 1200); });   // dark / light changed: every page's colour read again
   const toneOf = c => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m || (m[4] != null && +m[4] < 0.2)) return "light"; return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light"; };
+  /* 1.0.384: EVERY WINDOW'S OWN TITLE STRIP - always there, part of the window (its page moved down under it): the page's
+     top colour, its buttons at the left, its icon and title in the middle */
+  function stripSync(pg) {
+    const tb = pg?.querySelector?.(":scope > .ft-titlebar"); if (!tb) return;
+    const c = pg.__vosTopBg || "", lk = pg.dataset.vosTone === "dark" ? "dark" : "light";
+    if (pg.style.getPropertyValue("--vos-strip-bg") !== c) { if (c) pg.style.setProperty("--vos-strip-bg", c); else pg.style.removeProperty("--vos-strip-bg"); }
+    if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
+    const v = pg.dataset.id ? appPic(pg.dataset.id) : "", ic = v ? `url("${v}")` : "none";
+    if (tb.style.getPropertyValue("--vos-strip-icon") !== ic) tb.style.setProperty("--vos-strip-icon", ic);
+  }
   function readTone(page) {
     const wv = page?.querySelector("webview");
     if (!wv || typeof wv.executeScript !== "function") return;
@@ -7774,6 +7785,7 @@ window.vosBeat = window.vosBeat || (() => {
         const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
         const hold = page.__vosToneHold; if (hold && Date.now() < hold.until && t !== hold.t) return;   // 1.0.367: just switched - the app still redrawing: its old colour not taken back (no flicker)
         if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); queueRender(); requestAnimationFrame(() => circlesSync()); }   // (1.0.361: its icons follow the page)
+        stripSync(page);
       });
     } catch (e) {}
   }
