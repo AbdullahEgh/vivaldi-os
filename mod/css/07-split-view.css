@@ -2302,3 +2302,25 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-gone] { animation: vos-wctl-gone 0.1s ease-out both !important; opacity: 1; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-gone] .vos-wctl-ic, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-gone] .vos-pc::before { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar], #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] > * { animation-duration: 0.01s !important; } }
+
+/* 1.0.376: the revealed title bar is THIN (26px) and sits ABOVE the window, rising up from behind it (its bottom edge on the
+   window's top: it is uncovered upward from there) and sinking back behind it; inside its top only with no room above */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] { height: 26px !important; border-radius: var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) 0 0 !important;
+  box-shadow: inset 0 0.5px 0 color-mix(in srgb, var(--colorFg, #fff) 12%, transparent) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-in] { box-shadow: inset 0 -0.5px 0 color-mix(in srgb, var(--colorFg, #fff) 16%, transparent) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar]::after { top: -10px !important; bottom: -4px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] .vos-pc { width: 18px !important; height: 26px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] .vos-pc::before { top: 7px !important; left: 3px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] > .vos-tb-mid { gap: 6px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] .vos-wctl-ic { width: 15px !important; height: 15px !important; flex: 0 0 15px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] .vos-wctl-ic[data-multi] { width: auto !important; flex: 0 0 auto !important; height: 15px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] .vos-wctl-ic > img { width: 10px !important; height: 10px !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar] .vos-tb-title { font-size: 11.5px !important; }
+@keyframes vos-tb-up-in { from { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } to { clip-path: inset(-20px -20px 0 -20px); transform: none; } }
+@keyframes vos-tb-up-out { from { clip-path: inset(-20px -20px 0 -20px); transform: none; } to { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } }
+@keyframes vos-tb-up-kids-in { from { opacity: 0; } to { opacity: 1; } }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-on]:not([data-in]) { animation: vos-tb-up-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-out]:not([data-in]) { animation: vos-tb-up-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-on]:not([data-in]) > .vos-pin-ctl { animation: vos-tb-up-kids-in 0.18s ease-out 0.06s both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-on]:not([data-in]) > .vos-tb-mid { animation: vos-tb-up-kids-in 0.18s ease-out 0.06s both !important; transform: translateX(-50%) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser > .vos-wctl[data-bar][data-out]:not([data-in]) > :is(.vos-pin-ctl, .vos-tb-mid) { animation: none !important; }

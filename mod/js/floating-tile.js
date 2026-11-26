@@ -2868,7 +2868,9 @@ window.vosBeat = window.vosBeat || (() => {
       const pl = macLights() && w.top < 40 && w.left < 84 ? Math.round(84 - w.left) : 0;   // (not under Vivaldi's own buttons)
       const pr = winLights() && w.top < 40 && w.right > innerWidth - 150 ? Math.round(w.right - (innerWidth - 150)) : 0;
       const st = wctl.style, set = (k, v) => { if (st.getPropertyValue(k) !== v) st.setProperty(k, v); };
-      set("left", Math.round(w.left) + "px"); set("top", Math.round(w.top) + "px"); set("width", Math.round(w.width) + "px");
+      /* 1.0.376: ABOVE the window, rising up from behind it (thin); inside its top only when there is no room above it */
+      const up = w.top >= 26 + 2; wctl.toggleAttribute("data-in", !up);
+      set("left", Math.round(w.left) + "px"); set("top", Math.round(up ? w.top - 26 : w.top) + "px"); set("width", Math.round(w.width) + "px");
       set("--vos-tb-r", Math.round(R) + "px"); set("--vos-tb-pl", pl + "px"); set("--vos-tb-pr", pr + "px");
       return true;
     }
