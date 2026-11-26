@@ -7163,6 +7163,7 @@ window.vosBeat = window.vosBeat || (() => {
   function hiddenControls(btn) {
     const box = btn.closest(".ft-lights, .ft-right");
     if (!box) return null;
+    if (box.closest(".ft-titlebar")?.parentElement?.matches("[data-ft-float][data-ft-notitle]:not([data-ft-pip])")) return null;   // 1.0.395: the title bar's buttons are always there - one tap acts
     if (box.parentElement?.classList.contains("webpageview")) return box;          // page corner
     if (box.closest(".ft-titlebar") && box.closest("[data-ft-notitle]")) return box; // hidden title bar
     return null;
@@ -7395,7 +7396,9 @@ window.vosBeat = window.vosBeat || (() => {
   let fsctl = null, fsHot = null, fsBarT = 0;
   /* 1.0.394: the full screen app's title bar - hidden above the page; the pointer resting at the page's very top (or coming up
      into it) slides it down, as macOS; it goes again a moment after the pointer leaves it */
-  function fsBarHide(ms) { clearTimeout(fsBarT); fsBarT = setTimeout(() => { if (fsctl && !fsctl.matches(":hover") && !fsctl.querySelector("[data-ft-holding]")) fsctl.removeAttribute("data-reveal"); }, ms); }
+  function fsBarHide(ms, ev) {
+    const touch = ev ? ev.pointerType === "touch" || ev.pointerType === "pen" : isTouch();   // 1.0.395: a finger leaves no hover behind - it stays a while, then goes
+    clearTimeout(fsBarT); fsBarT = setTimeout(() => { if (fsctl && (touch || !fsctl.matches(":hover")) && !fsctl.querySelector("[data-ft-holding]")) fsctl.removeAttribute("data-reveal"); }, touch ? 3500 : ms); }
   function fsBarPlace(id) {
     const st = document.getElementById("webpage-stack"), r = st?.getBoundingClientRect(); if (!r || !r.width) return;
     const px = v => Math.round(v) + "px";
@@ -7405,9 +7408,10 @@ window.vosBeat = window.vosBeat || (() => {
       fsHot = document.createElement("div"); fsHot.className = "vos-fsbar-hot";
       let at = 0, dwell = 0;
       fsHot.addEventListener("pointerenter", ev => { at = ev.clientY; clearTimeout(dwell); clearTimeout(fsBarT);
+        if (ev.pointerType === "touch" || ev.pointerType === "pen") return fsctl?.setAttribute("data-reveal", "");   // 1.0.395: a finger on the top edge: at once
         dwell = setTimeout(() => fsctl?.setAttribute("data-reveal", ""), 160); });               // (resting there a moment: not just passing through)
       fsHot.addEventListener("pointermove", ev => { if (ev.clientY < at - 1) { clearTimeout(dwell); fsctl?.setAttribute("data-reveal", ""); } });   // (pushing up: at once)
-      fsHot.addEventListener("pointerleave", ev => { clearTimeout(dwell); if (!fsctl?.contains(ev.relatedTarget)) fsBarHide(420); });
+      fsHot.addEventListener("pointerleave", ev => { clearTimeout(dwell); if (!fsctl?.contains(ev.relatedTarget)) fsBarHide(420, ev); });
     }
     if (fsHot.parentElement !== fsctl.parentElement) fsctl.before(fsHot);
     for (const [k, v] of [["left", px(r.left)], ["top", px(r.top)], ["width", px(r.width)]]) if (fsHot.style[k] !== v) fsHot.style[k] = v;
@@ -7432,8 +7436,9 @@ window.vosBeat = window.vosBeat || (() => {
       const mid = document.createElement("div"); mid.className = "vos-fsbar-mid";
       const tt = document.createElement("span"); tt.className = "vos-fsbar-title";
       mid.append(fsctl.querySelector(".vos-wctl-ic"), tt); fsctl.appendChild(mid);
-      fsctl.addEventListener("pointerleave", () => fsBarHide(420));
+      fsctl.addEventListener("pointerleave", ev => fsBarHide(420, ev));
       fsctl.addEventListener("pointerenter", () => clearTimeout(fsBarT));
+      fsctl.addEventListener("pointerdown", () => clearTimeout(fsBarT));
     }
     { const host = browserEl() || document.body; if (fsctl.parentElement !== host) host.appendChild(fsctl); }
     fsBarPlace(id);
@@ -8300,6 +8305,9 @@ window.vosBeat = window.vosBeat || (() => {
       e.preventDefault();
       e.stopImmediatePropagation();
       showDesktop();
+    }, true);
+    document.addEventListener("contextmenu", e => {               // 1.0.395: a long press on a window's button is its hold, not a menu
+      if (isTouch() && e.target.closest?.(".ft-lights, .ft-titlebar button, .ft-inner button, .vos-fsctl .vos-pc, .vos-pin-ctl .vos-pc")) { e.preventDefault(); e.stopPropagation(); }
     }, true);
     document.addEventListener("click", e => {
       const btn = e.target.closest?.(".ft-lights button, .ft-titlebar button, .ft-inner button");
