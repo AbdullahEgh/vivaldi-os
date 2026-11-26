@@ -49,7 +49,7 @@
     if (!quiet && D.startViewTransition && D.visibilityState === "visible" && D.body) {
       try {
         var css = new CSSStyleSheet();
-        css.replaceSync("::view-transition-old(root),::view-transition-new(root){animation-duration:.45s !important;animation-timing-function:ease !important}");
+        css.replaceSync("::view-transition-old(root),::view-transition-new(root){animation-duration:.33s !important;animation-timing-function:ease !important}");   // 1.0.401: .45s -> .33s
         D.adoptedStyleSheets = D.adoptedStyleSheets.concat([css]);
         var vt = D.startViewTransition(function () {                 // 1.0.345: no frames run inside a view transition's update (rAF waited for ever,
           var look0 = paint(); go();                                  // the fade was dropped): plain timers - on as soon as the page has redrawn, at most 260ms
@@ -398,37 +398,54 @@
     css.replaceSync("*{scrollbar-width:none !important} ::-webkit-scrollbar{display:none !important;width:0 !important;height:0 !important}");
     D.adoptedStyleSheets = D.adoptedStyleSheets.concat([css]);
   } catch (e) {}
-  var host = null, bars = null, hideT = 0, darkQ = null;
+  var host = null, bars = null, hideT = 0, darkQ = null, tgt = null, raf = 0, last = [{}, {}], lastDark = null;
   function make() {
     if (host && host.isConnected) return;
     host = D.createElement("vos-scroll-bars");
     host.style.cssText = "all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647;contain:strict";
     var sr = host.attachShadow({ mode: "closed" });
-    sr.innerHTML = "<style>i{position:fixed;display:block;border-radius:4px;background:rgba(0,0,0,.45);box-shadow:0 0 0 1px rgba(255,255,255,.35);opacity:0;transition:opacity .35s ease}i.on{opacity:1;transition:opacity .1s ease}</style><i></i><i></i>";
-    bars = sr.querySelectorAll("i");
+    /* 1.0.401 perf: the bars move by transform (no layout, no repaint - the compositor slides them); fade-out .35s -> .26s */
+    sr.innerHTML = "<style>i{position:fixed;left:0;top:0;display:block;border-radius:4px;background:rgba(0,0,0,.45);box-shadow:0 0 0 1px rgba(255,255,255,.35);opacity:0;will-change:transform,opacity;transition:opacity .26s ease}i.on{opacity:1;transition:opacity .1s ease}</style><i></i><i></i>";
+    bars = sr.querySelectorAll("i"); last = [{}, {}]; lastDark = null;
     (D.documentElement || D).appendChild(host);
   }
-  function show(el) {
+  /* 1.0.401 perf: one update per frame however many scroll events arrive; every size read first, then the writes
+     (before: a write between the two bars' reads forced a layout on each scroll event), and the colours set only
+     when the look changes */
+  function paintBars() {
+    raf = 0; var el = tgt; tgt = null; if (!el) return;
     var root = el === D || el === D.documentElement || el === D.body || el === D.scrollingElement;
     var se = root ? (D.scrollingElement || D.documentElement) : el;
-    if (!se) return;
+    if (!se || (!root && !se.isConnected)) return;
     var r = root ? { left: 0, top: 0, width: innerWidth, height: innerHeight } : se.getBoundingClientRect();
     var ch = root ? innerHeight : se.clientHeight, cw = root ? innerWidth : se.clientWidth;
-    make();
-    var dark = (darkQ || (darkQ = matchMedia("(prefers-color-scheme: dark)"))).matches;   // (this tab's own look, when one is set - 1.0.340: asked once)
-    [0, 1].forEach(function (k) {
-      var b = bars[k], vert = k === 0, size = vert ? se.scrollHeight : se.scrollWidth, view = vert ? ch : cw;
-      if (size <= view + 1) { b.className = ""; return; }
+    var geo = [0, 1].map(function (k) {
+      var vert = k === 0, size = vert ? se.scrollHeight : se.scrollWidth, view = vert ? ch : cw;
+      if (size <= view + 1) return null;
       var track = (vert ? r.height : r.width) - 6, len = Math.max(28, track * view / size);
       var pos = (track - len) * ((vert ? se.scrollTop : se.scrollLeft) / (size - view));
-      b.style.background = dark ? "rgba(255,255,255,.5)" : "rgba(0,0,0,.45)";
-      b.style.boxShadow = dark ? "0 0 0 1px rgba(0,0,0,.35)" : "0 0 0 1px rgba(255,255,255,.35)";
-      if (vert) b.style.cssText += ";width:7px;height:" + len + "px;left:" + (r.left + r.width - 9) + "px;top:" + (r.top + 3 + pos) + "px";
-      else b.style.cssText += ";height:7px;width:" + len + "px;top:" + (r.top + r.height - 9) + "px;left:" + (r.left + 3 + pos) + "px";
-      b.className = "on";
+      return vert ? { w: 7, h: len, x: r.left + r.width - 9, y: r.top + 3 + pos } : { w: len, h: 7, x: r.left + 3 + pos, y: r.top + r.height - 9 };
+    });
+    var dark = (darkQ || (darkQ = matchMedia("(prefers-color-scheme: dark)"))).matches;   // (this tab's own look, when one is set - 1.0.340: asked once)
+    make();
+    if (dark !== lastDark) {
+      lastDark = dark;
+      for (var i = 0; i < 2; i++) {
+        bars[i].style.background = dark ? "rgba(255,255,255,.5)" : "rgba(0,0,0,.45)";
+        bars[i].style.boxShadow = dark ? "0 0 0 1px rgba(0,0,0,.35)" : "0 0 0 1px rgba(255,255,255,.35)";
+      }
+    }
+    geo.forEach(function (g, k) {
+      var b = bars[k], L = last[k];
+      if (!g) { if (b.className) b.className = ""; return; }
+      if (L.w !== g.w) { b.style.width = g.w + "px"; L.w = g.w; }
+      if (L.h !== g.h) { b.style.height = g.h + "px"; L.h = g.h; }
+      b.style.transform = "translate3d(" + Math.round(g.x) + "px," + Math.round(g.y) + "px,0)";
+      if (b.className !== "on") b.className = "on";
     });
     clearTimeout(hideT);
     hideT = setTimeout(function () { bars[0].className = ""; bars[1].className = ""; }, 900);
   }
+  function show(el) { tgt = el; if (!raf) raf = requestAnimationFrame(paintBars); }
   addEventListener("scroll", function (e) { show(e.target); }, { capture: true, passive: true });
 })();

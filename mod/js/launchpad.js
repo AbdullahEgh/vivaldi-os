@@ -580,15 +580,15 @@
     if (!trail.length && !quiet) {                  // it grows out of its own icon (iOS)
       const from = folderMorph(card, n);
       if (from) {
-        card.animate([{ transform: from, opacity: 0.35 }, { transform: "none", opacity: 1 }],
-                     { duration: 380, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
-        grid.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration: 380, easing: "ease-out" });
-        head.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration: 380, easing: "ease-out" });
+        card.animate([{ transform: from, opacity: 0.35 }, { transform: "none", opacity: 1 }],   /* 1.0.401 perf: 380 -> 280, 300 -> 220 */
+                     { duration: 280, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+        grid.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration: 280, easing: "ease-out" });
+        head.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration: 280, easing: "ease-out" });
       } else card.animate([{ transform: "scale(0.7)", opacity: 0 }, { transform: "none", opacity: 1 }],
-                          { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.06)" });
+                          { duration: 220, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.06)" });
     }
     lp.card = card;
-    if (rename) setTimeout(() => title.click(), 320);
+    if (rename) setTimeout(() => title.click(), 240);
   }
   function closeFolder(instant) {
     if (!lp?.card) return false;
@@ -598,7 +598,7 @@
     if (instant) { c.remove(); return true; }
     const to = !c.__trail?.length && folderMorph(c, c.__folder);   // back into its icon
     c.animate(to ? [{ transform: "none", opacity: 1 }, { transform: to, opacity: 0 }] : [{ transform: "none", opacity: 1 }, { transform: "scale(0.8)", opacity: 0 }],
-              to ? { duration: 280, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" } : { duration: 170, easing: "ease-in", fill: "forwards" })
+              to ? { duration: 210, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" } : { duration: 120, easing: "ease-in", fill: "forwards" })   /* 1.0.401 perf: 280/170 -> 210/120 */
       .finished.catch(() => {}).then(() => c.remove()) && setTimeout(() => c.remove(), 2500);
     return true;
   }
@@ -617,10 +617,11 @@
   function flipGrid(grid, mutate) {                 // the other icons glide to their new places
     const apps = [...grid.querySelectorAll(":scope > .lp-app, :scope > .lp-widget")], first = apps.map(a => a.getBoundingClientRect());
     mutate();
+    const last = apps.map(a => a.getBoundingClientRect());   /* 1.0.401 perf: all reads first, then the animations (one layout) */
     apps.forEach((a, i) => {
-      const l = a.getBoundingClientRect(), dx = first[i].left - l.left, dy = first[i].top - l.top;
+      const l = last[i], dx = first[i].left - l.left, dy = first[i].top - l.top;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-      a.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      a.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 160, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
     });
   }
   function setMerge(st, target) {
@@ -638,6 +639,7 @@
     ghost.style.left = r.left + "px"; ghost.style.top = r.top + "px";
     lp.layer.appendChild(ghost);
     st.ghost = ghost; st.dx = e.clientX - r.left; st.dy = e.clientY - r.top;
+    st.x0 = r.left; st.y0 = r.top; st.tx = 0; st.ty = 0;   /* 1.0.401 perf: then moved by translate (no layout per move) */
     st.el.setAttribute("data-drag-src", "");
     lp.layer.setAttribute("data-dragging", "");
   }
@@ -649,8 +651,8 @@
     flipGrid(st.grid, () => st.grid.appendChild(st.el));
   }
   function dragMove(st, e) {
-    st.ghost.style.left = (e.clientX - st.dx) + "px";
-    st.ghost.style.top = (e.clientY - st.dy) + "px";
+    st.tx = e.clientX - st.dx - st.x0; st.ty = e.clientY - st.dy - st.y0;
+    st.ghost.style.translate = st.tx + "px " + st.ty + "px";
     const under = document.elementFromPoint(e.clientX, e.clientY);
     if (lp.card && st.grid !== lp.grid) {          // leaving the open folder?
       if (!under?.closest(".lp-card")) { if (!st.leave) st.leave = setTimeout(() => { st.leave = 0; if (drag === st) moveToMain(st); }, 260); }
@@ -680,9 +682,9 @@
     const merge = st.merge;
     setMerge(st, null);
     const goal = (merge || st.el).querySelector(".lp-tile").getBoundingClientRect();
-    st.ghost.animate([{ translate: "0px 0px", scale: "1", opacity: 1 },   // (moved on the GPU - no layout each frame; it settles from lifted to its size)
+    st.ghost.animate([{ translate: `${st.tx || 0}px ${st.ty || 0}px`, scale: "1", opacity: 1 },   // (moved on the GPU - no layout each frame; it settles from lifted to its size)
                       { translate: `${goal.left - parseFloat(st.ghost.style.left)}px ${goal.top - parseFloat(st.ghost.style.top)}px`, scale: String(1 / 1.1), opacity: merge ? 0 : 1 }],
-                     { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
+                     { duration: 180, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
     st.el.removeAttribute("data-drag-src");
     lp?.layer.removeAttribute("data-dragging");
     justDragged = true; setTimeout(() => { justDragged = false; }, 60);
@@ -721,13 +723,15 @@
     const move = e => {
       if (e.pointerId !== st.pid) return;
       if (!st.on) { if (Math.hypot(e.clientX - st.x, e.clientY - st.y) < 6) return; startDrag(st, e); }
-      dragMove(st, e);
+      st.ev = e;                                    /* 1.0.401 perf: one dragMove a frame (hit test + rects), the latest pointer */
+      if (!st.raf) st.raf = requestAnimationFrame(() => { st.raf = 0; if (drag === st) dragMove(st, st.ev); });
     };
     const up = e => {
       if (e.pointerId !== st.pid) return;
       removeEventListener("pointermove", move, true);
       removeEventListener("pointerup", up, true);
       removeEventListener("pointercancel", up, true);
+      if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; if (drag === st) dragMove(st, st.ev); }   // the last move counts
       if (st.on) return dragEnd(st, e.type === "pointerup");
       // a plain press and release on an app: it opens now - never lost when the grid redraws in between
       // (an icon still loading, a refresh), which sent the click to the background instead
@@ -884,7 +888,7 @@
     sheet.addEventListener("click", ev => { ev.stopPropagation(); if (ev.target === sheet) closeSheet(); });
     sheet.addEventListener("pointerdown", ev => ev.stopPropagation());
     lp.layer.appendChild(sheet);
-    form.animate([{ transform: "scale(0.92)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 200, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+    form.animate([{ transform: "scale(0.92)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 150, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });   /* 1.0.401 perf: 200 -> 150 */
     lp.sheet = sheet; lp.layer.setAttribute("data-raised", "");
     setTimeout(() => { name.focus(); name.select(); }, 30);
   }
@@ -946,9 +950,9 @@
       close();
     });
     if (desk) return;                                // the desktop: just there, no focus taken
-    layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" });
+    layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });   /* 1.0.401 perf: 220/320 -> 160/240 (fewer frames of the full-window blur) */
     grid.animate([{ transform: "scale(1.08)", opacity: 0 }, { transform: "none", opacity: 1 }],
-                 { duration: 320, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+                 { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
     setTimeout(() => search.focus(), 30);
     document.getElementById("browser")?.setAttribute("data-launchpad", "");
   }
@@ -964,11 +968,11 @@
     lp = null;
     ensureTick();
     if (wasDesk || instant) { layer.remove(); if (!wasDesk) setTimeout(syncDesk); return; }
-    setTimeout(syncDesk, 240);                       // the desktop Launchpad comes back after the overlay
+    setTimeout(syncDesk, 180);                       // the desktop Launchpad comes back after the overlay (1.0.401 perf: 240 -> 180, after the 160 fade)
     document.getElementById("browser")?.removeAttribute("data-launchpad");
     grid.animate([{ transform: "none", opacity: 1 }, { transform: "scale(1.06)", opacity: 0 }],
-                 { duration: 200, easing: "ease-in", fill: "forwards" });
-    layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-in", fill: "forwards" })
+                 { duration: 150, easing: "ease-in", fill: "forwards" });
+    layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-in", fill: "forwards" })
       .finished.catch(() => {}).then(() => layer.remove()) && setTimeout(() => layer.remove(), 2500);
   }
   addEventListener("keydown", ev => {
@@ -1083,7 +1087,7 @@
     sheet.addEventListener("click", ev => { ev.stopPropagation(); if (ev.target === sheet) shut(); });
     addEventListener("keydown", key, true);
     (document.getElementById("browser") || document.body).appendChild(sheet);
-    box.animate([{ transform: "scale(1.15)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
+    box.animate([{ transform: "scale(1.15)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });   /* 1.0.401 perf: 220 -> 160 */
     setTimeout(() => ok.focus(), 30);
   }
   function iosAlert(title, msg, okLabel, onOk) {
@@ -1105,7 +1109,7 @@
     sheet.addEventListener("click", ev => ev.stopPropagation());
     sheet.addEventListener("pointerdown", ev => ev.stopPropagation());
     lp.layer.appendChild(sheet);
-    box.animate([{ transform: "scale(1.15)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
+    box.animate([{ transform: "scale(1.15)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });   /* 1.0.401 perf: 220 -> 160 */
     lp.sheet = sheet; lp.layer.setAttribute("data-raised", "");
     setTimeout(() => ok.focus(), 30);
   }
@@ -1290,7 +1294,7 @@
     sheet.addEventListener("click", ev => { ev.stopPropagation(); if (ev.target === sheet) closeSheet(); });
     sheet.addEventListener("pointerdown", ev => ev.stopPropagation());
     lp.layer.appendChild(sheet);
-    box.animate([{ transform: "translateY(24px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 260, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
+    box.animate([{ transform: "translateY(24px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 190, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });   /* 1.0.401 perf: 260 -> 190 */
     lp.sheet = sheet; lp.layer.setAttribute("data-raised", "");
     return body;
   }
@@ -1716,7 +1720,7 @@
       if (b.hasAttribute("data-done")) return;
       await addToLaunchpad(url, title);
       b.setAttribute("data-done", ""); b.title = "In the Launchpad";
-      b.animate([{ transform: "scale(0.6)" }, { transform: "scale(1.15)" }, { transform: "none" }], { duration: 300, easing: "ease-out" });
+      b.animate([{ transform: "scale(0.6)" }, { transform: "scale(1.15)" }, { transform: "none" }], { duration: 220, easing: "ease-out" });   /* 1.0.401 perf: 300 -> 220 */
       onAdded?.();
     });
     if (inLaunchpad(url)) { b.setAttribute("data-done", ""); b.title = "In the Launchpad"; }
@@ -2179,7 +2183,7 @@
     pop.style.left = left + "px";
     pop.style.top = (above ? r.top - h - 10 : r.bottom + 10) + "px";
     pop.animate([{ transform: `translateY(${above ? 8 : -8}px) scale(0.96)`, opacity: 0 }, { transform: "none", opacity: 1 }],
-                { duration: 220, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
+                { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });   /* 1.0.401 perf: 220 -> 160 */
     tmPop = pop;
     pageFocused();
     drawTimer(pop.querySelector(".lp-wk-timer"));
@@ -2226,7 +2230,7 @@
     pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px";
     pop.style.top = (above ? r.top - h - 10 : r.bottom + 10) + "px";
     pop.animate([{ transform: `translateY(${above ? 8 : -8}px) scale(0.96)`, opacity: 0 }, { transform: "none", opacity: 1 }],
-                { duration: 220, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
+                { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });   /* 1.0.401 perf: 220 -> 160 */
     clkPop = pop; clkAt = btn;
     pageFocused();
     ensureTick();
@@ -2360,9 +2364,14 @@
         el.setAttribute("data-drag-src", "");
         lp.layer.setAttribute("data-dragging", "");
         el.style.removeProperty("grid-column"); el.style.removeProperty("grid-row");   // it flows with the icons while dragged
+        st.x0 = r.left; st.y0 = r.top; st.tx = 0; st.ty = 0;
       }
-      st.ghost.style.left = (e.clientX - st.dx) + "px";
-      st.ghost.style.top = (e.clientY - st.dy) + "px";
+      st.ev = e;                                    /* 1.0.401 perf: one step a frame, the ghost moved by translate */
+      if (!st.raf) st.raf = requestAnimationFrame(() => { st.raf = 0; if (drag === st) step(st.ev); });
+    };
+    const step = e => {
+      st.tx = e.clientX - st.dx - st.x0; st.ty = e.clientY - st.dy - st.y0;
+      st.ghost.style.translate = st.tx + "px " + st.ty + "px";
       const t = document.elementFromPoint(e.clientX, e.clientY)?.closest(".lp-app, .lp-widget");
       if (!t || t === el || t.parentElement !== lp.grid) return;
       const r = t.getBoundingClientRect();
@@ -2377,6 +2386,7 @@
       removeEventListener("pointerup", up, true);
       removeEventListener("pointercancel", up, true);
       if (!st.on) return;
+      if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; if (drag === st) step(st.ev); }   // the last move counts
       el.removeAttribute("data-drag-src");
       lp?.layer.removeAttribute("data-dragging");
       justDragged = true; setTimeout(() => { justDragged = false; }, 60);
@@ -2391,8 +2401,8 @@
       el.__w = widgets.find(w => w.id === el.__w?.id) || el.__w;
       for (const c of lp.grid.querySelectorAll(".lp-widget")) if (c.__w) { c.__w = widgets.find(w => w.id === c.__w.id) || c.__w; pinEdge(c, c.__w); }
       const goal = el.querySelector(".lp-wcard").getBoundingClientRect();
-      st.ghost.animate([{ translate: "0px 0px" }, { translate: `${goal.left - parseFloat(st.ghost.style.left)}px ${goal.top - parseFloat(st.ghost.style.top)}px` }],
-                       { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
+      st.ghost.animate([{ translate: `${st.tx || 0}px ${st.ty || 0}px` }, { translate: `${goal.left - parseFloat(st.ghost.style.left)}px ${goal.top - parseFloat(st.ghost.style.top)}px` }],
+                       { duration: 180, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)", fill: "forwards" }).finished.catch(() => {}).then(() => st.ghost.remove()) && setTimeout(() => st.ghost.remove(), 2500);
       saveWidgets();
       drag = null;
     };
@@ -2489,7 +2499,7 @@
           widgets = [...widgets.map((x, i) => ({ ...x, pos: (x.pos ?? i) + 1 })), { id, k, s: size, pos: 0 }];
           saveWidgets(); closeSheet(); render(); ensureTick();
           const el = lp && [...lp.grid.querySelectorAll(".lp-widget")].find(e => e.__w?.id === id);
-          el?.animate([{ transform: "scale(0.6)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 360, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.1)" });
+          el?.animate([{ transform: "scale(0.6)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 270, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.1)" });   /* 1.0.401 perf: 360 -> 270 */
         });
         rowEl.appendChild(cell);
       }
@@ -2758,7 +2768,7 @@
       for (let i = 0; i < 50 && getComputedStyle(b).getPropertyValue("--browserBackgroundImage") === was; i++) await new Promise(r => setTimeout(r, 40));
       const u = /url\(["']?([^"')]+)/.exec(getComputedStyle(b).getPropertyValue("--browserBackgroundImage"))?.[1];
       if (u) { const im = new Image(); im.src = u; try { await im.decode(); } catch (e) {} }   // drawn before the old one goes: no empty moment
-      await old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 520, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }).finished.catch(() => {});
+      await old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }).finished.catch(() => {});   /* 1.0.401 perf: 520 -> 380 (ceiling) */
       old.remove();
     };
     fin.cancel = () => old.remove();
@@ -2939,7 +2949,7 @@
         const now = bg();
         same = now === last && (!want || now === want || i > 25) ? same + 1 : 0; last = now;
       }
-      await wait(420);
+      await wait(340);                               // 1.0.401 perf: 420 -> 340 - the glide is 0.33s now (04/07/09), never cut short
     } finally { b?.removeAttribute("data-vos-theming"); dissolving = false; }
   }
   /* FOLLOW THE SYSTEM: when macOS / Windows changes between light and dark, Vivaldi follows - with the same
@@ -3148,7 +3158,7 @@
       b.addEventListener("click", ev => { ev.stopPropagation(); fn(b); });
       row.appendChild(b); return b;
     };
-    const close = () => { n.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -8px)" }], { duration: 180, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => n.remove()) && setTimeout(() => n.remove(), 2500); if (updEl === n) updEl = null; };
+    const close = () => { n.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -8px)" }], { duration: 130, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}).then(() => n.remove()) && setTimeout(() => n.remove(), 2500); if (updEl === n) updEl = null; };
     if (tag) {
       btn("Later", () => { vstore.set(UPD_KEY, tag); close(); });
       const auto = isMac || chrome.downloads?.download;
@@ -3188,7 +3198,7 @@
     if (install && tag) n.querySelector(".vos-upd-main")?.click();     // still inside your click: the clipboard allows it
     (document.getElementById("browser") || document.body).appendChild(n);
     n.animate([{ opacity: 0, transform: "translate(-50%, -12px) scale(0.97)" }, { opacity: 1, transform: "translate(-50%, 0)" }],
-              { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" });
+              { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" });   /* 1.0.401 perf: 320 -> 240 */
     updEl = n;
   }
   /* the desktop's right-click menu also with floating windows on it: a right-click on
@@ -3369,7 +3379,7 @@
   const st = document.createElement("style");
   st.textContent = `${OURS} { scrollbar-width: none !important; } ${OURS}::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
     #vos-ui-bars { position: fixed; inset: 0; pointer-events: none; z-index: 2147483646; }
-    #vos-ui-bars i { position: fixed; display: block; border-radius: 4px; opacity: 0; transition: opacity .35s ease; }
+    #vos-ui-bars i { position: fixed; display: block; border-radius: 4px; opacity: 0; transition: opacity .26s ease; }
     #vos-ui-bars i.on { opacity: 1; transition: opacity .1s ease; }`;
   document.head.appendChild(st);
   let host = null, bars = null, hideT = 0;
@@ -3384,10 +3394,11 @@
     if (!el.closest("#browser")) return;
     make();
     const r = el.getBoundingClientRect(), dark = document.getElementById("browser")?.classList.contains("theme-dark") || !!el.closest(".lp-desktop");
+    const m = [[el.scrollHeight, el.clientHeight, el.scrollTop], [el.scrollWidth, el.clientWidth, el.scrollLeft]];   /* 1.0.401 perf: every read before the bars are written (no forced layout) */
     [0, 1].forEach(k => {
-      const b = bars[k], vert = k === 0, size = vert ? el.scrollHeight : el.scrollWidth, view = vert ? el.clientHeight : el.clientWidth;
+      const b = bars[k], vert = k === 0, size = m[k][0], view = m[k][1];
       if (size <= view + 1) { b.className = ""; return; }
-      const track = (vert ? r.height : r.width) - 6, len = Math.max(28, track * view / size), pos = (track - len) * ((vert ? el.scrollTop : el.scrollLeft) / (size - view));
+      const track = (vert ? r.height : r.width) - 6, len = Math.max(28, track * view / size), pos = (track - len) * (m[k][2] / (size - view));
       b.style.background = dark ? "rgba(255,255,255,.5)" : "rgba(0,0,0,.45)";
       b.style.boxShadow = dark ? "0 0 0 1px rgba(0,0,0,.35)" : "0 0 0 1px rgba(255,255,255,.35)";
       b.style.cssText += vert ? `;width:7px;height:${len}px;left:${r.right - 9}px;top:${r.top + 3 + pos}px` : `;height:7px;width:${len}px;top:${r.bottom - 9}px;left:${r.left + 3 + pos}px`;

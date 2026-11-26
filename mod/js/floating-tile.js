@@ -723,7 +723,7 @@ window.vosBeat = window.vosBeat || (() => {
         const v = veil; veil = null; v.__leaving = true;
         if (!lpOverlay()) thawUnder();                               // the pages draw again while the veil fades
         v.style.setProperty("pointer-events", "none", "important");
-        v.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-out", fill: "forwards" })
+        v.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 165, easing: "ease-out", fill: "forwards" })   /* 1.0.401 perf: x0.75 (was 220) */
           .finished.catch(() => {}).then(() => { v.remove(); focusLift = new Set(); queueRender(); });
       }
       return;
@@ -735,7 +735,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (veil.parentElement !== host) host.appendChild(veil);
     place(veil, { x: 0, y: 0, w: s.width, h: s.height }, s, fixedOrigin(host));
     setStyle(veil, "z-index", "999");
-    if (fresh) { veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" }); if (!lpOverlay()) freezeUnder(); }
+    if (fresh) { veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 165, easing: "ease-out" }); if (!lpOverlay()) freezeUnder(); }   /* 1.0.401 perf: x0.75 (was 220) */
   }
 
   /* leave the desktop instantly (no fade of the other windows) for a moment */
@@ -1179,7 +1179,7 @@ window.vosBeat = window.vosBeat || (() => {
         e.style.setProperty("scale", "1", "important");
         if (e === el) roundAs(e, 1, el.__vosRad ?? 12);
         const tok = e.__vosGlide = {};
-        setTimeout(() => { if (e.__vosGlide !== tok) return; e.__vosGlide = null; e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); e.removeAttribute("data-vos-pinlook"); if (e === el) roundAs(e, null); }, 260);
+        setTimeout(() => { if (e.__vosGlide !== tok) return; e.__vosGlide = null; e.style.removeProperty("scale"); e.style.removeProperty("transform-origin"); e.removeAttribute("data-vos-pinlook"); if (e === el) roundAs(e, null); }, 200);   // 1.0.401 perf: x0.75 rounded up (was 260) - waits for [data-vos-pinlook]'s scale transition
         continue;
       }
       e.__vosGlide = null;                                           // (a glide back still running: it is this look now)
@@ -1307,7 +1307,7 @@ window.vosBeat = window.vosBeat || (() => {
     return { easing: `linear(${pts.join(", ")})`, duration: Math.round(T * 1000) };
   }
   const SPR_OPEN = spring(0.27, 0.88);   // open, close and minimize all take ~0.3 s   // a window zooms out of its icon, a hint of bounce
-  const SPR_MOVE = spring(0.34, 1.00);   // move / resize / place changes, Bento (1.0.321: a touch quicker than full screen's - still no bounce)
+  const SPR_MOVE = spring(0.255, 1.00);   // 1.0.401 perf: x0.75 (0.34 -> 0.255: ~336 -> ~252ms, the same curve)   // move / resize / place changes, Bento (1.0.321: a touch quicker than full screen's - still no bounce)
   const SPR_SHUT = spring(0.30, 1.00);   // close / minimize: quick, no bounce
   const SPR_GROW = spring(0.30, 1.00);   // (1.0.398: quicker - it was 0.4 s)   // 1.0.278: full screen in / out (a big size change): no bounce
   const fadeTo = (el, from, to, ms, delay = 0) =>
@@ -1318,9 +1318,12 @@ window.vosBeat = window.vosBeat || (() => {
     els.forEach(stopAnims);
     const first = els.map(e => e.getBoundingClientRect());
     mutate();
+    /* 1.0.401 perf: every new box (and corner radius) measured first, then all the writes - one layout, not one per window */
+    const lasts = els.map(e => e.isConnected ? e.getBoundingClientRect() : null);
+    const rads = els.map((e, i) => lasts[i] ? parseFloat(getComputedStyle(e).borderTopLeftRadius) || 0 : 0);
     els.forEach((e, i) => {
-      if (!e.isConnected) return;
-      const f = first[i], l = e.getBoundingClientRect();
+      if (!e.isConnected || !lasts[i]) return;
+      const f = first[i], l = lasts[i];
       if (!l.width || !l.height || !f.width || !f.height) return;
       const dx = f.left - l.left, dy = f.top - l.top, sx = f.width / l.width, sy = f.height / l.height;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
@@ -1331,7 +1334,7 @@ window.vosBeat = window.vosBeat || (() => {
         const k = Math.max(sx, sy), lw = l.width, lh = l.height;
         const ix = Math.max(0, (lw - f.width / k) / 2), iy = Math.max(0, (lh - f.height / k) / 2);
         kx = ky = k; tx = f.left - l.left - ix * k; ty = f.top - l.top - iy * k;
-        const R = parseFloat(getComputedStyle(e).borderTopLeftRadius) || 0;
+        const R = rads[i];
         clip = { ix, iy, r0: R / k, R };
       }
       e.style.setProperty("will-change", "transform");               // its own layer for the move (smooth), only while it moves
@@ -1392,7 +1395,7 @@ window.vosBeat = window.vosBeat || (() => {
       { transform: `translateY(${1.5 * d}px) scale(1.04, 0.92)`, transformOrigin: o, offset: 0.3 },
       { transform: `translateY(${-1 * d}px) scale(0.99, 1.03)`, transformOrigin: o, offset: 0.65 },
       { transform: "none", transformOrigin: o },
-    ], { duration: 420, easing: "ease-out" });
+    ], { duration: 315, easing: "ease-out" });   // 1.0.401 perf: x0.75 (was 420)
   }
   /* open / bring back: the window zooms out of its tab icon on a spring and
      is fully there after the first third (iPadOS) */
@@ -1820,12 +1823,13 @@ window.vosBeat = window.vosBeat || (() => {
     if (!el || !r.width || awayWs(id)) { b.remove(); return; }
     // 1.0.316: ITS OWN ENTRANCE, REVERSED - its buttons go first (their own way out: they pop away, the pill rolls up into it),
     // then the circle slides back behind its window and fades (the same 30px, scale and 0.32s it came out with, backwards)
-    const zw = parseInt(getComputedStyle(el).zIndex, 10); b.style.setProperty("z-index", String(Number.isFinite(zw) ? Math.max(0, zw - 1) : 1), "important");
+    const zw = parseInt(getComputedStyle(el).zIndex, 10), w = el.getBoundingClientRect();   // 1.0.401 perf: both read before any write (no forced layout)
+    b.style.setProperty("z-index", String(Number.isFinite(zw) ? Math.max(0, zw - 1) : 1), "important");
     const had = b.hasAttribute("data-show");                         // (its buttons still out: they go first)
     b.removeAttribute("data-show"); b.removeAttribute("data-bare"); b.removeAttribute("data-in"); b.removeAttribute("data-held");
-    const w = el.getBoundingClientRect(), dir = (w.left + w.width / 2) >= (r.left + r.width / 2) ? 1 : -1;   // (toward its window, behind it)
+    const dir = (w.left + w.width / 2) >= (r.left + r.width / 2) ? 1 : -1;   // (toward its window, behind it)
     b.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: `translateX(${dir * 30}px) scale(0.85)` }],
-      { duration: 320, delay: had ? 200 : 0, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "both" }   /* (1.0.332: every way out's curve) */).finished.catch(() => {}).then(() => b.remove());
+      { duration: 240, delay: had ? 150 : 0, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "both" }   /* (1.0.332: every way out's curve) - 1.0.401 perf: x0.75 (320 / delay 200 -> 240 / 150) */).finished.catch(() => {}).then(() => b.remove());
     setTimeout(() => b.remove(), 900);
   }
   const removeChrome = el => $$(":scope > .ft-titlebar, :scope > .ft-resize, :scope > .vos-pin-badge", el).forEach(e => e.remove());
@@ -2078,6 +2082,7 @@ window.vosBeat = window.vosBeat || (() => {
   function render() { try { queued = false; } catch (e) {} const t = performance.now(); pipSideCache = new Map(); originCache = new Map(); try { return renderNow(); } finally { pipSideCache = null; originCache = null; perf.render[0]++; perf.render[1] += performance.now() - t; } }
   let focusTry = { id: null, at: 0 };                 // the last window brought up because the keyboard focus was in it
   function renderNow() {
+    stackRect();                                     // 1.0.401 perf: the page area measured first - before this redraw's own writes (data-ft-focus...) dirty the style
     reconcile();
     bentoForDesk();
     focusForDesk();
@@ -2096,7 +2101,7 @@ window.vosBeat = window.vosBeat || (() => {
       }
     }
     browserEl()?.toggleAttribute("data-ft-focus", focusSet.size > 0);
-    const b = browserEl(), s = stackRect();
+    const b = browserEl(), s = stackRect();          // (1.0.401 perf: the box kept from the top of this redraw - no new layout here)
     if (!b) return;
     watchStack();
 
@@ -2811,7 +2816,7 @@ window.vosBeat = window.vosBeat || (() => {
     const page = pageOf(id);
     if (!page || floating.has(id)) return;
     await act("zoom", page);                                         // a window on this desktop (the green button's way back)
-    await new Promise(r => setTimeout(r, 380));
+    await new Promise(r => setTimeout(r, 300));                     // 1.0.401 perf: was 380 - the window's own grow (SPR_GROW, ~297ms) is done by then
     if (floating.has(id) && !pip.includes(id)) holdAct("minimize", id);
   }
   /* hold the green button: a new desktop, the window moves there and fills it (a full-screen app, as in macOS) */
@@ -2824,7 +2829,7 @@ window.vosBeat = window.vosBeat || (() => {
       // 1. it grows to fill the screen, here (the green button's own animation: a full-screen page now)
       const ids = [...new Set([String(page.dataset.id), ...(isTiled(page) && groupFloat.has(win) ? membersOf(page) : [])])];
       await act("zoom", page);
-      await new Promise(r => setTimeout(r, 420));                     // (it has grown)
+      await new Promise(r => setTimeout(r, 320));                     // (it has grown)   1.0.401 perf: x0.75 rounded up (was 420; SPR_GROW ~297ms)
       // 3. a new desktop, the page moves into it, and you go with it (it stays on the screen all the way)
       const list = (await prefGet("vivaldi.workspaces.list")) || [];
       const ws = await newDesk(list, true);
@@ -2899,12 +2904,12 @@ window.vosBeat = window.vosBeat || (() => {
      (a little round it too), stay while it is on them, and roll back into the icon when it leaves (the icon stays) */
   let wctlBtnT = 0;
   const wctlBtnsOn = () => { if (!wctl?.hasAttribute("data-on") || wctl.hasAttribute("data-btns")) return; clearTimeout(wctlBtnT); wctl.removeAttribute("data-btns-out"); wctl.setAttribute("data-btns", ""); };
-  const wctlBtnsOff = () => { if (!wctl?.hasAttribute("data-btns")) return; const b = wctl; b.removeAttribute("data-btns"); b.setAttribute("data-btns-out", ""); clearTimeout(wctlBtnT); wctlBtnT = setTimeout(() => b.removeAttribute("data-btns-out"), 220); };
+  const wctlBtnsOff = () => { if (!wctl?.hasAttribute("data-btns")) return; const b = wctl; b.removeAttribute("data-btns"); b.setAttribute("data-btns-out", ""); clearTimeout(wctlBtnT); wctlBtnT = setTimeout(() => b.removeAttribute("data-btns-out"), 170); };   // 1.0.401 perf: x0.75 rounded up (was 220)
   let wctlJoined = null, wctlJoinT = 0;
   const wctlJoin = el => { clearTimeout(wctlJoinT); if (wctlJoined === el) return; wctlJoined?.removeAttribute("data-vos-tbon"); wctlJoined = el; el?.setAttribute("data-vos-tbon", ""); };
   const wctlOff = () => {
-    clearTimeout(wctlJoinT); wctlJoinT = setTimeout(() => wctlJoin(null), 230);   // (1.0.383: its corners round again once the strip is back down)                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
-    if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => { b.removeAttribute("data-out"); b.removeAttribute("data-btns"); b.removeAttribute("data-btns-out"); }, 380); }
+    clearTimeout(wctlJoinT); wctlJoinT = setTimeout(() => wctlJoin(null), 180);   // 1.0.401 perf: x0.75 rounded up (was 230)   // (1.0.383: its corners round again once the strip is back down)                                           // 1.0.289: they go as they came, backwards (the pill back into the circle, the circle down)
+    if (wctl?.hasAttribute("data-on")) { wctl.setAttribute("data-out", ""); clearTimeout(wctlOutT); const b = wctl; wctlOutT = setTimeout(() => { b.removeAttribute("data-out"); b.removeAttribute("data-btns"); b.removeAttribute("data-btns-out"); }, 290); }   // 1.0.401 perf: x0.75 rounded up (was 380) - .vos-wctl[data-out]
     wctl?.removeAttribute("data-on"); wctlFor = null; cornerH = null; clearInterval(wctlTick);
   };
   const wctlPlace = () => {
@@ -3064,6 +3069,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (wctlSide === "r") return p[0] < w.right + 30 && w.right - p[0] < (wctl?.hasAttribute("data-bar") ? reach : Math.max(reach, wctlW + 40));   // (1.0.382: the title bar: its corner only)   // 1.0.349: its top-right corner
     return p[0] > w.left - 30 && p[0] - w.left < reach;
   }
+  const WCTL_LIVE = false;                                           // 1.0.401 perf: the corner title bar is off (1.0.394) - one switch for wctlOk and the move watcher below
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
     const t = ev.target;
@@ -3078,7 +3084,7 @@ window.vosBeat = window.vosBeat || (() => {
       const pe = fid && floating.has(fid) ? targetOf(pageOf(fid)) : null;
       if (pe?.matches?.("[data-ft-float][data-ft-notitle]")) { el = pe; id = fid; bar = pe.querySelector(":scope > .ft-titlebar"); }
     }
-    if (!bar && !t?.closest?.("[data-ft-float], .vos-wctl, .vos-pin-badge, .vos-mc-icons, #tabs-container, .toolbar")) {
+    if (!bar && WCTL_LIVE && !t?.closest?.("[data-ft-float], .vos-wctl, .vos-pin-badge, .vos-mc-icons, #tabs-container, .toolbar")) {   // 1.0.401 perf: (off with wctlOk: no box read per window on every move)
       /* 1.0.374: the pointer just OUTSIDE a window's top corner (up to 36px above it, 24px beside it) brings its icon too -
          the top-most window there, a normal one */
       const X = ev.clientX, Y = ev.clientY;
@@ -3091,6 +3097,7 @@ window.vosBeat = window.vosBeat || (() => {
       }
     }
     if (!bar || !el || !id) return;
+    if (!WCTL_LIVE && !el.hasAttribute("data-ft-pip")) return;      // 1.0.401 perf: only a pinned app's corner can act here now - no box read for nothing
     const w = el.getBoundingClientRect();
     if (el.hasAttribute("data-ft-pip")) {
       const side = (pipCorner.get(id) || "bl")[1], near = side === "r" ? ev.clientX - w.left < 56 : w.right - ev.clientX < 56;   // (its circle's end - 1.0.317: a smaller stretch of it)
@@ -3151,7 +3158,7 @@ window.vosBeat = window.vosBeat || (() => {
   const winLights = () => { const b = browserEl(); return !!b && b.classList.contains("win") && !b.classList.contains("fullscreen"); };   // (1.0.349: Vivaldi's own buttons, top right, on Windows)
   const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
   const pinsHere = () => pip.some(p => !awayWs(p) && !minimized.has(p));   // 1.0.379: pinned apps on show on this desktop
-  const wctlOk = (id, el) => false && floating.has(id) &&   /* 1.0.394: a full screen window has its own title bar now */ el.hasAttribute("data-ft-notitle") && el.hasAttribute("data-ft-cover") && pinsHere() && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
+  const wctlOk = (id, el) => WCTL_LIVE && floating.has(id) &&   /* 1.0.394: a full screen window has its own title bar now */ el.hasAttribute("data-ft-notitle") && el.hasAttribute("data-ft-cover") && pinsHere() && (!el.hasAttribute("data-ft-pip") || pinBare()) && !minimized.has(id) && !awayWs(id) && el.checkVisibility?.({ visibilityProperty: true }) !== false;   // (1.0.375: not while it is hidden - the Home view over it)   // their corner brings it, as a window's
   function wctlZone(id) {                                            // the corner's area: 30px out from it, 100px along the top
     const el = targetOf(pageOf(id)); if (!el || !wctlXY) return false;
     if (wctlXY[2]?.closest?.("webview") || document.querySelector("webview:hover")) return false;   // (in a page: gone)
@@ -3219,14 +3226,14 @@ window.vosBeat = window.vosBeat || (() => {
       if (away) {
         const t = box.style.getPropertyValue("transform");
         box.style.removeProperty("transform");
-        box.animate([{ transform: t, opacity: 0.5 }, { transform: t + " scale(0.4)", opacity: 0 }], { duration: 180, easing: "ease-in" });
+        box.animate([{ transform: t, opacity: 0.5 }, { transform: t + " scale(0.4)", opacity: 0 }], { duration: 135, easing: "ease-in" });   // 1.0.401 perf: x0.75 (was 180)
         ctrlHide(box, win);
         return;
       }
       const before = box.getBoundingClientRect();
       box.style.removeProperty("transform");
       const after = box.getBoundingClientRect();                     // let go inside: it glides back
-      box.animate([{ transform: `translate(${before.left - after.left}px, ${before.top - after.top}px)` }, { transform: "none" }], { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+      box.animate([{ transform: `translate(${before.left - after.left}px, ${before.top - after.top}px)` }, { transform: "none" }], { duration: 180, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // 1.0.401 perf: x0.75 (was 240)
     };
     e.preventDefault(); e.stopPropagation();
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
@@ -3241,7 +3248,7 @@ window.vosBeat = window.vosBeat || (() => {
       const inside = inWin(ev.clientX, ev.clientY);
       if (inside && !wasIn) wasIn = true;
       else if (!inside && wasIn) wasOut = true;
-      else if (inside && wasOut) { stop(); box.removeAttribute("data-vos-ctrl-hid"); box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" }); }
+      else if (inside && wasOut) { stop(); box.removeAttribute("data-vos-ctrl-hid"); box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: "ease-out" }); }   // 1.0.401 perf: x0.75 (was 160)
     };
     const stop = () => { removeEventListener("pointermove", watch, true); box.__vosCtrlStop = null; };
     box.__vosCtrlStop?.();
@@ -3702,9 +3709,8 @@ window.vosBeat = window.vosBeat || (() => {
     for (let i = 0; i <= 40; i++) { const t = i / 40; pts.push(+(t * t * t * (t * (6 * t - 15) + 10)).toFixed(4)); }
     return { easing: `linear(${pts.join(", ")})`, duration: 220 };
   })();
-  function slideFrom(el, f) {                       // FLIP one element from its old rect
-    if (!el?.isConnected || !f) return;
-    const l = el.getBoundingClientRect();
+  function slideFrom(el, f, l = el?.isConnected ? el.getBoundingClientRect() : null) {   // FLIP one element from its old rect (l: its new one, if measured already)
+    if (!el?.isConnected || !f || !l) return;
     if (!l.width || !l.height || !f.width || !f.height) return;
     const dx = f.left - l.left, dy = f.top - l.top, sx = f.width / l.width, sy = f.height / l.height;
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
@@ -3712,18 +3718,20 @@ window.vosBeat = window.vosBeat || (() => {
     el.animate([{ transformOrigin: "0 0", transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
                 { transformOrigin: "0 0", transform: "none" }], SPR_MOVE);   // (1.0.321: Bento at the windows' speed)
   }
+  /* 1.0.401 perf: every window (and frame) measured first, then all animated - one layout for the whole Bento move, not one per element */
+  const slideAll = pairs => { const ls = pairs.map(([e]) => e?.isConnected ? e.getBoundingClientRect() : null); pairs.forEach(([e, f], i) => slideFrom(e, f, ls[i])); };
   // a window and its frame (ring + shadow) move together - before, the frame jumped
   const bEls = () => [...floating].flatMap(id => [targetOf(pageOf(id)), frames.get(id)]).filter(Boolean);
   function bentoSettle() {                          // the gaps stay out of sight while windows move
     const b = browserEl();
     b?.setAttribute("data-bento-moving", "");
-    clearTimeout(bentoSettle.t); bentoSettle.t = setTimeout(() => b?.removeAttribute("data-bento-moving"), 380);
+    clearTimeout(bentoSettle.t); bentoSettle.t = setTimeout(() => b?.removeAttribute("data-bento-moving"), 290);   // 1.0.401 perf: x0.75 rounded up (was 380) - SPR_MOVE is ~252ms now
   }
   function bTransition(mutate) {                    // every window slides to its new slot
     const els = bEls(), first = els.map(e => e.getBoundingClientRect());
     mutate();
     bentoSettle();
-    els.forEach((e, i) => slideFrom(e, first[i]));
+    slideAll(els.map((e, i) => [e, first[i]]));
   }
   const bArea = (s = stackRect(), keep = false) => {       // the corner stack's side stays free (Bento never under it)
     let l = MARGIN, r = MARGIN;
@@ -3790,7 +3798,7 @@ window.vosBeat = window.vosBeat || (() => {
   function bentoAfterPlace(s) {
     if (bento.pendingFlip) {
       bentoSettle();
-      for (const [el, f] of bento.pendingFlip) slideFrom(el, f);
+      slideAll([...bento.pendingFlip]);                              // 1.0.401 perf: (all measured, then all moved)
       bento.pendingFlip = null;
     }
     // the gaps between windows: grab one to resize that split
@@ -3866,7 +3874,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!bento.on || !host) {
       if (bDim && !bDim.__leaving) {
         const d = bDim; bDim = null; d.__leaving = true;
-        d.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: "ease-out", fill: "forwards" })
+        d.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 225, easing: "ease-out", fill: "forwards" })   /* 1.0.401 perf: x0.75 (was 300) */
           .finished.catch(() => {}).then(() => d.remove()) && setTimeout(() => d.remove(), 2500);
       }
       return;
@@ -3876,7 +3884,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (bDim.parentElement !== host) host.appendChild(bDim);
     place(bDim, { x: 0, y: 0, w: s.width, h: s.height }, s, fixedOrigin(host));
     setStyle(bDim, "z-index", "99");                          // above the wallpaper, under every window
-    if (fresh) bDim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
+    if (fresh) bDim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 225, easing: "ease-out" });   // 1.0.401 perf: x0.75 (was 300)
   }
   function bentoHot() {                             // the grabber in use, and the singles on a joined seam
     const hot = new Set();
@@ -4307,13 +4315,21 @@ window.vosBeat = window.vosBeat || (() => {
     const ck = document.querySelector("#browser .ClockButton");
     if (ck) { const cs = getComputedStyle(ck); if (tx.style.fontSize !== cs.fontSize) { tx.style.fontSize = cs.fontSize; tx.style.fontWeight = cs.fontWeight; tx.style.fontFamily = cs.fontFamily; } }
   }
-  setInterval(paintDate, 30000);
+  setInterval(() => { if (!document.hidden) paintDate(); }, 30000);   // (1.0.401: not while unseen - and see fitDate: nothing redone when nothing changed)
   /* short of room in the tab bar, the date gets shorter: the month goes first, then the day's number, then the day */
+  let fitKey = "";
   function fitDate() {
     const btn = osChainButtons().vosdate, tx = btn?.querySelector(".vos-date-tx");
     if (!tx) return;
     const wrap = btn.closest(".button-toolbar") || btn, bar = wrap.parentElement;
     if (!bar) return;
+    /* 1.0.401: (performance) it tries each length - text changed, then measured - a full layout of the whole window each
+       time (~4-16 ms): skipped when nothing it depends on changed (the day, the format, the room, the tabs) */
+    /* (the bar's own overflow is in it too: the clock's font set after a fit can push the bar over without changing its width) */
+    const fitKeyNow = () => { const tcK = document.getElementById("tabs-container");
+      return [dateFmt, dateText(dateFmt), bar.clientWidth, bar.scrollWidth, bar.childElementCount, tcK?.clientWidth, tcK?.scrollWidth, wrap.style.display === "none" ? 0 : tx.textContent.length].join("|"); };
+    if (fitKeyNow() === fitKey && tx.isConnected) return false;
+    queueMicrotask(() => { fitKey = fitKeyNow(); });
     const spacers = [...bar.children].filter(c => c !== wrap && /spacer/i.test(c.className) && /flex/i.test(c.className));
     const tc = document.getElementById("tabs-container");
     const roomy = () => !(tc && tc.scrollWidth > tc.clientWidth + 1) && (spacers.length ? spacers.every(c => c.getBoundingClientRect().width >= 6) : bar.scrollWidth <= bar.clientWidth + 1);
@@ -4413,7 +4429,7 @@ window.vosBeat = window.vosBeat || (() => {
       if (!bento.on) return;
       el.__vosHold = setTimeout(() => {
         el.__vosHeld = true;
-        el.animate([{ scale: 1 }, { scale: 0.86 }, { scale: 1 }], { duration: 280, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // (it took)
+        el.animate([{ scale: 1 }, { scale: 0.86 }, { scale: 1 }], { duration: 210, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // (it took)   1.0.401 perf: x0.75 (was 280)
         bentoToggle(false, true);
       }, BENTO_HOLD);
     }, true);
@@ -4471,7 +4487,7 @@ window.vosBeat = window.vosBeat || (() => {
     const from = {}, to = {};
     if (sc && sc !== "none" && sc !== "1") { from.scale = sc; to.scale = "1"; }
     if (fl && fl !== "none") { from.filter = fl; to.filter = "brightness(1)"; }
-    if (Object.keys(from).length) el.animate([from, to], { duration: 420, easing: EASE });
+    if (Object.keys(from).length) el.animate([from, to], { duration: 315, easing: EASE });   // 1.0.401 perf: x0.75 (was 420)
   }
 
   function startGesture(e, el, how, shookAt) {
@@ -4504,7 +4520,7 @@ window.vosBeat = window.vosBeat || (() => {
     let px = e.clientX, py = e.clientY, ax = px, ay = py;           // pointer now / where it rests
     const flash = () => el.animate(
       [{ filter: "brightness(1)" }, { filter: "brightness(1.28)", offset: 0.35 }, { filter: "brightness(1)" }],
-      { duration: 420, easing: "ease-out" });
+      { duration: 315, easing: "ease-out" });                       // 1.0.401 perf: x0.75 (was 420)
     const toggle = () => {
       holdTimer = 0;
       s0 = pxRect(id, ss); sx = px; sy = py; z0 = zoomOf[id] || 1;
@@ -5064,13 +5080,13 @@ window.vosBeat = window.vosBeat || (() => {
     const G = 6, hw = r.width / 2, hh = r.height / 2;
     const p = side === "left" ? { x: r.left, y: r.top, w: hw, h: r.height } : side === "right" ? { x: r.left + hw, y: r.top, w: hw, h: r.height }
             : side === "top" ? { x: r.left, y: r.top, w: r.width, h: hh } : { x: r.left, y: r.top + hh, w: r.width, h: hh };
+    const z = overEl ? (Number(getComputedStyle(overEl).zIndex) || 100) + 1 : (Number(fromEl && getComputedStyle(fromEl).zIndex) || 100) - 1;   // 1.0.401 perf: read before the preview is added (no forced style)
     const born = !splitEl;
     if (born) { splitEl = document.createElement("div"); splitEl.className = "ft-snap-preview vos-split-preview"; host.appendChild(splitEl); }
-    const z = overEl ? (Number(getComputedStyle(overEl).zIndex) || 100) + 1 : (Number(fromEl && getComputedStyle(fromEl).zIndex) || 100) - 1;
     splitEl.style.zIndex = String(z);                                 // over the window it splits, under the one you hold
     splitEl.dataset.side = side;
     Object.assign(splitEl.style, { left: (p.x - ss.left + G) + "px", top: (p.y - ss.top + G) + "px", width: Math.max(0, p.w - 2 * G) + "px", height: Math.max(0, p.h - 2 * G) + "px" });
-    if (born) splitEl.animate([{ opacity: 0, transform: "scale(0.94)" }, { opacity: 1, transform: "none" }], { duration: 200, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+    if (born) splitEl.animate([{ opacity: 0, transform: "scale(0.94)" }, { opacity: 1, transform: "none" }], { duration: 150, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // 1.0.401 perf: x0.75 (was 200)
     return side;
   }
   /* Vivaldi's own split (its "tile these tabs"): window src goes beside window target, on that
@@ -5303,7 +5319,7 @@ window.vosBeat = window.vosBeat || (() => {
       const old = snapEl; snapEl = null;
       if (!old) return;
       if (taken) { old.remove(); return; }                          // the window takes its place now
-      old.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(0.96)" }], { duration: 160, easing: "ease-in", fill: "forwards" })
+      old.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(0.96)" }], { duration: 120, easing: "ease-in", fill: "forwards" })   /* 1.0.401 perf: x0.75 (was 160) */
         .finished.catch(() => {}).then(() => old.remove()) && setTimeout(() => old.remove(), 2500);
       return;
     }
@@ -5312,19 +5328,18 @@ window.vosBeat = window.vosBeat || (() => {
     const room = zone === "full" && !bento.on && pinsLive(fromEl?.dataset?.ftFloat);   // (pinned apps here: the room beside them - a window's corners)
     const r = zone === "full" ? (room ? bArea(ss, true) : { x: 0, y: 0, w: ss.width, h: ss.height })
             : zone === "left" ? { x: a.x, y: a.y, w: half, h: a.h } : { x: a.x + a.w - half, y: a.y, w: half, h: a.h };
+    const z = Number(fromEl && getComputedStyle(fromEl).zIndex) || 100, f = fromEl?.getBoundingClientRect();   // 1.0.401 perf: both read before the preview is added (no forced layout)
     const el = document.createElement("div");
     el.className = "ft-snap-preview";
     el.dataset.zone = room ? "room" : zone;
-    const z = Number(fromEl && getComputedStyle(fromEl).zIndex) || 100;
     el.style.zIndex = String(z - 1);                                   // just behind the window you hold
     Object.assign(el.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
     host.appendChild(el);
-    const f = fromEl?.getBoundingClientRect();
     if (f) {                                                         // grows out of the window, to its place
       const sx = f.width / r.w, sy = f.height / r.h;
       const tx = f.left - ss.left - r.x, ty = f.top - ss.top - r.y;
       el.animate([{ transform: `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`, opacity: 0.4 }, { transform: "none", opacity: 1 }],
-                 { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+                 { duration: 225, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // 1.0.401 perf: x0.75 (was 300)
     }
     snapEl = el;
   }
@@ -5576,7 +5591,7 @@ window.vosBeat = window.vosBeat || (() => {
       lastDelete = Date.now(); deskInfo = null;
       if (!wasOpen || !wsStrip) return;                               // the panel stays open (even if it was redrawn meanwhile): the card goes
       const card = wsStrip.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(sp.id))}"]`);
-      if (card) await card.animate([{ opacity: card.style.opacity || 1, transform: "none" }, { opacity: 0, transform: "scale(0.85)" }], { duration: 160, easing: "ease-in", fill: "forwards" }).finished.catch(() => {});
+      if (card) await card.animate([{ opacity: card.style.opacity || 1, transform: "none" }, { opacity: 0, transform: "scale(0.85)" }], { duration: 120, easing: "ease-in", fill: "forwards" }).finished.catch(() => {});   // 1.0.401 perf: x0.75 (was 160)
       for (let i = 0; i < 20 && ((await prefGet("vivaldi.workspaces.list")) || []).some(w => sameWs(w.id, sp.id)); i++) await new Promise(r => setTimeout(r, 50));
       for (let i = 0; i < 20 && wsOpening; i++) await new Promise(r => setTimeout(r, 50));   // a redraw under way: after it
       if (!wsStrip || wsOpening) return;
@@ -6477,7 +6492,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (!disp || !mission) {
       for (const n of [el, f]) if (n?.__mt) {
         n.__mt = false; n.style.removeProperty("transform");         // the origin stays while it glides back
-        setTimeout(() => { if (!n.__mt) n.style.removeProperty("transform-origin"); }, 360);
+        setTimeout(() => { if (!n.__mt) n.style.removeProperty("transform-origin"); }, 270);   // 1.0.401 perf: x0.75 rounded up (was 360) - [data-vos-mission-anim] transform transition
       }
       return;
     }
@@ -6494,8 +6509,8 @@ window.vosBeat = window.vosBeat || (() => {
     if (mcMax && mcMax !== page) {
       const o = mcMax; mcMax = null;
       o.style.removeProperty("transform"); o.removeAttribute("data-vos-mc-max");
-      setTimeout(() => { if (mcMax !== o) o.style.removeProperty("transform-origin"); }, 360);
-      if (!page) setTimeout(() => { if (!mcMax) b?.removeAttribute("data-vos-mc-maxpage"); }, 340);   // the wallpaper stays while it glides back
+      setTimeout(() => { if (mcMax !== o) o.style.removeProperty("transform-origin"); }, 270);   // 1.0.401 perf: x0.75 rounded up (360, 340 -> 270, 260)
+      if (!page) setTimeout(() => { if (!mcMax) b?.removeAttribute("data-vos-mc-maxpage"); }, 260);   // the wallpaper stays while it glides back
     }
     if (!page) return;
     mcMax = page; page.setAttribute("data-vos-mc-max", ""); b.setAttribute("data-vos-mc-maxpage", "");
@@ -6529,7 +6544,7 @@ window.vosBeat = window.vosBeat || (() => {
         const box = (card.querySelector(".vos-ws-mini") || card).getBoundingClientRect(), pr = page.getBoundingClientRect();
         const tx = last[0] + box.left + box.width / 2 - (pr.left + pr.width / 2), ty = last[1] + box.top + box.height / 2 - (pr.top + pr.height / 2);
         page.animate([{ translate: `${last[0]}px ${last[1]}px`, opacity: 1, scale: "1" }, { translate: `${tx}px ${ty}px`, opacity: 0, scale: "0.25" }],
-                     { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" });
+                     { duration: 180, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" });   // 1.0.401 perf: x0.75 (was 240)
         const isNew = card.classList.contains("vos-ws-more");
         const ws = isNew ? null : (list.find(w => String(w.id) === card.dataset.ws)?.id ?? null);
         if (!isNew) {                                                // its picture moves into that desktop's card
@@ -6541,10 +6556,10 @@ window.vosBeat = window.vosBeat || (() => {
           try { if (isNew) { closeWsStrip(); await toNewDeskNow(id, list); } else { underId = null; await toDesk(id, ws); } }
           catch (err) { wsErr("move", err); }
           finally { setTimeout(done, 300); queueRender(); }
-        }, 250);
+        }, 190);                                                     // 1.0.401 perf: x0.75 rounded up (was 250) - after its 180ms fly
         return;
       }
-      page.animate([{ translate: `${last[0]}px ${last[1]}px` }, { translate: "0px 0px" }], { duration: 220, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" });
+      page.animate([{ translate: `${last[0]}px ${last[1]}px` }, { translate: "0px 0px" }], { duration: 165, easing: "cubic-bezier(0.25, 0.8, 0.3, 1)" });   // 1.0.401 perf: x0.75 (was 220)
       page.style.removeProperty("translate"); page.removeAttribute("data-vos-mc-held"); icon?.removeAttribute("data-held");
     };
     addEventListener("pointermove", move, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
@@ -6553,7 +6568,7 @@ window.vosBeat = window.vosBeat || (() => {
   let mcIcons = null;
   function missionIcons(slots, s) {
     if (!mission || !slots?.size || mission.frozen) {
-      if (mcIcons) { const box = mcIcons; mcIcons = null; box.setAttribute("data-out", ""); setTimeout(() => box.remove(), 180); }
+      if (mcIcons) { const box = mcIcons; mcIcons = null; box.setAttribute("data-out", ""); setTimeout(() => box.remove(), 140); }   // 1.0.401 perf: x0.75 rounded up (was 180) - .vos-mc-icons[data-out]
       return;
     }
     if (!mcIcons) { mcIcons = document.createElement("div"); mcIcons.className = "vos-mc-icons"; (browserEl() || document.body).appendChild(mcIcons); }
@@ -6578,7 +6593,7 @@ window.vosBeat = window.vosBeat || (() => {
     if (held) missionDrag = held;                                   // it stays where it was let go meanwhile
     const sc = Math.max(0.04, Math.min(1, cr.width * 0.4 / er.width));
     const dx = cr.left + cr.width / 2 - (er.left + er.width * sc / 2), dy = cr.top + cr.height / 2 - (er.top + er.height * sc / 2);
-    const opts = { duration: 260, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" };
+    const opts = { duration: 195, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" };   // 1.0.401 perf: x0.75 (was 260)
     f?.animate([{ filter: "opacity(1)" }, { filter: "opacity(0)" }], { duration: 120, fill: "forwards" });
     let fired = false;
     const fire = () => {
@@ -6595,7 +6610,7 @@ window.vosBeat = window.vosBeat || (() => {
   function missionGlide() {                           // the windows glide to their new places (not jump)
     const b = browserEl();
     b?.setAttribute("data-vos-mission-anim", "");
-    clearTimeout(missionMode.t); missionMode.t = setTimeout(() => b?.removeAttribute("data-vos-mission-anim"), 340);
+    clearTimeout(missionMode.t); missionMode.t = setTimeout(() => b?.removeAttribute("data-vos-mission-anim"), 260);   // 1.0.401 perf: x0.75 rounded up (was 340) - its 0.26s transitions
   }
   function missionMode(m, instant) {
     if (!m && !mission) return;
@@ -6618,8 +6633,8 @@ window.vosBeat = window.vosBeat || (() => {
     removeEventListener("keydown", wsKey, true);
     removeEventListener("pointerdown", wsOut, true);
     const pn = st.querySelector(".vos-ws-panel") || st;            // back up, under the tab bar
-    st.querySelector(".vos-ws-row")?.animate([{ transform: "none", opacity: 1 }, { transform: "translateY(-16px)", opacity: 0 }], { duration: 200, easing: "ease-in", fill: "forwards" });
-    pn.animate([{ clipPath: "inset(0 0 0 0 round 18px)" }, { clipPath: "inset(0 0 100% 0 round 18px)" }], { duration: 220, easing: "cubic-bezier(0.4, 0, 0.8, 0.4)", fill: "forwards" })
+    st.querySelector(".vos-ws-row")?.animate([{ transform: "none", opacity: 1 }, { transform: "translateY(-16px)", opacity: 0 }], { duration: 150, easing: "ease-in", fill: "forwards" });   // 1.0.401 perf: x0.75 (200, 220 -> 150, 165)
+    pn.animate([{ clipPath: "inset(0 0 0 0 round 18px)" }, { clipPath: "inset(0 0 100% 0 round 18px)" }], { duration: 165, easing: "cubic-bezier(0.4, 0, 0.8, 0.4)", fill: "forwards" })
       .finished.catch(() => {}).then(() => st.remove()) && setTimeout(() => st.remove(), 2500);
   }
   // a click outside the strip closes it - its own right-click menu and the Workspaces button are not outside
@@ -6795,8 +6810,8 @@ window.vosBeat = window.vosBeat || (() => {
     // the frosted panel itself never moves (a moving blur flickers): it is revealed from the top,
     // and only its desktops slide down
     if (!opts?.refresh) {
-      panel.animate([{ clipPath: "inset(0 0 100% 0 round 18px)" }, { clipPath: "inset(0 0 0 0 round 18px)" }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
-      row.animate([{ transform: "translateY(-24px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 300, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+      panel.animate([{ clipPath: "inset(0 0 100% 0 round 18px)" }, { clipPath: "inset(0 0 0 0 round 18px)" }], { duration: 225, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // 1.0.401 perf: x0.75 (was 300)
+      row.animate([{ transform: "translateY(-24px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 225, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
     }
     wsStrip = strip; strip.__list = list;
     { const pb = strip.offsetTop + panel.offsetTop + panel.offsetHeight;   // Mission Control: the windows below the panel
@@ -6807,7 +6822,7 @@ window.vosBeat = window.vosBeat || (() => {
     { const born = opts?.born != null ? row.querySelector(`.vos-ws-card[data-ws="${CSS.escape(String(opts.born))}"]`) : null;
       const cur = born || row.querySelector("[data-current]");       // the current (or the new) desktop in view (the row only scrolls itself)
       if (cur && row.scrollWidth > row.clientWidth) row.scrollLeft = cur.offsetLeft - (row.clientWidth - cur.offsetWidth) / 2;
-      born?.animate([{ transform: "scale(0.6)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.15)" }); }
+      born?.animate([{ transform: "scale(0.6)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 240, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.15)" }); }   // 1.0.401 perf: x0.75 (was 320)
   }
   /* Vivaldi's own workspace actions - the ones its menu calls - found by their names
      (setName, addWorkspace, activateWorkspaceByIndex) in its module registry, which is in
@@ -7013,7 +7028,7 @@ window.vosBeat = window.vosBeat || (() => {
           try { const q = cap.call(vivaldi.thumbnails, Number(id), { encodeFormat: "jpg", encodeQuality: 80, fullPage: false, width: W, height: H }, done); if (q && typeof q.then === "function") q.then(done, () => {}); } catch (e) {}
         });
       }
-    }, lp ? 380 : 300);
+    }, lp ? 290 : 230);                             // 1.0.401 perf: x0.75 rounded up (380 / 300) - the Launchpad's fade in, the veil's (165ms)
   }
   /* (each redraw, while the veil is up) a window lifted over the veil is live again at once: its photo goes with it */
   function freezeKeep() {
@@ -7068,16 +7083,22 @@ window.vosBeat = window.vosBeat || (() => {
   function coverPanes(ws) {
     const out = [], host = stack(), ss = stackRect();
     if (!host || (swiping && !sw)) return () => {};                 // (a desktop sliding in as a whole: its panes move - no still photo)
+    /* 1.0.401 perf: every pane measured first (box, corners, layer), then the photos laid - one layout, not one per pane */
+    const todo = [];
     for (const pid of splitPanesOn(ws)) {
       const pg = pageOf(pid), sh = paneShots.get(pid), r = pg?.getBoundingClientRect();
       if (!pg || !sh || !r || r.width < 20 || Date.now() - sh.at > 10 * 60000) continue;
-      const win = pg.closest("[data-ft-float]") || pg, cs = getComputedStyle(pg);
+      const win = pg.closest("[data-ft-float]") || pg;
+      todo.push({ pid, sh, r, rad: getComputedStyle(pg).borderTopLeftRadius, z: getComputedStyle(win).zIndex || "100" });
+    }
+    const o = todo.length ? fixedOrigin(host) : null;
+    for (const { pid, sh, r, rad, z } of todo) {
       const c = document.createElement("div"); c.className = "vos-pane-cover"; c.dataset.pid = pid;
       c.style.setProperty("background-image", `url("${sh.url}")`, "important");
-      c.style.setProperty("border-radius", cs.borderTopLeftRadius, "important");
+      c.style.setProperty("border-radius", rad, "important");
       host.appendChild(c);
-      place(c, { x: r.left - ss.left, y: r.top - ss.top, w: r.width, h: r.height }, ss);
-      c.style.setProperty("z-index", getComputedStyle(win).zIndex || "100", "important");   // just over its window (after it), under the windows in front
+      place(c, { x: r.left - ss.left, y: r.top - ss.top, w: r.width, h: r.height }, ss, o);
+      c.style.setProperty("z-index", z, "important");                // just over its window (after it), under the windows in front
       out.push(c);
     }
     // the photos go only once every pane is really drawn in its split (Vivaldi may draw it later - a split alone on its
@@ -7092,7 +7113,7 @@ window.vosBeat = window.vosBeat || (() => {
         if (drawn && !drawnAt) drawnAt = Date.now();
         if (!drawn) drawnAt = 0;
         if ((drawnAt && Date.now() - drawnAt >= 380) || Date.now() - t0 > 3000) {
-          out.forEach(c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove()) && setTimeout(() => c.remove(), 2500));
+          out.forEach(c => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => c.remove()) && setTimeout(() => c.remove(), 2500));
           return;
         }
         setTimeout(check, 60);
@@ -7462,7 +7483,7 @@ window.vosBeat = window.vosBeat || (() => {
     const desk = document.querySelector("#browser .vos-chain-vosmission");
     if (!full || !desk) {                                            // 1.0.321: going as the hover ones go - its entrance backwards
       fsHot?.remove(); if (fsctl?.hasAttribute("data-reveal")) fsctl.removeAttribute("data-reveal");
-      if (fsctl?.hasAttribute("data-on")) { const f = fsctl; f.removeAttribute("data-on"); f.setAttribute("data-out", ""); clearTimeout(f.__outT); f.__outT = setTimeout(() => f.removeAttribute("data-out"), 380); }
+      if (fsctl?.hasAttribute("data-on")) { const f = fsctl; f.removeAttribute("data-on"); f.setAttribute("data-out", ""); clearTimeout(f.__outT); f.__outT = setTimeout(() => f.removeAttribute("data-out"), 290); }   // 1.0.401 perf: x0.75 rounded up (was 380) - .vos-fsctl[data-out]
       return; }
     if (!fsctl || !fsctl.isConnected) {
       fsctl = document.createElement("div"); fsctl.className = "vos-fsctl ft-titlebar";
@@ -7574,12 +7595,12 @@ window.vosBeat = window.vosBeat || (() => {
         page.setAttribute("data-vos-tile-lift", "");
         browserEl()?.setAttribute("data-vos-tiledrag", "");          // no page takes the pointer while a pane is held (it would stop at the first one)
         try { strip.setPointerCapture(pid); } catch (e) {}
-        ghost.animate([{ scale: "0.5", opacity: 0 }, { scale: "1", opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+        ghost.animate([{ scale: "0.5", opacity: 0 }, { scale: "1", opacity: 1 }], { duration: 120, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });   // 1.0.401 perf: x0.75 (was 160)
       }
       ev.preventDefault();
+      const ownEl = ownOf(), ownR = full ? null : ownEl?.getBoundingClientRect();   // 1.0.401 perf: read before the icon's move is written
       ghost.style.translate = `${Math.round(ev.clientX - 22)}px ${Math.round(ev.clientY - 22)}px`;
-      const ownEl = ownOf();
-      if (full || inRect(ev.clientX, ev.clientY, ownEl?.getBoundingClientRect())) {   // inside its own window: onto another pane of it - the split re-arranged
+      if (full || inRect(ev.clientX, ev.clientY, ownR)) {   // inside its own window: onto another pane of it - the split re-arranged
         tgt = null;
         pane = paneAt(ownEl, ev.clientX, ev.clientY);
         side = pane ? splitPreview(src || pane.dataset.id, ev.clientX, ev.clientY, null, ownEl, pane.getBoundingClientRect()) : (splitPreview(null), null);

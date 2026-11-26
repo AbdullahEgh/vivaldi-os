@@ -252,7 +252,7 @@
 #browser #tabs-container .tab[data-vos-plate="light"]:hover { background-color: color-mix(in srgb, var(--colorFg) 30%, var(--colorBg)) !important; }
 #browser #tabs-container .tab[data-vos-plate="dark"],
 #browser #tabs-container .tab[data-vos-plate="dark"]:hover { background-color: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
-#browser #tabs-container .tab { transition: background-color 0.22s ease !important; }   /* (the plate comes and goes softly) */
+#browser #tabs-container .tab { transition: background-color 0.16s ease !important; }   /* (the plate comes and goes softly) */
 
 /* 1.0.254: a minimized app - a thin line under its circle, halfway to the bar's edge (a top or a bottom bar alike). Drawn by
    the circle itself, so it IS the circle's colour (white, black, the soft plate) and changes with it, at the same moment */
@@ -331,15 +331,15 @@
 /* 1.0.305: a window in the other look: its tab shows its icon's own version for that look (an icon that has one) */
 #browser #tabs-container .tab-position[data-vos-fav-url] .tab :is(.favicon, .site-icon) img { content: var(--vos-fav) !important; }
 
-/* 1.0.305: its tab circle changes with it, the same 0.45s */
-#browser#browser #tabs-container .tab { transition: background-color 0.45s ease !important; }
+/* 1.0.305: its tab circle changes with it, the same 0.45s (1.0.401 perf: x0.75 everywhere - 0.33s; 0.22s->0.16s, 0.2s->0.15s) */
+#browser#browser #tabs-container .tab { transition: background-color 0.33s ease !important; }
 
 /* 1.0.316: an icon too dim for the dark bar (a dark tile, a dark mark): a little brighter, on its far deeper circle */
 #browser #tabs-container .tab[data-vos-dim] :is(.favicon, .site-icon) img,
 #browser #webpage-stack > .vos-pin-badge[data-vos-dim] > img, #browser .vos-wctl .vos-wctl-ic[data-vos-dim] img { filter: brightness(1.45) saturate(1.15) !important; }
 
 /* 1.0.331: on the desktop the + is off (the desktop is the Launchpad already): dimmed, and it takes no press */
-#browser[data-vos-desk-bare] #tabs-tabbar-container :is(.newtab, #newtab-main) { opacity: 0.35 !important; pointer-events: none !important; transition: opacity 0.2s ease !important; }
+#browser[data-vos-desk-bare] #tabs-tabbar-container :is(.newtab, #newtab-main) { opacity: 0.35 !important; pointer-events: none !important; transition: opacity 0.15s ease !important; }
 
 /* 1.0.338: a split's pill in the tab bar hugs its icons: its ends are the first and last circles' own edges (the circle is
    30px, centred in its place) - no room past them on either side */

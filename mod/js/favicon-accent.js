@@ -242,7 +242,7 @@
      follow later.) While a change runs, the elements' own background fades are
      turned off, so none of them lags behind the variables. */
   const VAR_NAMES = Object.keys(buildVars([128, 128, 128], true));
-  const FADE_MS = 300;
+  const FADE_MS = 220;   // 1.0.401 perf: 300 -> 220 - the fade restyles the whole UI each frame (inherited colour variables), so fewer frames of it
   const AREAS = "#browser :is(#header, #footer, .mainbar, .tabbar-wrapper, #tabs-tabbar-container, .toolbar-statusbar)";
   function registerVars() {
     if (document.getElementById(STYLE_ID + "-props")) return;

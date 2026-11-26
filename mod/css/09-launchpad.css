@@ -80,7 +80,7 @@
   grid-auto-rows: 96px !important;               /* one icon: 72 tile + 8 + name */
   justify-items: center !important;
   align-content: start !important;
-  transition: filter 0.25s ease, opacity 0.25s ease !important;
+  transition: filter 0.18s ease, opacity 0.18s ease !important;   /* 1.0.401 perf: 0.25 -> 0.18 (fewer frames of the animated blur) */
 }
 #browser .lp-layer[data-folder] > .lp-grid,
 #browser .lp-layer[data-folder] > .lp-searchbar {
@@ -109,7 +109,7 @@
   place-items: center !important;
   background: var(--lp-tile) !important;
   box-shadow: var(--lp-tile-shadow), inset 0 0 0 0.5px var(--lp-tile-ring) !important;
-  transition: transform 0.16s ease !important;
+  transition: transform 0.12s ease !important;   /* 1.0.401 perf: 0.16 -> 0.12 */
 }
 #browser .lp-app:hover .lp-tile { transform: scale(1.06) !important; }
 #browser .lp-app:active .lp-tile { transform: scale(0.94) !important; }
@@ -462,7 +462,7 @@
   color: var(--lp-text) !important;
   font: 600 14px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important;
   cursor: pointer !important;
-  transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.2s ease !important;
+  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.15s ease !important;   /* 1.0.401 perf: 0.32/0.2 -> 0.24/0.15 */
   opacity: 0 !important;
 }
 #browser .lp-edge-btn svg { width: 17px !important; height: 17px !important; flex: none !important; }
@@ -634,7 +634,7 @@
   background: transparent !important;
   color: var(--lp-text) !important;
   cursor: pointer !important;
-  transition: transform 0.18s ease, background 0.18s ease !important;
+  transition: transform 0.13s ease, background 0.13s ease !important;   /* 1.0.401 perf: 0.18 -> 0.13 */
 }
 #browser .lp-gal-cell:hover { background: rgba(127, 127, 127, 0.12) !important; }
 #browser .lp-gal-cell:active { transform: scale(0.96) !important; }
@@ -1134,7 +1134,7 @@
   cursor: pointer !important;
   opacity: 0 !important;
   transform: scale(0.8) !important;
-  transition: opacity 0.15s ease, transform 0.15s ease !important;
+  transition: opacity 0.12s ease, transform 0.12s ease !important;   /* 1.0.401 perf: 0.15 -> 0.12 */
 }
 #browser .lp-add::before, #browser .lp-add::after {
   content: "" !important;
@@ -1222,7 +1222,7 @@
   z-index: 1 !important;
   background: var(--lp-veil) !important;
   backdrop-filter: blur(40px) saturate(1.5) !important;
-  animation: lp-veil-in 0.25s ease both !important;
+  animation: lp-veil-in 0.18s ease both !important;   /* 1.0.401 perf: 0.25 -> 0.18 */
   pointer-events: auto !important;
 }
 #browser .lp-desktop > .lp-card { z-index: 2 !important; }
@@ -1284,7 +1284,7 @@
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  animation: vos-tag-in 0.4s cubic-bezier(0.2, 0.9, 0.25, 1.2) both !important;
+  animation: vos-tag-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.2) both !important;   /* 1.0.401 perf: 0.4 -> 0.3 */
 }
 #browser.color-behind-tabs-on:not(.transparent-tabbar) .vos-upd-tag {
   background: var(--colorAccentBgDark) !important;
@@ -1335,7 +1335,7 @@
 /* the update notice: manual updating sits behind a small, quiet button at the top right */
 #browser .vos-upd .vos-upd-title { padding-right: 30px !important; }
 #browser .vos-upd .vos-upd-manual { position: absolute !important; top: var(--vos-upd-icon-top, 10px) !important; right: 12px !important; width: 26px !important; height: 26px !important; padding: 4px !important;
-  border: 0 !important; border-radius: 50% !important; background: transparent !important; color: inherit !important; opacity: 0.45 !important; cursor: default !important; transition: opacity 0.15s, background-color 0.15s !important; }
+  border: 0 !important; border-radius: 50% !important; background: transparent !important; color: inherit !important; opacity: 0.45 !important; cursor: default !important; transition: opacity 0.12s, background-color 0.12s !important; }   /* 1.0.401 perf: 0.15 -> 0.12 */
 #browser .vos-upd .vos-upd-manual:hover, #browser .vos-upd .vos-upd-manual[data-on] { opacity: 0.9 !important; background: rgba(127, 127, 127, 0.18) !important; }
 #browser .vos-upd .vos-upd-manual svg { width: 18px !important; height: 18px !important; display: block !important; }
 #browser .vos-upd .vos-upd-copy[hidden] { display: none !important; }
@@ -1345,9 +1345,9 @@
 #browser .lp-tb-ic { display: flex !important; align-items: center !important; justify-content: center !important; color: var(--lp-text) !important; }
 #browser .lp-tb-ic svg { width: 20px !important; height: 20px !important; }
 #browser .lp-switch { flex: none !important; position: relative !important; width: 51px !important; height: 31px !important; padding: 0 !important; border: 0 !important; border-radius: 16px !important;
-  background: rgba(120, 120, 128, 0.32) !important; cursor: pointer !important; transition: background 0.2s ease !important; }
+  background: rgba(120, 120, 128, 0.32) !important; cursor: pointer !important; transition: background 0.15s ease !important; }   /* 1.0.401 perf: 0.2 -> 0.15 */
 #browser .lp-switch::after { content: "" !important; position: absolute !important; top: 2px !important; left: 2px !important; width: 27px !important; height: 27px !important; border-radius: 50% !important;
-  background: #fff !important; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16) !important; transition: transform 0.22s cubic-bezier(0.3, 0.9, 0.3, 1) !important; }
+  background: #fff !important; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16) !important; transition: transform 0.16s cubic-bezier(0.3, 0.9, 0.3, 1) !important; }   /* 1.0.401 perf: 0.22 -> 0.16 */
 #browser .lp-switch[aria-checked="true"] { background: #34c759 !important; }
 #browser .lp-switch[aria-checked="true"]::after { transform: translateX(20px) !important; }
 
@@ -1387,9 +1387,9 @@
 /* Tab Bar: a tile each - icon, name, On / Off */
 #browser .lp-tb-tile { width: 112px !important; height: 118px !important; padding: 12px 8px 10px !important; border: 0 !important; border-radius: 20px !important; cursor: pointer !important;
   display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 7px !important;
-  background: var(--lp-ios-group) !important; color: var(--lp-text, inherit) !important; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.16) !important; transition: transform 0.15s ease, box-shadow 0.15s ease !important; }
+  background: var(--lp-ios-group) !important; color: var(--lp-text, inherit) !important; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.16) !important; transition: transform 0.12s ease, box-shadow 0.12s ease !important; }   /* 1.0.401 perf: 0.15 -> 0.12 */
 #browser .lp-tb-tile:active { transform: scale(0.96) !important; }
-#browser .lp-tb-tile .lp-tb-ic { width: 44px !important; height: 44px !important; border-radius: 50% !important; display: grid !important; place-items: center !important; background: rgba(127, 127, 127, 0.16) !important; color: var(--lp-text, inherit) !important; transition: background 0.15s ease, color 0.15s ease !important; }
+#browser .lp-tb-tile .lp-tb-ic { width: 44px !important; height: 44px !important; border-radius: 50% !important; display: grid !important; place-items: center !important; background: rgba(127, 127, 127, 0.16) !important; color: var(--lp-text, inherit) !important; transition: background 0.12s ease, color 0.12s ease !important; }   /* 1.0.401 perf: 0.15 -> 0.12 */
 #browser .lp-tb-tile .lp-tb-ic svg { width: 22px !important; height: 22px !important; }
 #browser .lp-tb-tile[data-on] .lp-tb-ic { background: var(--lp-blue, #0a84ff) !important; color: #fff !important; }
 #browser .lp-tb-tile[data-on] { box-shadow: inset 0 0 0 2px var(--lp-blue, #0a84ff) !important; }
@@ -1433,7 +1433,7 @@
 
 /* 1.0.141: Dark Mode switching - the pages fade out to the window colour and back in once redrawn; Vivaldi's colours glide */
 #browser[data-vos-theming], #browser[data-vos-theming] :is(#header, #tabs-tabbar-container, .toolbar, .tab-position, .UrlBar-AddressField, .webpageview, .lp-wcard, .vos-tm-mini) {
-  transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease, fill 0.45s ease !important; }   /* (1.0.340: the circles' 0.45s) */
+  transition: background-color 0.33s ease, color 0.33s ease, border-color 0.33s ease, fill 0.33s ease !important; }   /* (1.0.340: the circles' 0.45s - 1.0.401 perf: 0.33s, with 04/07) */
 /* 1.0.142: Clock & Calendar - its clock the same size as the Pills clock widget on its own (same frame, no extra scale) */
 #browser .lp-wk-clockcal { padding: 14px !important; }
 #browser .lp-wk-clockcal .lp-clock { transform: none !important; height: 100% !important; }
@@ -1443,7 +1443,7 @@
 #browser .lp-ios-body { scrollbar-width: none !important; }
 #browser .lp-ios-body::-webkit-scrollbar { display: none !important; width: 0 !important; }
 #browser .lp-ios-thumb { position: absolute !important; right: 3px !important; top: 0; width: 6px !important; border-radius: 3px !important; background: rgba(127, 127, 127, 0.55) !important;
-  opacity: 0 !important; pointer-events: none !important; z-index: 6 !important; transition: opacity 0.35s ease !important; }
+  opacity: 0 !important; pointer-events: none !important; z-index: 6 !important; transition: opacity 0.26s ease !important; }   /* 1.0.401 perf: 0.35 -> 0.26 */
 #browser .lp-ios-thumb[data-on] { opacity: 1 !important; transition: opacity 0.12s ease !important; }
 
 /* 1.0.144: the medium calendar - the day, today's number and the month centred on one line down the middle of the column */
@@ -1545,7 +1545,7 @@
 
 /* 1.0.217: the icon picker - Light | Dark (which look's icon is being chosen), each with its icon now */
 #browser .lp-iconpick .lp-ip-mode { display: flex !important; gap: 2px !important; padding: 2px !important; margin: 0 0 10px !important; border-radius: 9px !important; background: var(--lp-chip, rgba(118, 118, 128, 0.16)) !important; }
-#browser .lp-iconpick .lp-ip-v { flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; height: 28px !important; border: 0 !important; border-radius: 7px !important; background: transparent !important; color: inherit !important; font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif !important; cursor: pointer !important; transition: background-color 0.15s ease !important; }
+#browser .lp-iconpick .lp-ip-v { flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; height: 28px !important; border: 0 !important; border-radius: 7px !important; background: transparent !important; color: inherit !important; font: 500 12px -apple-system, "Segoe UI", system-ui, sans-serif !important; cursor: pointer !important; transition: background-color 0.12s ease !important; }   /* 1.0.401 perf: 0.15 -> 0.12 */
 #browser .lp-iconpick .lp-ip-v[data-on] { background: var(--colorBg, rgba(255, 255, 255, 0.9)) !important; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18) !important; }
 #browser .lp-iconpick .lp-ip-pv { display: inline-flex !important; width: 18px !important; height: 18px !important; border-radius: 5px !important; overflow: hidden !important; background: rgba(128, 128, 128, 0.18) !important; }
 #browser .lp-iconpick .lp-ip-pv:empty { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.45) !important; }
@@ -1561,7 +1561,7 @@
    chosen ringed */
 #browser .lp-iconpick .lp-ip-top { align-items: center !important; }
 #browser .lp-iconpick .lp-ip-mode { display: flex !important; justify-content: center !important; gap: 18px !important; padding: 0 !important; background: transparent !important; border-radius: 0 !important; }
-#browser .lp-iconpick .lp-ip-v { flex: 0 0 auto !important; flex-direction: column !important; height: auto !important; gap: 6px !important; padding: 4px !important; border-radius: 16px !important; background: transparent !important; box-shadow: none !important; font: 500 11px -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.72 !important; transition: opacity 0.15s ease !important; }
+#browser .lp-iconpick .lp-ip-v { flex: 0 0 auto !important; flex-direction: column !important; height: auto !important; gap: 6px !important; padding: 4px !important; border-radius: 16px !important; background: transparent !important; box-shadow: none !important; font: 500 11px -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.72 !important; transition: opacity 0.12s ease !important; }   /* 1.0.401 perf: 0.15 -> 0.12 */
 #browser .lp-iconpick .lp-ip-v:hover { opacity: 0.9 !important; }
 #browser .lp-iconpick .lp-ip-v[data-on] { opacity: 1 !important; background: transparent !important; box-shadow: none !important; }
 #browser .lp-iconpick .lp-ip-pv { width: 56px !important; height: 56px !important; border-radius: 12.5px !important; display: grid !important; place-items: center !important; overflow: hidden !important;
@@ -1573,13 +1573,14 @@
 /* 1.0.223: the icon picker opens like a macOS sheet (a soft spring), its picked icon pops in */
 @keyframes lp-ip-in { from { opacity: 0; scale: 0.94; } to { opacity: 1; scale: 1; } }
 @keyframes lp-ip-pick { 0% { scale: 0.86; } 60% { scale: 1.06; } 100% { scale: 1; } }
-#browser .lp-iconpick { animation: lp-ip-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.06) both !important; }
-#browser .lp-iconpick .lp-ip-pv img { animation: lp-ip-pick 0.28s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
-#browser .lp-iconpick .lp-ip-cell { transition: background-color 0.15s ease, box-shadow 0.15s ease !important; }
-#browser .lp-iconpick .lp-ip-cell img { transition: scale 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+/* 1.0.401 perf: 0.24/0.28/0.15/0.18 -> 0.18/0.21/0.12/0.13 */
+#browser .lp-iconpick { animation: lp-ip-in 0.18s cubic-bezier(0.2, 0.9, 0.25, 1.06) both !important; }
+#browser .lp-iconpick .lp-ip-pv img { animation: lp-ip-pick 0.21s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser .lp-iconpick .lp-ip-cell { transition: background-color 0.12s ease, box-shadow 0.12s ease !important; }
+#browser .lp-iconpick .lp-ip-cell img { transition: scale 0.13s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 #browser .lp-iconpick .lp-ip-cell:hover img { scale: 1.06 !important; }
 #browser .lp-iconpick .lp-ip-cell:active img { scale: 0.94 !important; }
-#browser .lp-iconpick .lp-ip-v .lp-ip-pv { transition: outline-color 0.18s ease, scale 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser .lp-iconpick .lp-ip-v .lp-ip-pv { transition: outline-color 0.13s ease, scale 0.13s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }   /* 1.0.401 perf: 0.18 -> 0.13 */
 #browser .lp-iconpick .lp-ip-v:active .lp-ip-pv { scale: 0.95 !important; }
 
 /* 1.0.224: the icon picker's top bar - as the bookmark sheets' (iOS): Cancel · the title · Save, a hairline under it */
@@ -1588,7 +1589,7 @@
   background: var(--lp-ios-bg, rgba(242, 242, 247, 0.92)) !important; border-bottom: 0.5px solid var(--lp-ios-sep, rgba(60, 60, 67, 0.29)) !important; }
 #browser .lp-iconpick .lp-ip-title { font: 600 17px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; color: var(--lp-text, inherit) !important; }
 #browser .lp-iconpick .lp-ip-cancel, #browser .lp-iconpick .lp-ip-save { border: 0 !important; background: transparent !important; padding: 6px 0 !important; cursor: pointer !important;
-  color: var(--lp-blue, #007aff) !important; font: 400 17px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; transition: opacity 0.15s ease !important; }
+  color: var(--lp-blue, #007aff) !important; font: 400 17px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; transition: opacity 0.12s ease !important; }   /* 1.0.401 perf: 0.15 -> 0.12 */
 #browser .lp-iconpick .lp-ip-cancel { justify-self: start !important; }
 #browser .lp-iconpick .lp-ip-save { justify-self: end !important; font-weight: 600 !important; }
 #browser .lp-iconpick .lp-ip-save[disabled] { color: var(--lp-ios-sub, rgba(60, 60, 67, 0.35)) !important; opacity: 1 !important; cursor: default !important; }
@@ -1614,5 +1615,5 @@
 #browser #webpage-stack > .lp-layer.lp-desktop { padding-top: 36px !important; }
 
 /* 1.0.331: the desktop being edited: its apps move down, under the buttons along its top (never under them) */
-#browser #webpage-stack > .lp-layer.lp-desktop { transition: padding-top 0.34s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser #webpage-stack > .lp-layer.lp-desktop { transition: padding-top 0.25s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }   /* 1.0.401 perf: 0.34 -> 0.25 (a layout transition: fewer relayouts) */
 #browser #webpage-stack > .lp-layer.lp-desktop[data-editing] { padding-top: 96px !important; }

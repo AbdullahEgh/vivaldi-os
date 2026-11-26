@@ -82,7 +82,7 @@
     0 1px 3px rgba(0, 0, 0, 0.25) !important;
   opacity: 0 !important;
   pointer-events: none !important;
-  transition: opacity 0.15s ease, transform 0.15s ease !important;
+  transition: opacity 0.12s ease, transform 0.12s ease !important;
 }
 #browser #webpage-stack .tile > .SlideBar--FullHeight::after {
   width: 4px !important;
@@ -112,7 +112,7 @@
   display: flex !important;
   gap: 8px !important;
   opacity: 0 !important;
-  transition: opacity 0.15s ease !important;
+  transition: opacity 0.12s ease !important;
 }
 #browser .webpageview > .ft-lights:hover,
 #browser .webpageview > .ft-lights[data-ft-shown] {
@@ -178,8 +178,8 @@
    are hidden. They fade + shrink away and come back the same way: plain CSS
    transitions, so nothing can get stuck half-way. */
 #browser #webpage-stack [data-ft-float] {
-  transition: filter 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
-              transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+  transition: filter 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+              transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
               visibility 0s linear 0s;
 }
 #browser:not([data-ft-desktop]) #webpage-stack [data-ft-float] {
@@ -187,7 +187,7 @@
   pointer-events: none !important;
   filter: opacity(0);
   transform: scale(0.96);
-  transition: filter 0.2s ease-in, transform 0.2s ease-in, visibility 0s linear 0.2s;
+  transition: filter 0.15s ease-in, transform 0.15s ease-in, visibility 0s linear 0.15s;
 }
 /* maximizing or closing a window: the others step aside instantly */
 #browser[data-ft-quiet] #webpage-stack [data-ft-float] {
@@ -411,7 +411,7 @@
   top: 2px !important;
   padding: 6px !important;                /* hover zone; buttons land where they were */
   opacity: 0 !important;
-  transition: opacity 0.15s ease !important;
+  transition: opacity 0.12s ease !important;
   cursor: default !important;
 }
 #browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights { left: 4px !important; }
@@ -453,7 +453,7 @@
   to   { opacity: 1; }
 }
 #browser[data-ft-has-floats] #webpage-stack .webpageview.active.visible:has(.startpage) {
-  animation: ft-newtab-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: ft-newtab-in 0.21s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 /* instant when a window was just maximized/closed (changing the duration does not replay it) */
 #browser[data-ft-quiet] #webpage-stack .webpageview.active.visible:has(.startpage) {
@@ -619,7 +619,7 @@
   border-radius: 2px !important;
   background: color-mix(in srgb, var(--colorFg) 35%, transparent) !important;
   opacity: 0 !important;
-  transition: opacity 0.15s ease !important;
+  transition: opacity 0.12s ease !important;
 }
 #browser .tiled[data-ft-float]:not(.webpageview) .webpageview .mosaic-tile:hover::after {
   opacity: 1 !important;
@@ -759,7 +759,7 @@
 }
 #browser [data-ft-dragging] {
   opacity: 0.45 !important;
-  transition: opacity 0.15s ease !important;
+  transition: opacity 0.12s ease !important;
 }
 
 /* ==========================================================================
@@ -826,7 +826,7 @@
   background: color-mix(in srgb, var(--colorFg) 35%, transparent) !important;
   box-shadow: none !important;
   opacity: 0 !important;
-  transition: opacity 0.15s ease !important;
+  transition: opacity 0.12s ease !important;
 }
 #browser .ft-frame[data-ft-grab] > .ft-grab:hover::after,
 #browser .ft-frame[data-ft-grab] > .ft-grab:active::after {
@@ -889,7 +889,7 @@
   background: rgba(255, 255, 255, 0.75) !important;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15) !important;
   opacity: 0 !important;
-  transition: opacity 0.15s ease !important;
+  transition: opacity 0.12s ease !important;
 }
 #browser .bento-grip[data-hot] { opacity: 1 !important; }
 #browser .bento-grip[data-long][data-hot] { opacity: 0.28 !important; }   /* the joined seam: faint; its singles full */
@@ -904,7 +904,7 @@
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22) !important;
   backdrop-filter: blur(6px) !important;
   opacity: 0 !important;
-  transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease, opacity 0.15s ease !important;
+  transition: left 0.13s ease, top 0.13s ease, width 0.13s ease, height 0.13s ease, opacity 0.12s ease !important;
 }
 #browser .bento-preview[data-show] { opacity: 1 !important; }
 #browser .bento-preview[data-split] { border-style: dashed !important; }
@@ -952,7 +952,7 @@
   padding: 8px 10px !important;
   background: transparent !important;          /* just the button, no backdrop */
   opacity: 0 !important;
-  transition: opacity 0.15s ease !important;
+  transition: opacity 0.12s ease !important;
   pointer-events: none !important;              /* only the button takes the mouse */
 }
 #browser .tiled[data-ft-float]:not(.webpageview) .webpageview > .ft-inner .ft-light { pointer-events: auto !important; }
@@ -1075,7 +1075,7 @@
   border-radius: 2px !important;
   background: rgba(127, 127, 127, 0.55) !important;
   opacity: 0 !important;                                  /* hidden; the handle still works, the pill shows on hover */
-  transition: opacity 0.15s ease, width 0.15s ease !important;
+  transition: opacity 0.12s ease, width 0.12s ease !important;
 }
 #browser #webpage-stack > .ft-max-grab:hover::after { opacity: 1 !important; width: 64px !important; }
 
@@ -1116,7 +1116,7 @@
   position: relative !important; width: 100% !important; border-radius: 10px !important; overflow: hidden !important;
   background-color: #6b7a6b !important; background-size: cover !important; background-position: center !important;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.25) !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease !important;
 }
 #browser .vos-ws-card:hover .vos-ws-mini { transform: translateY(-2px) scale(1.02) !important; }
 #browser .vos-ws-card[data-current] .vos-ws-mini { box-shadow: 0 0 0 3px var(--colorHighlightBg, #0a84ff), 0 6px 18px rgba(0, 0, 0, 0.22) !important; }
@@ -1133,7 +1133,7 @@
 #browser .vos-ws-icon { display: inline-grid !important; width: 16px !important; height: 16px !important; place-items: center !important; }
 #browser .vos-ws-icon svg { width: 16px !important; height: 16px !important; }
 #browser .vos-ws-count { opacity: 0.55 !important; font-weight: 400 !important; }
-#browser .vos-ws-more { opacity: 0.55 !important; transition: opacity 0.15s ease !important; }           /* the same size as a desktop, quieter */
+#browser .vos-ws-more { opacity: 0.55 !important; transition: opacity 0.12s ease !important; }           /* the same size as a desktop, quieter */
 #browser .vos-ws-more:hover { opacity: 0.9 !important; }
 #browser .vos-ws-more .vos-ws-mini { background: rgba(127, 127, 127, 0.22) !important; display: grid !important; place-items: center !important; box-shadow: inset 0 0 0 1.5px rgba(127, 127, 127, 0.45) !important; }
 #browser .vos-ws-plus { font: 300 34px/1 -apple-system, "Segoe UI", system-ui, sans-serif !important; opacity: 0.6 !important; }
@@ -1177,7 +1177,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-ws-win[data-pic] img { display: none !important; }
 
 /* the desktop strip: cards no taller than 128px (portrait windows: narrow cards); a dragged card rides on top */
-#browser .vos-ws-card { flex-grow: 0 !important; flex-shrink: 0 !important; transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser .vos-ws-card { flex-grow: 0 !important; flex-shrink: 0 !important; transition: transform 0.13s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 #browser .vos-ws-card.vos-ws-dragging { transition: none !important; z-index: 2 !important; cursor: grabbing !important; }
 #browser .vos-ws-card.vos-ws-dragging .vos-ws-mini { box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important; }
 #browser .lp-menu.vos-ws-menu { position: fixed !important; z-index: 2147483000 !important; }   /* above the strip */
@@ -1200,7 +1200,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* Mission Control: the windows shrink below the desktops panel */
 #browser[data-vos-mission] .bento-divider, #browser[data-vos-mission] .bento-grip, #browser[data-vos-mission] .ft-max-grab { display: none !important; }
 #browser[data-vos-mission-anim] [data-ft-float], #browser[data-vos-mission-anim] .ft-frame {
-  transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), left 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+  transition: transform 0.19s cubic-bezier(0.2, 0.9, 0.25, 1), left 0.19s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.19s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 #browser[data-vos-mission] .vos-ws-back { cursor: default !important; }
 
 /* a full-screen page stays under the floating windows chosen from the tab bar */
@@ -1208,10 +1208,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* DESKTOP SWIPE: choosing a desktop slides it (floating-tile.js swipeTo) - the translate property only, so it adds to
    any scale already on a window (Mission Control) and never fights it */
 #browser:is([data-vos-swipe], [data-vos-mission-anim]) :is(#webpage-stack [data-ft-float], .ft-frame) { will-change: transform, translate; }   /* never the desktop layer: its wallpaper is fixed to the screen */
-#browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) forwards !important; }
-#browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) forwards !important; }
-#browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
-#browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
+#browser[data-vos-swipe="next"] [data-ft-swipe-out] { animation: vos-swipe-out-left var(--vos-swipe-ms, 0.22s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) forwards !important; }
+#browser[data-vos-swipe="prev"] [data-ft-swipe-out] { animation: vos-swipe-out-right var(--vos-swipe-ms, 0.22s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) forwards !important; }
+#browser[data-vos-swipe-in="next"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.22s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
+#browser[data-vos-swipe-in="prev"] :is(#webpage-stack [data-ft-float]:not([data-ft-min]):not([data-ft-away]), .ft-frame:not([data-ft-away])):not([data-ft-swipe-out]):not([data-vos-incoming]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.22s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
 @keyframes vos-swipe-out-left { to { translate: calc(-1 * var(--vos-swipe-dist, 100vw)) 0; } }
 @keyframes vos-swipe-in-right { from { translate: var(--vos-swipe-dist, 100vw) 0; } }
 @keyframes vos-swipe-out-right { to { translate: var(--vos-swipe-dist, 100vw) 0; } }
@@ -1219,18 +1219,18 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* Bento: while windows slide to new slots the gaps wait, then fade back in */
 #browser[data-bento-moving] #webpage-stack > :is(.bento-divider, .bento-grip) { opacity: 0 !important; transition: none !important; }
-#browser #webpage-stack > :is(.bento-divider, .bento-grip) { transition: opacity 0.2s ease 0.05s; }
+#browser #webpage-stack > :is(.bento-divider, .bento-grip) { transition: opacity 0.15s ease 0.03s; }
 /* the Bento button made from a Command Chain: the Bento drawing, not the chain icon */
 #browser .vos-bento-chain button > :not(.vos-bento-ic) { display: none !important; }
 #browser .vos-bento-chain .vos-bento-ic { display: grid !important; place-items: center !important; }
 #browser .vos-bento-chain .vos-bento-ic svg path { fill: currentColor !important; stroke: none !important; }
 /* Mission Control: each window's app icon on its lower edge (macOS) */
 #browser .vos-mc-icons { position: fixed !important; left: 0 !important; top: 0 !important; z-index: 2147481990 !important; pointer-events: none !important;
-  animation: vos-mc-in 0.2s ease 0.16s both !important; }   /* once the windows have shrunk */
-#browser .vos-mc-icons[data-out] { animation: vos-mc-out 0.16s ease both !important; }
+  animation: vos-mc-in 0.15s ease 0.12s both !important; }   /* once the windows have shrunk */
+#browser .vos-mc-icons[data-out] { animation: vos-mc-out 0.12s ease both !important; }
 #browser .vos-mc-icon { position: absolute !important; left: 0 !important; top: 0 !important; width: 44px !important; height: 44px !important;
   border-radius: 11px !important; background: var(--colorBg, #fff) !important; display: grid !important; place-items: center !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 0 0 0.5px rgba(127, 127, 127, 0.35) !important; transition: opacity 0.15s ease !important; }
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 0 0 0.5px rgba(127, 127, 127, 0.35) !important; transition: opacity 0.12s ease !important; }
 #browser .vos-mc-icon img { width: 30px !important; height: 30px !important; object-fit: contain !important; }
 #browser .vos-mc-icon[data-held] { opacity: 0 !important; }
 @keyframes vos-mc-in { from { opacity: 0; } to { opacity: 1; } }
@@ -1257,7 +1257,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   display: flex !important; align-items: center !important; box-sizing: border-box !important; height: 28px !important; padding: 0 12px !important;
   border-radius: 14px !important; background: var(--colorAccentBgDark, rgba(30, 30, 34, 0.72)) !important; color: var(--colorFg, #fff) !important;
   backdrop-filter: blur(20px) saturate(1.6) !important; box-shadow: none !important;
-  transition: opacity 0.18s ease, translate 0.18s ease !important; opacity: 1 !important; }
+  transition: opacity 0.13s ease, translate 0.13s ease !important; opacity: 1 !important; }
 #browser .vos-ws-dots[data-out] { opacity: 0 !important; translate: -4px -50% !important; }
 #browser .vos-ws-dots-row { position: relative !important; display: flex !important; gap: 6px !important; }
 #browser .vos-ws-dots-row > i { width: 6px !important; height: 6px !important; border-radius: 50% !important; background: currentColor !important; opacity: 0.3 !important; }
@@ -1285,8 +1285,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* ---------- an empty desktop: no tab at all - only the Launchpad on the wallpaper ---------- */
 #browser[data-vos-empty] #webpage-stack .webpageview:not([data-ft-float]):not([data-ft-float] .webpageview) { visibility: hidden !important; }
 /* the desktop Launchpad slides with the desktops (in from the side the new desktop comes from) */
-#browser[data-vos-swipe-in="next"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
-#browser[data-vos-swipe-in="prev"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.3s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
+#browser[data-vos-swipe-in="next"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-right var(--vos-swipe-ms, 0.22s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
+#browser[data-vos-swipe-in="prev"] #webpage-stack > .lp-layer.lp-desktop:not([data-ft-swipe-out]) { animation: vos-swipe-in-left var(--vos-swipe-ms, 0.22s) var(--vos-swipe-ease, cubic-bezier(0.25, 0.8, 0.3, 1)) both !important; }
 /* a scroll to an empty desktop: a copy of the Launchpad slides in; the real one shows in its place once it is there */
 #webpage-stack > .lp-layer.vos-lp-ghost { pointer-events: none !important; }
 #browser[data-vos-lp-ghost] #webpage-stack > .lp-layer.lp-desktop:not(.vos-lp-ghost):not([data-ft-swipe-out]) { visibility: hidden !important; animation: none !important; }
@@ -1339,7 +1339,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .workspace-popup .ToolbarButton-Button:has(.vos-desks-ic), #browser .tabbar-workspace-button:has(.vos-desks-ic) { width: auto !important; min-width: 30px !important; padding: 0 6px !important; }
 
 /* the desktops pill: the same language as the indicator - this desktop a short line, the others dots */
-#browser .vos-ws-dots-row > i { transition: width 0.2s ease, opacity 0.2s ease !important; border-radius: 3px !important; }
+#browser .vos-ws-dots-row > i { transition: width 0.15s ease, opacity 0.15s ease !important; border-radius: 3px !important; }
 #browser .vos-ws-dots-row > i[data-on] { width: 16px !important; }
 
 /* the tab bar's own buttons, one thin line weight (as Vivaldi's own icons): back, new tab, the panel (its side) */
@@ -1372,10 +1372,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   background-position: var(--browserBackgroundPosition) !important; background-repeat: var(--browserBackgroundRepeat) !important;
   background-size: var(--browserBackgroundSize) !important; background-attachment: fixed !important; }
 #browser#browser#browser #webpage-stack .webpageview[data-vos-mc-max] { border-radius: 20px !important; overflow: hidden !important; clip-path: inset(0 round 20px) !important; }
-#browser[data-vos-mission-anim] #webpage-stack .webpageview:not([data-ft-float]) { transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser[data-vos-mission-anim] #webpage-stack .webpageview:not([data-ft-float]) { transition: transform 0.19s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 /* a window held over another one: the half it will take shows, and the held window turns see-through */
-#browser #webpage-stack > .ft-snap-preview.vos-split-preview { border-radius: 12px !important; transition: left 0.18s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.25, 1), width 0.18s cubic-bezier(0.2, 0.9, 0.25, 1), height 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
-#browser #webpage-stack [data-ft-float][data-vos-split-armed], #browser .ft-frame[data-vos-split-armed] { opacity: 0.55 !important; transition: opacity 0.15s ease !important; }
+#browser #webpage-stack > .ft-snap-preview.vos-split-preview { border-radius: 12px !important; transition: left 0.13s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.13s cubic-bezier(0.2, 0.9, 0.25, 1), width 0.13s cubic-bezier(0.2, 0.9, 0.25, 1), height 0.13s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser #webpage-stack [data-ft-float][data-vos-split-armed], #browser .ft-frame[data-vos-split-armed] { opacity: 0.55 !important; transition: opacity 0.12s ease !important; }
 
 /* 1.0.120 */
 /* swiping: the next desktop's full-screen app comes in as it is */
@@ -1404,7 +1404,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-mc-icon.vos-drag-img { position: fixed !important; left: -200px !important; top: -200px !important; z-index: -1 !important; pointer-events: none !important; }
 /* 1.0.124: a split's tile being dragged: its app icon under the pointer; the tile it came from dims */
 #browser .vos-mc-icon.vos-tile-ghost { position: fixed !important; left: 0 !important; top: 0 !important; z-index: 2147482000 !important; pointer-events: none !important; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(127, 127, 127, 0.35) !important; }
-#browser #webpage-stack .webpageview[data-vos-tile-lift] { opacity: 0.45 !important; transition: opacity 0.15s ease !important; }
+#browser #webpage-stack .webpageview[data-vos-tile-lift] { opacity: 0.45 !important; transition: opacity 0.12s ease !important; }
 
 /* 1.0.129: the window's grabber shows on hover only, as the tiles' do */
 #browser .vos-tile-ghost img { width: 30px !important; height: 30px !important; object-fit: contain !important; }
@@ -1489,7 +1489,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile::after {
   content: "" !important; position: absolute !important; top: 4px !important; left: 50% !important; width: 36px !important; height: 4px !important;
   margin-left: -18px !important; border-radius: 2px !important; background: rgba(0, 0, 0, 0.34) !important; box-shadow: none !important;
-  opacity: 0 !important; transition: opacity 0.15s ease !important;
+  opacity: 0 !important; transition: opacity 0.12s ease !important;
 }
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview[data-vos-tone="dark"] .mosaic-tile::after { background: rgba(255, 255, 255, 0.46) !important; }
 #browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) .webpageview .mosaic-tile:hover::after { opacity: 1 !important; }
@@ -1527,12 +1527,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.194: the line between two held windows (one above the other) - one edge for both, as Bento's */
 #browser #webpage-stack > .vos-pip-hdiv { position: fixed !important; cursor: ns-resize !important; background: transparent !important; pointer-events: auto !important; touch-action: none !important; }
-#browser #webpage-stack > .vos-pip-hdiv::after { content: "" !important; position: absolute !important; left: 50% !important; top: 50% !important; width: 36px !important; height: 4px !important; margin: -2px 0 0 -18px !important; border-radius: 2px !important; background: color-mix(in srgb, var(--colorFg, #fff) 45%, transparent) !important; opacity: 0 !important; transition: opacity 0.15s ease !important; }
+#browser #webpage-stack > .vos-pip-hdiv::after { content: "" !important; position: absolute !important; left: 50% !important; top: 50% !important; width: 36px !important; height: 4px !important; margin: -2px 0 0 -18px !important; border-radius: 2px !important; background: color-mix(in srgb, var(--colorFg, #fff) 45%, transparent) !important; opacity: 0 !important; transition: opacity 0.12s ease !important; }
 #browser #webpage-stack > .vos-pip-hdiv:hover::after { opacity: 1 !important; }
 #browser[data-vos-mission] #webpage-stack > .vos-pip-hdiv, #browser[data-launchpad] #webpage-stack > .vos-pip-hdiv { display: none !important; }
 
 /* 1.0.196: a window dragged to a corner (or onto the pinned windows) shrinks toward its pinned size - smoothly */
-#browser #webpage-stack [data-vos-pinlook], #browser .ft-frame[data-vos-pinlook] { transition: scale 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+#browser #webpage-stack [data-vos-pinlook], #browser .ft-frame[data-vos-pinlook] { transition: scale 0.16s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 
 /* 1.0.199: where a window dropped on the pinned windows goes - a line between them */
 
@@ -1543,14 +1543,14 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack > .vos-pin-slot { pointer-events: none !important; border-radius: 2px !important; background: color-mix(in srgb, var(--colorFg, #fff) 55%, transparent) !important; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important; }
 
 /* 1.0.201: a pinned window dragged across: scaled and trimmed by the graphics card (quick), its real size set at the release */
-#browser #webpage-stack [data-vos-pinlook] { transition: scale 0.16s cubic-bezier(0.2, 0.9, 0.25, 1), clip-path 0.16s cubic-bezier(0.2, 0.9, 0.25, 1) !important; will-change: transform; }
+#browser #webpage-stack [data-vos-pinlook] { transition: scale 0.12s cubic-bezier(0.2, 0.9, 0.25, 1), clip-path 0.12s cubic-bezier(0.2, 0.9, 0.25, 1) !important; will-change: transform; }
 
 /* 1.0.204: a full-screen app under the windows (another app chosen) keeps its square corners */
 #browser#browser #webpage-stack .webpageview[data-ft-under] { border-radius: 0 !important; clip-path: none !important; }
 
 /* 1.0.204: Mission Control moves every window smoothly - also one just dragged toward a corner and away */
 #browser#browser[data-vos-mission-anim] #webpage-stack [data-ft-float][data-vos-pinlook], #browser#browser[data-vos-mission-anim] .ft-frame[data-vos-pinlook] {
-  transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), left 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.26s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
+  transition: transform 0.19s cubic-bezier(0.2, 0.9, 0.25, 1), left 0.19s cubic-bezier(0.2, 0.9, 0.25, 1), top 0.19s cubic-bezier(0.2, 0.9, 0.25, 1) !important; }
 
 /* 1.0.210: joining between the top and the bottom pinned windows - the box it will fill */
 #browser #webpage-stack > .vos-pin-plot { pointer-events: none !important; border-radius: 12px !important; }
@@ -1558,8 +1558,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.223: the pin marker and the gap's box come in softly (GPU only: opacity and scale) */
 @keyframes vos-pin-pop { from { opacity: 0; scale: 0.6 1; } to { opacity: 1; scale: 1 1; } }
 @keyframes vos-plot-in { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
-#browser #webpage-stack > .vos-pin-slot { animation: vos-pin-pop 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
-#browser #webpage-stack > .vos-pin-plot { animation: vos-plot-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser #webpage-stack > .vos-pin-slot { animation: vos-pin-pop 0.13s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser #webpage-stack > .vos-pin-plot { animation: vos-plot-in 0.15s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
 
 /* 1.0.225: THE WINDOW BUTTONS (title bar hidden) - harder to show, easier to hit. Hidden, only a thin strip along the
    window's top edge brings them (the buttons themselves take no mouse yet); shown, their area grows around them and
@@ -1586,7 +1586,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   position: absolute !important; bottom: 10px !important; z-index: 6 !important; width: 30px !important; height: 30px !important;
   border-radius: 50% !important; display: grid !important; place-items: center !important; pointer-events: none !important;
   background: var(--colorBg) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 0 0 0.5px rgba(0, 0, 0, 0.12) !important;
-  opacity: 1; transform: scale(1); transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  opacity: 1; transform: scale(1); transition: opacity 0.13s ease, transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 #browser #main [data-ft-pip] > .vos-pin-badge[data-side="r"] { left: 10px !important; right: auto !important; }
 #browser #main [data-ft-pip] > .vos-pin-badge[data-side="l"] { right: 10px !important; left: auto !important; }
@@ -1653,7 +1653,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack > .vos-pin-badge {
   box-sizing: border-box !important; border-radius: 50% !important; display: grid !important; place-items: center !important; pointer-events: none !important;
   background: var(--colorBg) !important; box-shadow: 0 0 0 1px color-mix(in srgb, var(--colorFg, #fff) 14%, transparent) !important;
-  opacity: 1; transform: scale(1); transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  opacity: 1; transform: scale(1); transition: opacity 0.13s ease, transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 #browser #webpage-stack > .vos-pin-badge[data-plate="light"] { background: color-mix(in srgb, var(--colorFg) 30%, var(--colorBg)) !important; }
 #browser #webpage-stack > .vos-pin-badge[data-plate="dark"] { background: color-mix(in srgb, var(--colorFg) 24%, var(--colorBg)) !important; }
@@ -1694,7 +1694,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl {
   position: absolute !important; left: 0 !important; top: 100% !important; width: 24px !important; padding-top: 2px !important;
   display: flex !important; flex-direction: column !important; opacity: 0; pointer-events: none !important;
-  transform: translateY(-4px); transition: opacity 0.15s ease, transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) !important;
+  transform: translateY(-4px); transition: opacity 0.12s ease, transform 0.13s cubic-bezier(0.2, 0.9, 0.25, 1) !important;
 }
 #browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl { opacity: 1; transform: none; pointer-events: auto !important; }
 #browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl) .vos-pc {
@@ -1715,13 +1715,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 @keyframes vos-btn-in { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: none; } }
 #browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc::before,
 #browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-light {
-  animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) both !important;
+  animation: vos-btn-in 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.2) both !important;
 }
 #browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before,
-#browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-light:nth-child(2) { animation-delay: 0.04s !important; }
+#browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-light:nth-child(2) { animation-delay: 0.03s !important; }
 #browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before,
-#browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-light:nth-child(3) { animation-delay: 0.08s !important; }
-#browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-light:nth-child(4) { animation-delay: 0.12s !important; }
+#browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-light:nth-child(3) { animation-delay: 0.06s !important; }
+#browser [data-ft-float][data-ft-notitle] > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown]) .ft-light:nth-child(4) { animation-delay: 0.09s !important; }
 /* (the grey one with the lights: the same gap as between them) */
 #browser #main .ft-titlebar .ft-lights > .ft-light.ft-gray { margin: 0 !important; }
 #browser#browser #main .ft-titlebar .ft-lights:not(:hover):not([data-ft-shown]) .ft-light.ft-gray {   /* (its icon only on hover, as the lights') */
@@ -1731,7 +1731,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.268: a pinned app's icon comes out from behind it - after the app has settled (new, moved, back from a drag) */
 @keyframes vos-pinbadge-in { from { opacity: 0; transform: translateX(var(--vos-from, 0)) scale(0.85); } to { opacity: 1; transform: none; } }
-#browser #webpage-stack > .vos-pin-badge[data-in] { animation: vos-pinbadge-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) 0.4s both !important; }
+#browser #webpage-stack > .vos-pin-badge[data-in] { animation: vos-pinbadge-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.05) 0.3s both !important; }
 
 /* 1.0.270: the line between two pinned apps stays while it is dragged (and pulses once when held: they come apart) */
 #browser#browser #webpage-stack > .vos-pip-hdiv[data-held]::after { opacity: 1 !important; }
@@ -1743,7 +1743,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   border-radius: 11px !important; z-index: -1 !important; pointer-events: none !important;
   background: color-mix(in srgb, var(--colorBg) 72%, transparent) !important; backdrop-filter: blur(16px) saturate(1.6) !important;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.18), inset 0 0.5px 0 rgba(255, 255, 255, 0.22) !important;
-  opacity: 0; transform: scale(0.85); transition: opacity 0.15s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important;
+  opacity: 0; transform: scale(0.85); transition: opacity 0.12s ease, transform 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important;
 }
 #browser#browser [data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar .ft-lights:is(:hover, [data-ft-shown])::before { opacity: 1; transform: none; }
 
@@ -1778,7 +1778,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   position: fixed !important; z-index: 2147483000 !important; height: 24px !important; box-sizing: border-box !important;
   display: flex !important; align-items: center !important; gap: 4px !important; padding: 0 !important; margin: 0 !important;
   background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important;
-  visibility: hidden; pointer-events: none !important; cursor: default !important; transition: visibility 0s linear 0.2s !important;
+  visibility: hidden; pointer-events: none !important; cursor: default !important; transition: visibility 0s linear 0.15s !important;
 }
 #browser .vos-wctl[data-on] { visibility: visible; pointer-events: auto !important; transition: none !important; }
 #browser .vos-wctl::after { content: "" !important; position: absolute !important; left: -8px !important; right: -8px !important; top: -8px !important; bottom: 0 !important; z-index: -1 !important; }   /* (a hold round it - 1.0.289: not over the corner, which still resizes) */
@@ -1806,13 +1806,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 @keyframes vos-wctl-ic-in { from { opacity: 0; transform: translateY(14px) scale(0.85); } to { opacity: 1; transform: none; } }
 @keyframes vos-wctl-ic-in-down { from { opacity: 0; transform: translateY(-14px) scale(0.85); } to { opacity: 1; transform: none; } }
 @keyframes vos-wctl-pill-in { from { clip-path: inset(0 100% 0 0); transform: translateX(-24px); } to { clip-path: inset(-12px -12px -12px 0); transform: none; } }
-#browser .vos-wctl[data-on] .vos-wctl-ic { animation: vos-wctl-ic-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) both !important; }
+#browser .vos-wctl[data-on] .vos-wctl-ic { animation: vos-wctl-ic-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.05) both !important; }
 #browser .vos-wctl[data-on][data-in] .vos-wctl-ic { animation-name: vos-wctl-ic-in-down !important; }
-#browser#browser .vos-wctl[data-on] > .vos-pin-ctl { animation: vos-wctl-pill-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) 0.14s both !important; }
-#browser#browser .vos-wctl[data-on] .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.2s both !important; }
-#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
-#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }
-#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.35s !important; }
+#browser#browser .vos-wctl[data-on] > .vos-pin-ctl { animation: vos-wctl-pill-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) 0.1s both !important; }
+#browser#browser .vos-wctl[data-on] .vos-pc::before { animation: vos-btn-in 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.15s both !important; }
+#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.18s !important; }
+#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.22s !important; }
+#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.26s !important; }
 
 /* 1.0.286: the pinned and window circles too: black or white only */
 #browser#browser :is(#main [data-ft-pip] > .vos-pin-badge, #webpage-stack > .vos-pin-badge)[data-plate="light"],
@@ -1827,8 +1827,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 @keyframes vos-btn-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.5); } }
 #browser#browser .vos-wctl[data-out] { visibility: visible; pointer-events: none !important; transition: none !important; }
 #browser#browser .vos-wctl[data-out] .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
-#browser#browser .vos-wctl[data-out] > .vos-pin-ctl { animation: vos-wctl-pill-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
-#browser#browser .vos-wctl[data-out] .vos-wctl-ic { animation: vos-wctl-ic-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.12s both !important; }
+#browser#browser .vos-wctl[data-out] > .vos-pin-ctl { animation: vos-wctl-pill-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.03s both !important; }
+#browser#browser .vos-wctl[data-out] .vos-wctl-ic { animation: vos-wctl-ic-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.09s both !important; }
 #browser#browser .vos-wctl[data-out][data-in] .vos-wctl-ic { animation-name: vos-wctl-ic-out-up !important; }
 
 /* 1.0.289: an app's circle follows the look: black in dark, white in light - even for an icon that blends into it */
@@ -1847,12 +1847,12 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    ahead of its pill.) */
 @keyframes vos-pin-ctl-in { from { clip-path: inset(0 0 100% 0); transform: translateY(-24px); } to { clip-path: inset(-12px -12px -12px -12px); transform: none; } }
 @keyframes vos-pin-ctl-out { from { clip-path: inset(-12px -12px -12px -12px); transform: none; } to { clip-path: inset(0 0 100% 0); transform: translateY(-24px); } }
-#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl { opacity: 1 !important; transform: none; transition: none !important; animation: vos-pin-ctl-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
-#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl { animation: vos-pin-ctl-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl { opacity: 1 !important; transform: none; transition: none !important; animation: vos-pin-ctl-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.03s both !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl { animation: vos-pin-ctl-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
 #browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
-#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.06s both !important; }
-#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.11s !important; }
-#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.16s !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc::before { animation: vos-btn-in 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.04s both !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
+#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.12s !important; }
 /* 1.0.292: a pinned app's circle stays while it is held and dragged (it goes with its app) */
 #browser#browser #webpage-stack > .vos-pin-badge[data-drag] { display: grid !important; }
 
@@ -1914,16 +1914,16 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #webpage-stack > .vos-pin-badge:hover, #browser .vos-wctl, #browser .vos-wctl[data-on], #browser .vos-wctl[data-out], #browser .vos-wctl[data-gone]) > .vos-pin-ctl { clip-path: none !important; animation: none !important; transform: none !important; }
 /* a window's: sideways, out of its circle */
 #browser#browser#browser#browser#browser .vos-wctl > .vos-pin-ctl::after { transform-origin: 0 50% !important; }
-#browser#browser#browser#browser#browser .vos-wctl[data-on] > .vos-pin-ctl::after { animation: vos-pill-h-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) 0.14s backwards !important; }
-#browser#browser#browser#browser#browser .vos-wctl[data-out] > .vos-pin-ctl::after { animation: vos-pill-h-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
+#browser#browser#browser#browser#browser .vos-wctl[data-on] > .vos-pin-ctl::after { animation: vos-pill-h-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) 0.1s backwards !important; }
+#browser#browser#browser#browser#browser .vos-wctl[data-out] > .vos-pin-ctl::after { animation: vos-pill-h-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.03s both !important; }
 #browser#browser#browser#browser#browser .vos-wctl[data-gone] > .vos-pin-ctl::after { animation: vos-pill-h-out 0.1s ease-in both !important; }
 /* (clicked: quick - no fade of the whole, which would stop the blur too) */
 #browser#browser#browser .vos-wctl[data-gone] { animation: none !important; opacity: 1 !important; }
 #browser#browser#browser .vos-wctl[data-gone] .vos-wctl-ic { animation: vos-wctl-ic-gone 0.1s ease-out both !important; }
 #browser#browser#browser .vos-wctl[data-gone] .vos-pc::before { animation: vos-btn-out 0.08s ease-in both !important; }
 /* a pinned app's: down, out of its circle */
-#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl::after { transform-origin: 50% 0 !important; animation: vos-pill-v-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
-#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl::after { animation: vos-pill-v-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) backwards !important; }
+#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge > .vos-pin-ctl::after { transform-origin: 50% 0 !important; animation: vos-pill-v-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.03s both !important; }
+#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:hover > .vos-pin-ctl::after { animation: vos-pill-v-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) backwards !important; }
 
 /* 1.0.300: the buttons' pill a stronger colour (the same glass, more of its tint) */
 #browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl) > .vos-pin-ctl::after { background: rgba(255, 255, 255, 0.3) !important; }
@@ -1944,21 +1944,21 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.305: a window's look changed (grey held): its circle, its buttons' pill and its frame change colour with its page's
    dissolve - the same 0.45s, the same ease */
-#browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease !important; }   /* (1.0.360: its colour dissolves with every icon's) */
-#browser#browser#browser .vos-wctl .vos-wctl-ic { transition: background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
-#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl) > .vos-pin-ctl::after { transition: background-color 0.45s ease, background 0.45s ease !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.13s ease, transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease !important; }   /* (1.0.360: its colour dissolves with every icon's) */
+#browser#browser#browser .vos-wctl .vos-wctl-ic { transition: background-color 0.33s ease, background 0.33s ease, box-shadow 0.33s ease !important; }
+#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl) > .vos-pin-ctl::after { transition: background-color 0.33s ease, background 0.33s ease !important; }
 
 /* 1.0.307: a pinned app's buttons come out with the pointer near its circle too (a small ring round it), not only on it */
 #browser#browser #webpage-stack > .vos-pin-badge::before { content: "" !important; position: absolute !important; inset: -14px !important; border-radius: 50% !important; }
 
 /* 1.0.308: a pinned app's circle while pinned apps show none (Bento, or a window full beside them): unseen at its corner;
    the pointer there brings it - it comes out as a window's circle does, its buttons unrolling under it */
-#browser#browser #webpage-stack > .vos-pin-badge[data-bare] { animation: none !important; opacity: 0 !important; transform: scale(0.85) !important; transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.5, 0, 0.75, 0) !important; }
-#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover { opacity: 1 !important; transform: none !important; transition: opacity 0.18s ease, transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
-#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl::after { animation-delay: 0.14s !important; }
-#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc::before { animation-delay: 0.2s !important; }
-#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
-#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }
+#browser#browser #webpage-stack > .vos-pin-badge[data-bare] { animation: none !important; opacity: 0 !important; transform: scale(0.85) !important; transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.5, 0, 0.75, 0) !important; }
+#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover { opacity: 1 !important; transform: none !important; transition: opacity 0.13s ease, transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl::after { animation-delay: 0.1s !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc::before { animation-delay: 0.15s !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.18s !important; }
+#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:hover > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.22s !important; }
 
 /* 1.0.309: a pinned app's circle (and its buttons) over everything: always while the circles are hidden (so the pointer
    finds it there), and whenever it is hovered */
@@ -1968,20 +1968,20 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.311: FROM INSIDE ONLY. A pinned app's buttons (and, while the circles are hidden, its circle) come from the strip along
    its own top at its circle's end (floating-tile.js: data-show) - not from the pointer outside, on or near its circle */
 #browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:not([data-show]) > .vos-pin-ctl { pointer-events: none !important; }
-#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:not([data-show]) > .vos-pin-ctl::after { animation: vos-pill-v-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:not([data-show]) > .vos-pin-ctl::after { animation: vos-pill-v-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.03s both !important; }
 #browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge:not([data-show]) > .vos-pin-ctl .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
 #browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl { pointer-events: auto !important; }
-#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl::after { animation: vos-pill-v-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) backwards !important; }
-#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.06s both !important; }
-#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.11s !important; }
-#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.16s !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl::after { animation: vos-pill-v-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) backwards !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc::before { animation: vos-btn-in 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.04s both !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.12s !important; }
 /* (its circle hidden: it comes first, then its pill - as a window's) */
 #browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare]:not([data-show]) { opacity: 0 !important; transform: scale(0.85) !important; pointer-events: none !important; }
-#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] { opacity: 1 !important; transform: none !important; pointer-events: auto !important; transition: opacity 0.18s ease, transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
-#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl::after { animation-delay: 0.14s !important; }
-#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc::before { animation-delay: 0.2s !important; }
-#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
-#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }
+#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] { opacity: 1 !important; transform: none !important; pointer-events: auto !important; transition: opacity 0.13s ease, transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl::after { animation-delay: 0.1s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc::before { animation-delay: 0.15s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.22s !important; }
 
 /* 1.0.311: ONCE THEY SHOW, EASIER TO HIT: a wider hold round them, and each button's target reaching further */
 #browser#browser #webpage-stack > .vos-pin-badge:not([data-show])::before { display: none !important; }
@@ -2018,19 +2018,19 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser .vos-fsctl .vos-pc-yellow::before { background-color: #febc2e !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3.2 6h5.6' stroke='%23985700' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
 #browser .vos-fsctl .vos-pc-green::before { background-color: #28c840 !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 3h4.4L3 7.4z M9 9H4.6L9 4.6z' fill='%23005a00'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
 /* (coming in: as a window's - the circle, then its pill out of it, its buttons one by one) */
-#browser .vos-fsctl[data-on] .vos-wctl-ic { animation: vos-fs-ic-in 0.32s cubic-bezier(0.2, 0.9, 0.25, 1.05) both !important; }
+#browser .vos-fsctl[data-on] .vos-wctl-ic { animation: vos-fs-ic-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.05) both !important; }
 @keyframes vos-fs-ic-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
-#browser .vos-fsctl[data-on] .vos-pin-ctl::after { animation: vos-pill-h-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) 0.14s backwards !important; }
-#browser .vos-fsctl[data-on] .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.2s both !important; }
-#browser .vos-fsctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.25s !important; }
-#browser .vos-fsctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.3s !important; }
+#browser .vos-fsctl[data-on] .vos-pin-ctl::after { animation: vos-pill-h-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) 0.1s backwards !important; }
+#browser .vos-fsctl[data-on] .vos-pc::before { animation: vos-btn-in 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.15s both !important; }
+#browser .vos-fsctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.18s !important; }
+#browser .vos-fsctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.22s !important; }
 
 /* 1.0.321: the full-screen buttons go as the hover ones do - backwards: the buttons pop away, the pill back into the circle,
    then the circle */
 #browser .vos-fsctl[data-out] { display: inline-flex !important; align-items: center !important; gap: 4px !important; height: 24px !important; margin: auto 4px !important; pointer-events: none !important; }
 #browser .vos-fsctl[data-out] .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
-#browser .vos-fsctl[data-out] .vos-pin-ctl::after { animation: vos-pill-h-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
-#browser .vos-fsctl[data-out] .vos-wctl-ic { animation: vos-fs-ic-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.12s both !important; }
+#browser .vos-fsctl[data-out] .vos-pin-ctl::after { animation: vos-pill-h-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.03s both !important; }
+#browser .vos-fsctl[data-out] .vos-wctl-ic { animation: vos-fs-ic-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.09s both !important; }
 @keyframes vos-fs-ic-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.85); } }
 
 /* 1.0.322: over the tab bar (a part Vivaldi lets you drag its window by) the buttons still take the pointer - they, and the
@@ -2060,13 +2060,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.324: the full-screen buttons' grey one */
 #browser .vos-fsctl .vos-pc-gray::before { background-color: #a1a1a6 !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='2.8' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
-#browser .vos-fsctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.35s !important; }
+#browser .vos-fsctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.26s !important; }
 #browser .vos-fsctl .vos-pc[data-ft-holding]::before { filter: brightness(0.85) !important; }
 
 /* 1.0.326: a pinned app's yellow: its minus again (green has the arrows); four buttons, one by one */
 #browser#browser #webpage-stack > .vos-pin-badge .vos-pc-yellow::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3.2 6h5.6' stroke='%23985700' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
-#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.21s !important; }
-#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.35s !important; }
+#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.15s !important; }
+#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.26s !important; }
 
 /* 1.0.333: a pinned app's buttons: grey, yellow, red (no green). Its yellow: an arrow toward the canvas - pinned left: right */
 #browser#browser#browser #webpage-stack > .vos-pin-badge .vos-pc-yellow::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6M6.4 3.4L9 6 6.4 8.6' fill='none' stroke='%23985700' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
@@ -2102,56 +2102,56 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser .vos-fsctl .vos-wctl-ic[data-tint] { background: var(--vos-tint-d) !important; }
 #browser#browser#browser#browser#browser#browser.theme-light :is(#webpage-stack > .vos-pin-badge:not([data-vos-look="dark"]), #browser .vos-wctl:not([data-vos-look="dark"]) .vos-wctl-ic, .vos-fsctl:not([data-vos-look="dark"]) .vos-wctl-ic)[data-tint],
 #browser#browser#browser#browser#browser#browser .vos-fsctl[data-vos-look="light"] .vos-wctl-ic[data-tint] { background: var(--vos-tint-l) !important; }
-#browser#browser#browser .vos-fsctl .vos-wctl-ic { transition: background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
+#browser#browser#browser .vos-fsctl .vos-wctl-ic { transition: background-color 0.33s ease, background 0.33s ease, box-shadow 0.33s ease !important; }
 #browser#browser#browser .vos-fsctl .vos-wctl-ic[data-vos-dim] img { filter: brightness(1.45) saturate(1.15) !important; }
 /* the window's hairline: the theme's own ink (white on dark, dark on light - as its circle's) */
 #browser#browser #main [data-ft-float]:not([data-ft-pip]), #browser#browser #main .webpageview[data-ft-float]:not([data-ft-pip]) { box-shadow: 0 0 0 1px color-mix(in srgb, var(--colorFg, #fff) 14%, transparent), 0 8px 22px rgba(0, 0, 0, 0.22) !important; }
 #browser#browser #main [data-ft-float][data-ft-front]:not([data-ft-pip]), #browser#browser #main .webpageview[data-ft-float][data-ft-front]:not([data-ft-pip]) { box-shadow: 0 0 0 1px color-mix(in srgb, var(--colorFg, #fff) 14%, transparent), 0 28px 72px rgba(0, 0, 0, 0.46), 0 10px 24px rgba(0, 0, 0, 0.3) !important; }
 /* a pinned app's circle settles as every other intro (0.3s), not a quicker 0.22s */
-#browser#browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.2, 0.9, 0.25, 1), background-color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease !important; }
+#browser#browser#browser#browser #webpage-stack > .vos-pin-badge { transition: opacity 0.15s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1), background-color 0.33s ease, background 0.33s ease, box-shadow 0.33s ease !important; }
 /* editing the desktop: the shaking icons' delete buttons without their own blur (one blur per icon, every frame) */
 #browser#browser .lp-layer[data-editing] :is(.lp-del, .lp-tile.lp-folder) { backdrop-filter: none !important; }
 #browser#browser .lp-layer[data-editing] .lp-del { background: rgba(142, 142, 147, 0.95) !important; }
 
 /* 1.0.342: THE CONTROLS COME QUICKER - for real work: all in sight in about a quarter of a second (was over half). The same
    order and feel - the circle, its pill out of it, the buttons one by one - only tighter. Windows, pinned apps, full screen */
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-wctl-ic { animation-duration: 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-wctl-ic { animation-duration: 0.13s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] > .vos-pin-ctl,
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] > .vos-pin-ctl::after { animation-duration: 0.18s !important; animation-delay: 0.03s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.06s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.12s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] > .vos-pin-ctl::after { animation-duration: 0.13s !important; animation-delay: 0.02s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.04s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.06s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.07s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.09s !important; }
 /* a pinned app's */
-#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl::after { animation-duration: 0.18s !important; animation-delay: 0s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.03s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.05s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.07s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.09s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl::after { animation-duration: 0.13s !important; animation-delay: 0s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.02s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.03s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.05s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.06s !important; }
 /* (its circle hidden: the circle first, as a window's) */
-#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] { transition: opacity 0.12s ease, transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl::after { animation-delay: 0.03s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc::before { animation-delay: 0.06s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.12s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] { transition: opacity 0.12s ease, transform 0.13s cubic-bezier(0.2, 0.9, 0.25, 1.05) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl::after { animation-delay: 0.02s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc::before { animation-delay: 0.04s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(2)::before { animation-delay: 0.06s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(3)::before { animation-delay: 0.07s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-bare][data-show] > .vos-pin-ctl .vos-pc:nth-child(4)::before { animation-delay: 0.09s !important; }
 /* full screen's, in the toolbar */
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-wctl-ic { animation-duration: 0.18s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pin-ctl::after { animation-duration: 0.18s !important; animation-delay: 0.03s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.06s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.08s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.12s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-wctl-ic { animation-duration: 0.13s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pin-ctl::after { animation-duration: 0.13s !important; animation-delay: 0.02s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc::before { animation-duration: 0.14s !important; animation-delay: 0.04s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(2)::before { animation-delay: 0.06s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(3)::before { animation-delay: 0.07s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl[data-on] .vos-pc:nth-child(4)::before { animation-delay: 0.09s !important; }
 
 /* 1.0.346: JOINED APPS - the pill light or dark by most of its apps' circles (floating-tile.js: data-vos-pill-tone), each
    icon on its own app's circle (its tab's colour, tint, look); the colours glide with the look change (0.45s) */
-#browser#browser#browser #tabs-container .tab-position[data-ft-pill]::before { transition: background-color 0.45s ease !important; }
+#browser#browser#browser #tabs-container .tab-position[data-ft-pill]::before { transition: background-color 0.33s ease !important; }
 #browser#browser#browser #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone="light"]::before { background: #ffffff !important; }
 #browser#browser#browser #tabs-container .tab-position[data-ft-pill][data-vos-pill-tone="dark"]::before { background: #000000 !important; }
 /* the floating ones: a pinned split, a split window's buttons, a split full screen */
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi] > img {
   width: 14px !important; height: 14px !important; padding: 3px !important; box-sizing: content-box !important; border-radius: 50% !important;
-  object-fit: contain !important; transition: background-color 0.45s ease !important; }
+  object-fit: contain !important; transition: background-color 0.33s ease !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic)[data-multi] > img[data-vos-dim] { filter: brightness(1.45) saturate(1.15) !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack > .vos-pin-badge[data-multi] { padding: 2px 0 !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#browser .vos-wctl, .vos-fsctl) .vos-wctl-ic[data-multi] { gap: 0 !important; padding: 0 2px !important; }
@@ -2189,7 +2189,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    one length, started in the same moment (1.0.358's different lengths were the glitch; no fade at all was wrong) ===== */
 #browser#browser#browser#browser#browser#browser#browser#browser #tabs-container .tab,
 #browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl, .vos-fsctl) .vos-pin-ctl::after,
-#browser#browser#browser#browser#browser#browser#browser#browser :is(#browser .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic, :is(#webpage-stack > .vos-pin-badge, .vos-wctl-ic)[data-multi] > img) { transition: background-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser :is(#browser .vos-wctl .vos-wctl-ic, .vos-fsctl .vos-wctl-ic, :is(#webpage-stack > .vos-pin-badge, .vos-wctl-ic)[data-multi] > img) { transition: background-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease !important; }
 
 /* ===== 1.0.361: an app's and a pinned app's buttons - no background behind them (the lights alone) ===== */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser :is(#webpage-stack > .vos-pin-badge, #browser .vos-wctl) .vos-pin-ctl::after {
@@ -2225,16 +2225,16 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    split's look, not Vivaldi's (it showed Vivaldi's dark, then the split's light) ===== */
 #browser#browser #webpage-stack > .vos-vsplit-shell[data-vos-look="light"] { --colorBg: #ffffff; --colorFg: #000000; }
 #browser#browser #webpage-stack > .vos-vsplit-shell[data-vos-look="dark"] { --colorBg: #1c1c1e; --colorFg: #ffffff; }
-#browser .tiled[data-ft-float]:not(.webpageview), #browser #webpage-stack > .vos-vsplit-shell { transition: background-color 0.4s ease, background 0.4s ease !important; }
+#browser .tiled[data-ft-float]:not(.webpageview), #browser #webpage-stack > .vos-vsplit-shell { transition: background-color 0.3s ease, background 0.3s ease !important; }
 
 /* ===== 1.0.369: A WINDOW'S BUTTONS AS A PINNED APP'S - its corner brings the app's icon alone; the buttons pop out only with
    the pointer on the icon (a 7px ring round it counts too), and pop back in when it leaves - the icon stays ===== */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl:not([data-btns]):not([data-btns-out]) > .vos-pin-ctl { visibility: hidden !important; pointer-events: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl:not([data-btns]):not([data-btns-out]) .vos-pc::before { animation: none !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc::before { animation: vos-btn-in 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.04s both !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc:nth-child(2)::before { animation-delay: 0.09s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc:nth-child(3)::before { animation-delay: 0.14s !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc:nth-child(4)::before { animation-delay: 0.19s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc::before { animation: vos-btn-in 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.03s both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc:nth-child(2)::before { animation-delay: 0.06s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc:nth-child(3)::before { animation-delay: 0.1s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-on][data-btns] .vos-pc:nth-child(4)::before { animation-delay: 0.14s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-btns-out] .vos-pc::before { animation: vos-btn-out 0.12s ease-in both !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl .vos-wctl-ic::before { content: "" !important; position: absolute !important; inset: -7px !important; border-radius: 50% !important; }
 
@@ -2246,7 +2246,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    data-vos-look - most of its apps), fading in the same 0.4s as its icons, its pill and a floating split's frame ===== */
 #browser#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview)[data-vos-look="light"] { --colorBg: #ffffff; --colorFg: #000000; background-color: #ffffff !important; }
 #browser#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview)[data-vos-look="dark"] { --colorBg: #1c1c1e; --colorFg: #ffffff; background-color: #1c1c1e !important; }
-#browser#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) { transition: background-color 0.4s ease !important; }
+#browser#browser #webpage-stack .tiled:not([data-ft-float]):not(.webpageview) { transition: background-color 0.3s ease !important; }
 
 /* 1.0.375: A NORMAL WINDOW'S TITLE BAR, REVEALED AT ITS CORNERS - slides down over its top: its buttons at the left, its
    app's icon and title in the middle; its look's colours, frosted; slides back up when the pointer leaves it */
@@ -2258,7 +2258,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   -webkit-backdrop-filter: blur(18px) saturate(1.6) !important; backdrop-filter: blur(18px) saturate(1.6) !important;
   box-shadow: inset 0 -0.5px 0 color-mix(in srgb, var(--colorFg, #fff) 16%, transparent), 0 6px 16px -10px rgba(0, 0, 0, 0.45) !important;
   color: var(--colorFg, #fff) !important; cursor: default !important; touch-action: none !important;
-  transition: background-color 0.4s ease, background 0.4s ease, color 0.4s ease !important;
+  transition: background-color 0.3s ease, background 0.3s ease, color 0.3s ease !important;
 }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-vos-look="light"] { --colorBg: #ffffff; --colorFg: #000000; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-vos-look="dark"] { --colorBg: #1c1c1e; --colorFg: #ffffff; }
@@ -2290,14 +2290,14 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 @keyframes vos-tb-out { from { clip-path: inset(-20px -20px -20px -20px); } to { clip-path: inset(0 0 100% 0); } }
 @keyframes vos-tb-kids-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 @keyframes vos-tb-kids-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on] { animation: vos-tb-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on] > :is(.vos-pin-ctl, .vos-tb-mid) { animation: vos-tb-kids-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1) 0.03s both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on] { animation: vos-tb-in 0.16s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on] > :is(.vos-pin-ctl, .vos-tb-mid) { animation: vos-tb-kids-in 0.16s cubic-bezier(0.2, 0.9, 0.25, 1) 0.02s both !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on] > .vos-tb-mid { animation-name: vos-tb-mid-in !important; }
 @keyframes vos-tb-mid-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
 @keyframes vos-tb-mid-out { from { opacity: 1; transform: translateX(-50%); } to { opacity: 0; transform: translate(-50%, -8px); } }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] { animation: vos-tb-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) 0.04s both !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] > .vos-pin-ctl { animation: vos-tb-kids-out 0.16s ease-in both !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] > .vos-tb-mid { animation: vos-tb-mid-out 0.16s ease-in both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] { animation: vos-tb-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) 0.03s both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] > .vos-pin-ctl { animation: vos-tb-kids-out 0.12s ease-in both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] > .vos-tb-mid { animation: vos-tb-mid-out 0.12s ease-in both !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] .vos-wctl-ic, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out] .vos-pc::before { animation: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-gone] { animation: vos-wctl-gone 0.1s ease-out both !important; opacity: 1; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-gone] .vos-wctl-ic, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-gone] .vos-pc::before { animation: none !important; }
@@ -2319,10 +2319,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 @keyframes vos-tb-up-in { from { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } to { clip-path: inset(-20px -20px 0 -20px); transform: none; } }
 @keyframes vos-tb-up-out { from { clip-path: inset(-20px -20px 0 -20px); transform: none; } to { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } }
 @keyframes vos-tb-up-kids-in { from { opacity: 0; } to { opacity: 1; } }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on]:not([data-in]) { animation: vos-tb-up-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out]:not([data-in]) { animation: vos-tb-up-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) both !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on]:not([data-in]) > .vos-pin-ctl { animation: vos-tb-up-kids-in 0.18s ease-out 0.06s both !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on]:not([data-in]) > .vos-tb-mid { animation: vos-tb-up-kids-in 0.18s ease-out 0.06s both !important; transform: translateX(-50%) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on]:not([data-in]) { animation: vos-tb-up-in 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out]:not([data-in]) { animation: vos-tb-up-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on]:not([data-in]) > .vos-pin-ctl { animation: vos-tb-up-kids-in 0.13s ease-out 0.04s both !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on]:not([data-in]) > .vos-tb-mid { animation: vos-tb-up-kids-in 0.13s ease-out 0.04s both !important; transform: translateX(-50%) !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out]:not([data-in]) > :is(.vos-pin-ctl, .vos-tb-mid) { animation: none !important; }
 
 /* 1.0.377: the title bar sits among the windows at its own window's level (a window over it covers it) - placed in the
@@ -2338,7 +2338,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
   background:
     radial-gradient(circle at 100% 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent) var(--vos-tb-r, 12px)) left top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
     radial-gradient(circle at 0 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent) var(--vos-tb-r, 12px)) right top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat !important;
-  transition: background 0.4s ease !important;
+  transition: background 0.3s ease !important;
 }
 @keyframes vos-tb-up-in { from { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } to { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px)) -20px); transform: none; } }
 @keyframes vos-tb-up-out { from { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px)) -20px); transform: none; } to { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } }
@@ -2354,7 +2354,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-tb-mid[data-multi] > :is(.vos-wctl-ic, .vos-tb-title) { display: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-tb-mid > .vos-tb-items { display: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-tb-mid[data-multi] > .vos-tb-items { display: flex !important; align-items: center !important; gap: 18px !important; min-width: 0 !important; max-width: 100% !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item { display: flex !important; align-items: center !important; gap: 6px !important; min-width: 0 !important; flex: 0 1 auto !important; opacity: 0.62 !important; transition: opacity 0.2s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item { display: flex !important; align-items: center !important; gap: 6px !important; min-width: 0 !important; flex: 0 1 auto !important; opacity: 0.62 !important; transition: opacity 0.15s ease !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item[data-front] { opacity: 1 !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-tb-t {
   font: 600 11.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; letter-spacing: -0.01em !important;
@@ -2423,8 +2423,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
     linear-gradient(var(--vos-tb-bg), var(--vos-tb-bg)) left var(--vos-tb-r, 12px) / 100% calc(var(--vos-tb-h, 48px) - 2 * var(--vos-tb-r, 12px)) no-repeat !important; }
 /* 1.0.381: its colour fades only when its window's look changes while it is shown - never as it appears */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar], #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]::before, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] * { transition-property: none !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade], #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade]::before { transition: background-color 0.4s ease, background 0.4s ease, color 0.4s ease !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade] .vos-tb-title, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade] .vos-tb-t { transition: color 0.4s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade], #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade]::before { transition: background-color 0.3s ease, background 0.3s ease, color 0.3s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade] .vos-tb-title, #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-fade] .vos-tb-t { transition: color 0.3s ease !important; }
 
 /* 1.0.381: ONE PANEL - the title bar itself is taller: from just above its window down behind it, past its rounded top
    corners (so no notch, no gap, while it moves or resizes), ending well short of its bottom corners; its buttons, icon and
@@ -2437,8 +2437,8 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* rising from behind its window: it slides up 26px out from under it (nothing to cut off - its window covers the rest) */
 @keyframes vos-tb-behind-in { from { transform: translateY(26px); } to { transform: none; } }
 @keyframes vos-tb-behind-out { from { transform: none; } to { transform: translateY(26px); } }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-on] { animation: vos-tb-behind-in 0.24s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; clip-path: none !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-out] { animation: vos-tb-behind-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) both !important; clip-path: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-on] { animation: vos-tb-behind-in 0.18s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; clip-path: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in])[data-out] { animation: vos-tb-behind-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) both !important; clip-path: none !important; }
 
 /* 1.0.382: the panel behind its window reaches only just past its rounded top corners (not down the window) */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]:not([data-over]):not([data-in]) { height: min(calc(34px + var(--vos-tb-r, 12px)), max(26px, calc(var(--vos-tb-h, 48px) - var(--vos-tb-r, 12px)))) !important; }
@@ -2497,15 +2497,15 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    its hairline a true 1px on a screen at 100% (0.5px vanished there) */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .row-wrapper { min-height: 0 !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-lights { display: none !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.18s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.22s, 0.04s, 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.13s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.16s, 0.04s, 0.13s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light[data-ft-holding] { scale: 1.3 !important; filter: brightness(1.12) !important; transition: scale 0.45s ease-out, filter 0.45s ease-out !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.18s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.22s, 0.04s, 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.13s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.16s, 0.04s, 0.13s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview):not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light[data-ft-holding] { scale: 1.3 !important; filter: brightness(1.12) !important; transition: scale 0.45s ease-out, filter 0.45s ease-out !important; }
 @media (max-resolution: 1.49dppx) {
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar { box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.09) !important; }
@@ -2555,15 +2555,15 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-lights { display: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .row-wrapper { min-height: 0 !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-lights { display: none !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.18s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.22s, 0.04s, 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.13s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.16s, 0.04s, 0.13s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light[data-ft-holding] { scale: 1.3 !important; filter: brightness(1.12) !important; transition: scale 0.45s ease-out, filter 0.45s ease-out !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.22s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.18s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.22s, 0.04s, 0.18s !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar { overflow: hidden !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-title { transition: opacity 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { animation: none !important; transition: background-color 0.16s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.12s ease, scale 0.13s cubic-bezier(0.25, 0.1, 0.25, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active { filter: brightness(0.8) !important; transition-duration: 0.16s, 0.04s, 0.13s !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .tiled[data-ft-float][data-ft-notitle]:not(.webpageview)[data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light[data-ft-holding] { scale: 1.3 !important; filter: brightness(1.12) !important; transition: scale 0.45s ease-out, filter 0.45s ease-out !important; }
 @media (max-resolution: 1.49dppx) {
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack .webpageview[data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar { box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.09) !important; }
@@ -2591,10 +2591,10 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 /* 1.0.394: AN APP IN FULL SCREEN (alone on its desktop) - its buttons no longer in the tab bar: a macOS title bar waits above
    the page and slides down when the pointer rests at the page's top (or pushes up into it) */
 #browser#browser#browser#browser .vos-fsbar-hot { position: fixed !important; height: 4px !important; z-index: 2147483000 !important; background: transparent !important; -webkit-app-region: no-drag !important; app-region: no-drag !important; }
-#browser#browser#browser#browser .vos-fsctl.vos-fsbar, #browser#browser#browser#browser .vos-fsctl.vos-fsbar:is([data-on], [data-out]) { position: fixed !important; left: var(--vos-fsb-l, 0px) !important; top: var(--vos-fsb-t, 0px) !important; width: var(--vos-fsb-w, 100%) !important; right: auto !important; bottom: auto !important; display: flex !important; align-items: center !important; height: 28px !important; margin: 0 !important; padding: 0 !important; gap: 0 !important; z-index: 2147483001 !important; box-sizing: border-box !important; background: #ececec !important; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.1), 0 6px 18px rgba(0, 0, 0, 0.14) !important; transform: translateY(-100%) !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; transition: transform 0.2s cubic-bezier(0.4, 0, 1, 1), opacity 0.16s ease-in, visibility 0s linear 0.2s !important; will-change: transform; }
+#browser#browser#browser#browser .vos-fsctl.vos-fsbar, #browser#browser#browser#browser .vos-fsctl.vos-fsbar:is([data-on], [data-out]) { position: fixed !important; left: var(--vos-fsb-l, 0px) !important; top: var(--vos-fsb-t, 0px) !important; width: var(--vos-fsb-w, 100%) !important; right: auto !important; bottom: auto !important; display: flex !important; align-items: center !important; height: 28px !important; margin: 0 !important; padding: 0 !important; gap: 0 !important; z-index: 2147483001 !important; box-sizing: border-box !important; background: #ececec !important; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.1), 0 6px 18px rgba(0, 0, 0, 0.14) !important; transform: translateY(-100%) !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; transition: transform 0.15s cubic-bezier(0.4, 0, 1, 1), opacity 0.12s ease-in, visibility 0s linear 0.15s !important; will-change: transform; }
 #browser#browser#browser#browser .vos-fsctl.vos-fsbar:not([data-on]) { display: none !important; }
 #browser#browser#browser#browser .vos-fsctl.vos-fsbar[data-vos-look="dark"] { background: #2c2c2e !important; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.4) !important; }
-#browser#browser#browser#browser .vos-fsctl.vos-fsbar[data-on][data-reveal] { transform: none !important; opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.14s ease-out, visibility 0s !important; }
+#browser#browser#browser#browser .vos-fsctl.vos-fsbar[data-on][data-reveal] { transform: none !important; opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; transition: transform 0.19s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.14s ease-out, visibility 0s !important; }
 #browser#browser#browser#browser .vos-fsctl.vos-fsbar .vos-pin-ctl { position: absolute !important; left: 8px !important; right: 8px !important; top: 2px !important; height: 24px !important; pointer-events: none !important; }
 #browser#browser#browser#browser .vos-fsctl.vos-fsbar .vos-pin-ctl::after { display: none !important; }
 #browser#browser#browser#browser .vos-fsctl.vos-fsbar .vos-pc { pointer-events: auto !important; }
@@ -2616,9 +2616,9 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { background-size: 100% 100%, 100% 100% !important; background-position: center, center !important; touch-action: manipulation !important; -webkit-tap-highlight-color: transparent !important; user-select: none !important; -webkit-user-select: none !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light::after { content: "" !important; position: absolute !important; top: -6px !important; bottom: -6px !important; left: -4px !important; right: -4px !important; border-radius: 6px !important; background: transparent !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights { top: 5px !important; left: 9px !important; right: 9px !important; height: 14px !important; gap: 10px !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { width: 14px !important; height: 14px !important; transition: background-color 0.22s ease, filter 0.12s ease, scale 0.32s cubic-bezier(0.3, 1.5, 0.5, 1) !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light { width: 14px !important; height: 14px !important; transition: background-color 0.16s ease, filter 0.12s ease, scale 0.24s cubic-bezier(0.3, 1.5, 0.5, 1) !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light::after { top: -5px !important; bottom: -5px !important; left: -5px !important; right: -5px !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active:not([data-ft-holding]) { scale: 0.84 !important; filter: brightness(0.82) !important; transition: background-color 0.22s ease, filter 0.06s ease, scale 0.08s ease-out !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light:active:not([data-ft-holding]) { scale: 0.84 !important; filter: brightness(0.82) !important; transition: background-color 0.16s ease, filter 0.06s ease, scale 0.08s ease-out !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle][data-ft-front]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light.ft-red { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3.6 3.6l4.8 4.8M8.4 3.6l-4.8 4.8' stroke='%234d0000' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle][data-ft-front]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light.ft-yellow { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3.2 6h5.6' stroke='%23985700' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] #webpage-stack [data-ft-float][data-ft-notitle][data-ft-front]:not([data-ft-pip]) > .ft-titlebar > .ft-lights .ft-light.ft-green { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 3h4.4L3 7.4z M9 9H4.6L9 4.6z' fill='%23005a00'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.05) 100%) !important; }
@@ -2626,7 +2626,7 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 
 /* 1.0.395: the full screen app's bar - the same: touchable buttons, a finger at the top edge finds it */
 #browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar .vos-pc { touch-action: manipulation !important; -webkit-tap-highlight-color: transparent !important; }
-#browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar .vos-pc::before { transition: filter 0.12s ease, scale 0.32s cubic-bezier(0.3, 1.5, 0.5, 1) !important; }
+#browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar .vos-pc::before { transition: filter 0.12s ease, scale 0.24s cubic-bezier(0.3, 1.5, 0.5, 1) !important; }
 #browser#browser#browser#browser#browser#browser[data-ft-touch] .vos-fsctl.vos-fsbar .vos-pc { width: 28px !important; }
 #browser#browser#browser#browser#browser#browser[data-ft-touch] .vos-fsctl.vos-fsbar .vos-pc::before { left: 8px !important; }
 #browser#browser#browser#browser#browser#browser[data-ft-touch] .vos-fsctl.vos-fsbar .vos-pc::after { inset: -2px 0 !important; }
@@ -2642,13 +2642,13 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar[data-vos-split] > .vos-st-row > .vos-st { position: absolute !important; top: 0 !important; height: 24px !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 12px !important; min-width: 0 !important; overflow: hidden !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar[data-vos-split] .vos-st-app { display: flex !important; align-items: center !important; gap: 6px !important; min-width: 0 !important; flex: 0 1 auto !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar[data-vos-split] .vos-st-app > i { flex: none !important; width: 15px !important; height: 15px !important; border-radius: 3px !important; background: center / contain no-repeat !important; }
-#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar[data-vos-split] .vos-st-app > b { min-width: 0 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font: 600 12.5px/24px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif !important; color: #3c3c3c !important; transition: color 0.22s ease, opacity 0.22s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar[data-vos-split] .vos-st-app > b { min-width: 0 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font: 600 12.5px/24px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif !important; color: #3c3c3c !important; transition: color 0.16s ease, opacity 0.16s ease !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]) > .ft-titlebar[data-vos-split][data-vos-strip-look="dark"] .vos-st-app > b { color: #e5e5e7 !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser #webpage-stack [data-ft-float][data-ft-notitle]:not([data-ft-pip]):not([data-ft-front]) > .ft-titlebar[data-vos-split] .vos-st-app { opacity: 0.55 !important; }
 
 /* 1.0.396: the full screen app's bar comes out from under the tab bar (never drawn over it), and drags the app out */
-#browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar, #browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar:is([data-on], [data-out]) { clip-path: inset(100% -40px -40px -40px) !important; -webkit-app-region: no-drag !important; app-region: no-drag !important; cursor: default !important; transition: transform 0.2s cubic-bezier(0.4, 0, 1, 1), clip-path 0.2s cubic-bezier(0.4, 0, 1, 1), opacity 0.16s ease-in, visibility 0s linear 0.2s !important; }
-#browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar[data-on][data-reveal] { clip-path: inset(0 -40px -40px -40px) !important; transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), clip-path 0.26s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.14s ease-out, visibility 0s !important; }
+#browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar, #browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar:is([data-on], [data-out]) { clip-path: inset(100% -40px -40px -40px) !important; -webkit-app-region: no-drag !important; app-region: no-drag !important; cursor: default !important; transition: transform 0.15s cubic-bezier(0.4, 0, 1, 1), clip-path 0.15s cubic-bezier(0.4, 0, 1, 1), opacity 0.12s ease-in, visibility 0s linear 0.15s !important; }
+#browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar[data-on][data-reveal] { clip-path: inset(0 -40px -40px -40px) !important; transition: transform 0.19s cubic-bezier(0.2, 0.9, 0.25, 1), clip-path 0.19s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.14s ease-out, visibility 0s !important; }
 
 /* 1.0.398: a split's apps show their icons (the shorthand cleared the picture set on each); no grabbers at the top - a split's
    tiles and a full screen page (its title bar drags it now) */
@@ -2664,3 +2664,6 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser.win:not(.fullscreen)[data-ft-cover] #webpage-stack [data-ft-float][data-ft-notitle][data-ft-cover]:not([data-ft-pip]) > .ft-titlebar > .ft-title { left: 180px !important; right: 180px !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser .vos-fsctl.vos-fsbar .vos-fsbar-mid { left: 110px !important; right: 110px !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser[data-ft-touch] .vos-fsctl.vos-fsbar .vos-fsbar-mid { left: 132px !important; right: 132px !important; }
+
+/* 1.0.401 perf: every UI duration and stagger above x0.75 (10ms steps, min 120ms, max 380ms; under 150ms kept) - fewer
+   frames of blur and layout per motion. Kept: the 0.45s hold swell (= BTN_HOLD in js), the breathe loop, reduced motion */
