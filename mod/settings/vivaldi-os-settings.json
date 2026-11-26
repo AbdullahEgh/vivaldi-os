@@ -743,7 +743,7 @@
     }
   ],
   "setOnce": {
-    "vivaldi.themes.current": "Vivaldi1"
+    "vivaldi.themes.current": "Vivaldi2"
   },
   "_aboutUpdatesOnce": "Additions to the default setup for machines installed before them. Each id is applied once per machine (recorded in User Data/VivaldiOS/updates-once.done); 'insert' puts an item in a toolbar before another one, unless it is already there.",
   "updatesOnce": [],
