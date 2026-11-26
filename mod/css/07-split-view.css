@@ -2329,3 +2329,36 @@ html[data-vos-ws-silent] .ToolbarButtonPopup { opacity: 0 !important; pointer-ev
    page area, so absolute there */
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] { position: absolute !important; }
 #browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on] { pointer-events: auto !important; }   /* (1.0.377: among the windows - still reachable) */
+
+/* 1.0.378: THE BAR AND ITS WINDOW AS ONE - the empty notches where the window's rounded top corners meet the bar's
+   straight bottom are filled with the bar (its "ears" reach down round the corners); the bar is shown whole, ears too */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar]::before {
+  content: "" !important; position: absolute !important; left: 0 !important; right: 0 !important; top: 100% !important; height: var(--vos-tb-r, 12px) !important;
+  pointer-events: none !important; z-index: -1 !important;
+  background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent) var(--vos-tb-r, 12px)) left top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat,
+    radial-gradient(circle at 0 100%, transparent calc(var(--vos-tb-r, 12px) - 0.5px), color-mix(in srgb, var(--colorBg, #1c1c1e) 82%, transparent) var(--vos-tb-r, 12px)) right top / var(--vos-tb-r, 12px) var(--vos-tb-r, 12px) no-repeat !important;
+  transition: background 0.4s ease !important;
+}
+@keyframes vos-tb-up-in { from { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } to { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px)) -20px); transform: none; } }
+@keyframes vos-tb-up-out { from { clip-path: inset(-20px -20px calc(-1 * var(--vos-tb-r, 12px)) -20px); transform: none; } to { clip-path: inset(-20px -20px 100% -20px); transform: translateY(100%); } }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-on]:not([data-in]) { animation-name: vos-tb-up-in !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar][data-out]:not([data-in]) { animation-name: vos-tb-up-out !important; }
+/* 1.0.378: a normal window's OLD buttons inside its top corner (the pill that came with the pointer there) are gone - its
+   corner reveals the title bar instead; the strip along its top still brings it */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser [data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar :is(.ft-lights, .ft-right) { visibility: hidden !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser [data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar :is(.ft-lights, .ft-right) * { visibility: hidden !important; pointer-events: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser [data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]) > .ft-titlebar .ft-lights::before { display: none !important; }
+
+/* 1.0.378: a split's title bar - each app's icon beside its own title (no joined pill); the app in front brighter */
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-tb-mid[data-multi] > :is(.vos-wctl-ic, .vos-tb-title) { display: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-tb-mid > .vos-tb-items { display: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] > .vos-tb-mid[data-multi] > .vos-tb-items { display: flex !important; align-items: center !important; gap: 18px !important; min-width: 0 !important; max-width: 100% !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item { display: flex !important; align-items: center !important; gap: 6px !important; min-width: 0 !important; flex: 0 1 auto !important; opacity: 0.62 !important; transition: opacity 0.2s ease !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item[data-front] { opacity: 1 !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-tb-t {
+  font: 600 11.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; letter-spacing: -0.01em !important;
+  color: var(--colorFg, #fff) !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; min-width: 0 !important; opacity: 0.86 !important;
+}
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-tb-t:empty { display: none !important; }
+#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser#browser .vos-wctl[data-bar] .vos-tb-item .vos-wctl-ic { animation: none !important; }

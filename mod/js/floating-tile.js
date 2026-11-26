@@ -2872,7 +2872,8 @@ window.vosBeat = window.vosBeat || (() => {
       /* 1.0.377: AT ITS WINDOW'S LEVEL - among the windows, with its window's z: a window over it covers it, as it covers
          the window; the page area's coordinates */
       const S = wctl.parentElement?.getBoundingClientRect() || { left: 0, top: 0 };
-      const up = w.top - 26 >= S.top; wctl.toggleAttribute("data-in", !up);
+      const up = w.top - 26 >= S.top; if (!up) return false;          // 1.0.378: no room above (filling the screen): none - never inside it
+      wctl.removeAttribute("data-in");
       const z = el.style.getPropertyValue("z-index") || getComputedStyle(el).zIndex || "100";
       if (st.getPropertyValue("z-index") !== z) st.setProperty("z-index", z, "important");
       const P = (wctl.offsetParent || wctl.parentElement)?.getBoundingClientRect() || S;   // (absolute: from its positioned container)
@@ -2951,12 +2952,34 @@ window.vosBeat = window.vosBeat || (() => {
       wctlOff();
     }, 200);
   }
+  const wctlTitleOf = t => { fetchTitle(t); const tb = document.getElementById("tab-" + t), raw = tb?.querySelector(".title")?.textContent || titles.get(t) || "";
+    return /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw.trim(); };
   function wctlTitle(t) {                                            // 1.0.375: the title bar's text - its app's page title
     const el = wctl?.querySelector(".vos-tb-title"); if (!el) return;
-    fetchTitle(t);
-    const tb = document.getElementById("tab-" + t), raw = tb?.querySelector(".title")?.textContent || titles.get(t) || "";
-    const v = /^(chrome|vivaldi|about):/i.test(raw) ? "" : raw.trim();
+    const v = wctlTitleOf(t);
     if (el.textContent !== v) el.textContent = v;
+    if (wctlFor) wctlItems(wctlFor);
+  }
+  /* 1.0.378: A SPLIT'S TITLE BAR - each app's own icon beside its own title, side by side (the app in front brighter);
+     no joined pill */
+  function wctlItems(id) {
+    const mid = wctl?.querySelector(".vos-tb-mid"); if (!mid) return;
+    const mem = groupFloat.has(id) ? membersOf(pageOf(id)) : [], multi = mem.length > 1;
+    if (mid.hasAttribute("data-multi") !== multi) mid.toggleAttribute("data-multi", multi);
+    let box = mid.querySelector(":scope > .vos-tb-items");
+    if (!box) { box = document.createElement("span"); box.className = "vos-tb-items"; mid.appendChild(box); }
+    if (!multi) { if (box.childElementCount) box.textContent = ""; return; }
+    while (box.childElementCount < mem.length) { const it = document.createElement("span"); it.className = "vos-tb-item"; it.innerHTML = `<span class="vos-wctl-ic vos-tb-ic"><img alt=""></span><span class="vos-tb-t"></span>`; box.appendChild(it); }
+    while (box.childElementCount > mem.length) box.lastElementChild.remove();
+    const front = String(splitFocus.get(id) ?? "");
+    mem.forEach((m, i) => {
+      const it = box.children[i], ic = it.firstElementChild, im = ic.firstElementChild, tt = it.lastElementChild;
+      const v = appPic(m); if (v && im.getAttribute("src") !== v) im.src = v;
+      const vis = v ? "" : "hidden"; if (im.style.visibility !== vis) im.style.visibility = vis;
+      mirrorTab(ic, im, m);
+      const t = wctlTitleOf(m); if (tt.textContent !== t) tt.textContent = t;
+      const f = String(m) === front; if (it.hasAttribute("data-front") !== f) it.toggleAttribute("data-front", f);
+    });
   }
   function inCorner(id) {                                            // 1.0.348: the pointer at the window's top-left corner (where they came from) - not further along
     const el = targetOf(pageOf(id)), p = wctlXY; if (!el || !p) return false;
@@ -2968,7 +2991,7 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointermove", ev => {
     if (ev.buttons || ev.pointerType === "touch") return;
     const t = ev.target;
-    if (wctl && wctl.contains(t)) { wctlBtnsOn(); return; }          // 1.0.370: on its icon or where its buttons come (all their area) - its buttons
+    if (wctl && wctl.contains(t)) { wctlBtnsOn(); wctlCursor(ev); return; }          // 1.0.370: on its icon or where its buttons come (all their area) - its buttons
     wctlXY = [ev.clientX, ev.clientY, t];
     if (mission || lpOn()) return;
     /* 1.0.311: FROM INSIDE ONLY - the strip along the window's own top, at its corner (a window: its left end; a pinned app:
@@ -3024,12 +3047,28 @@ window.vosBeat = window.vosBeat || (() => {
   addEventListener("pointerdown", e => {                          // 1.0.284: the circle is a handle, as a pinned app's - pressed, its window moves
     if (e.button !== 0 || !wctl || !wctlFor || !wctl.contains(e.target) || e.target?.closest?.(".vos-pc") || (!wctl.hasAttribute("data-bar") && !e.target?.closest?.(".vos-wctl-ic"))) return;
     const id = wctlFor, el = targetOf(pageOf(id)); if (!el || mission || lpOn()) return;
-    if (wctl.hasAttribute("data-bar") && doublePress(e, id)) return;   // 1.0.375: twice on the title bar - as a title bar's
+    const edge = wctlEdge(e);                                          // 1.0.378: on its edge - its window resizes from there
+    if (!edge && wctl.hasAttribute("data-bar") && doublePress(e, id)) return;   // 1.0.375: twice on the title bar - as a title bar's
     wctlHeld = true;                                                 // 1.0.287: held: the circle and its buttons stay, moving with the window
     const up = ev => { if (ev.pointerId !== e.pointerId) return; wctlHeld = false; removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true); };
     addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
-    startGesture(e, el, "move");
+    startGesture(e, el, edge || "move");
   }, true);
+  /* 1.0.378: THE TITLE BAR RESIZES ITS WINDOW TOO - its top edge (and a little above it), its top corners and its sides,
+     as the window's own edges (which it sits over) */
+  function wctlEdge(ev) {
+    if (!wctl?.hasAttribute("data-bar") || ev.target?.closest?.(".vos-pc")) return null;
+    const r = wctl.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, E = 5, C = 14;
+    const L = x < (y < C ? C : E), R = r.width - x < (y < C ? C : E);
+    if (y < E) return L ? "tl" : R ? "tr" : "t";
+    return L ? (y < C ? "tl" : "l") : R ? (y < C ? "tr" : "r") : null;
+  }
+  const WCTL_CUR = { t: "ns-resize", tl: "nwse-resize", tr: "nesw-resize", l: "ew-resize", r: "ew-resize" };
+  function wctlCursor(ev) {
+    if (!wctl?.hasAttribute("data-bar") || ev.buttons) return;
+    const c = WCTL_CUR[wctlEdge(ev)] || "";
+    if (wctl.style.getPropertyValue("cursor") !== c) { if (c) wctl.style.setProperty("cursor", c, "important"); else wctl.style.removeProperty("cursor"); }
+  }
   const pinBare = () => false;
   const winLights = () => { const b = browserEl(); return !!b && b.classList.contains("win") && !b.classList.contains("fullscreen"); };   // (1.0.349: Vivaldi's own buttons, top right, on Windows)
   const macLights = () => { const b = browserEl(); return !!b && b.classList.contains("mac") && !b.classList.contains("fullscreen"); };   // (Vivaldi's own buttons on show, top left)                                     // (1.0.308: a pinned app's own circle comes at its corner instead)                  // 1.0.302: pinned apps without their circle (Bento, or a window full beside them):
