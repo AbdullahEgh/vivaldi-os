@@ -7759,11 +7759,42 @@ window.vosBeat = window.vosBeat || (() => {
      top colour, its buttons at the left, its icon and title in the middle */
   function stripSync(pg) {
     const tb = pg?.querySelector?.(":scope > .ft-titlebar"); if (!tb) return;
-    const c = pg.__vosTopBg || "", lk = pg.dataset.vosTone === "dark" ? "dark" : "light";
+    const c = pg.__vosTopPx || pg.__vosTopBg || "", m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c);
+    const lk = m ? ((0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5 ? "dark" : "light") : pg.dataset.vosTone === "dark" ? "dark" : "light";
     if (pg.style.getPropertyValue("--vos-strip-bg") !== c) { if (c) pg.style.setProperty("--vos-strip-bg", c); else pg.style.removeProperty("--vos-strip-bg"); }
     if (tb.getAttribute("data-vos-strip-look") !== lk) tb.setAttribute("data-vos-strip-look", lk);
+    const row = pg.__vosTopRow || "none"; if (tb.style.getPropertyValue("--vos-strip-row") !== row) tb.style.setProperty("--vos-strip-row", row);
     const v = pg.dataset.id ? appPic(pg.dataset.id) : "", ic = v ? `url("${v}")` : "none";
     if (tb.style.getPropertyValue("--vos-strip-icon") !== ic) tb.style.setProperty("--vos-strip-icon", ic);
+  }
+  /* 1.0.385: THE STRIP IN THE PAGE'S TRUE TOP COLOUR - read from the page as drawn (its own top row of pixels: a see-through
+     header, a dark filter all counted), so strip and page meet with no edge. (Its styles' colour only while that can't be read) */
+  function stripPixels(pg, wv) {
+    if (!pg.matches?.(".webpageview[data-ft-float][data-ft-notitle]:not([data-ft-cover]):not([data-ft-pip]):not([data-ft-away])") || typeof wv?.captureVisibleRegion !== "function") return;
+    if (Date.now() - (pg.__vosPxAt || 0) < 3000 || pg.__vosPxBusy) return;
+    pg.__vosPxAt = Date.now(); pg.__vosPxBusy = true;
+    try {
+      wv.captureVisibleRegion({ format: "png" }, url => {
+        void chrome.runtime.lastError;
+        if (!url) { pg.__vosPxBusy = false; return; }
+        const img = new Image();
+        img.onload = () => {
+          pg.__vosPxBusy = false;
+          const W = img.naturalWidth; if (!W) return;
+          const cv = document.createElement("canvas"); cv.width = W; cv.height = 3; const cx = cv.getContext("2d", { willReadFrequently: true });
+          cx.drawImage(img, 0, 0); const d = cx.getImageData(0, 1, W, 1).data, n = {};
+          for (let i = 1; i < 16; i++) { const x = Math.floor(W * i / 16) * 4, k = [d[x], d[x + 1], d[x + 2]].map(v => Math.round(v / 3) * 3).join(","); n[k] = (n[k] || 0) + 1; }
+          const [k] = Object.entries(n).sort((a, b) => b[1] - a[1])[0] || [];
+          const c = k ? `rgb(${k.split(",").map(v => Math.min(255, +v)).join(", ")})` : "";
+          /* its top row itself, stretched down the strip: every colour along it (a sidebar, a header) carries on up */
+          const row = document.createElement("canvas"); row.width = W; row.height = 1; row.getContext("2d").putImageData(cx.getImageData(0, 1, W, 1), 0, 0);
+          const im = `url("${row.toDataURL("image/png")}")`;
+          if (pg.__vosTopPx !== c || pg.__vosTopRow !== im) { pg.__vosTopPx = c; pg.__vosTopRow = im; stripSync(pg); }
+        };
+        img.onerror = () => { pg.__vosPxBusy = false; };
+        img.src = url;
+      });
+    } catch (e) { pg.__vosPxBusy = false; }
   }
   function readTone(page) {
     const wv = page?.querySelector("webview");
@@ -7785,7 +7816,7 @@ window.vosBeat = window.vosBeat || (() => {
         const t = bg ? toneOf(bg) : (lum(fg) ?? 0) > 0.6 || /^dark/.test(scheme || "") ? "dark" : "light";   // no colour of its own at the top: its text (light text: a dark page)
         const hold = page.__vosToneHold; if (hold && Date.now() < hold.until && t !== hold.t) return;   // 1.0.367: just switched - the app still redrawing: its old colour not taken back (no flicker)
         if (page.dataset.vosTone !== t) { page.dataset.vosTone = t; toneFrames(); queueRender(); requestAnimationFrame(() => circlesSync()); }   // (1.0.361: its icons follow the page)
-        stripSync(page);
+        stripSync(page); stripPixels(page, wv);
       });
     } catch (e) {}
   }
