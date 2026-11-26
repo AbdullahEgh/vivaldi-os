@@ -1309,7 +1309,7 @@ window.vosBeat = window.vosBeat || (() => {
   const SPR_OPEN = spring(0.27, 0.88);   // open, close and minimize all take ~0.3 s   // a window zooms out of its icon, a hint of bounce
   const SPR_MOVE = spring(0.34, 1.00);   // move / resize / place changes, Bento (1.0.321: a touch quicker than full screen's - still no bounce)
   const SPR_SHUT = spring(0.30, 1.00);   // close / minimize: quick, no bounce
-  const SPR_GROW = spring(0.40, 1.00);   // 1.0.278: full screen in / out (a big size change): no bounce
+  const SPR_GROW = spring(0.30, 1.00);   // (1.0.398: quicker - it was 0.4 s)   // 1.0.278: full screen in / out (a big size change): no bounce
   const fadeTo = (el, from, to, ms, delay = 0) =>
     el.animate([{ filter: `opacity(${from})` }, { filter: `opacity(${to})` }],
                { duration: ms, delay, easing: "linear", fill: "both" });
@@ -1347,8 +1347,7 @@ window.vosBeat = window.vosBeat || (() => {
         };
         put(0);
         const tick = () => {
-          const m = getComputedStyle(e).transform.match(/^matrix\(([^,]+)/), cur = m ? parseFloat(m[1]) : 1;   // (where the move is: its scale now)
-          const q = Math.abs(1 - kx) < 1e-4 ? 1 : Math.min(1, Math.max(0, (cur - kx) / (1 - kx)));
+          const q = Math.min(1, Math.max(0, a.effect?.getComputedTiming?.().progress ?? 1));   // 1.0.398: where the move is, from its own clock (no layout read per frame)
           if (a.playState !== "finished" && a.playState !== "idle" && q < 1) { put(q); requestAnimationFrame(tick); } else e.style.removeProperty("clip-path");
         };
         requestAnimationFrame(tick);
@@ -7476,7 +7475,7 @@ window.vosBeat = window.vosBeat || (() => {
     }
     { const host = browserEl() || document.body; if (fsctl.parentElement !== host) host.appendChild(fsctl); }
     fsBarPlace(id);
-    { const lk = mem.length > 1 ? splitTone(mem) : appToneAttr(id); if ((fsctl.getAttribute("data-vos-look") || "") !== lk) { if (lk) fsctl.setAttribute("data-vos-look", lk); else fsctl.removeAttribute("data-vos-look"); } }   // 1.0.340
+    { const lk = mem.length > 1 ? (mem.some(m => appTone(m) === "dark") ? "dark" : "light") : appTone(id); if (fsctl.getAttribute("data-vos-look") !== lk) fsctl.setAttribute("data-vos-look", lk); }   // 1.0.398: the site's look, always (a split: dark if any app is)
     const key = mem.length > 1 ? "split:" + [...mem].sort().join(",") : id;   // (another app of the same split in front: the same buttons, not again)
     fsctl.dataset.ftPage = id;
     if (fsctl.dataset.ftKey !== key) { fsctl.dataset.ftKey = key; fsctl.removeAttribute("data-on"); }
@@ -7860,7 +7859,7 @@ window.vosBeat = window.vosBeat || (() => {
       const d = document.createElement("div"); d.className = "vos-st"; d.style.left = sg.l + "px"; d.style.width = sg.w + "px";
       for (const a of sg.apps) {
         const e = document.createElement("span"); e.className = "vos-st-app"; e.dataset.id = a.id;
-        const i = document.createElement("i"); if (a.pic) i.style.backgroundImage = `url("${a.pic}")`;
+        const i = document.createElement("i"); if (a.pic) i.style.setProperty("--vos-st-ic", `url("${a.pic}")`);   // (1.0.398: through a variable - the rules' !important would hide it)
         const b = document.createElement("b"); b.textContent = a.t;
         e.append(i, b); d.appendChild(e);
       }
